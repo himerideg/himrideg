@@ -1,97 +1,34 @@
-const mongoose = require("mongoose");
-const OTP = require("../constants/otp");
+const OTP = {
+  LENGTH: 6,
 
-const otpSchema = new mongoose.Schema(
-  {
-    phone: {
-      type: String,
-      required: true,
-      trim: true,
-      index: true
-    },
+  EXPIRY_MINUTES: 5,
 
-    purpose: {
-      type: String,
-      required: true,
-      enum: Object.values(
-        OTP.PURPOSES
-      ),
-      index: true
-    },
+  MAX_ATTEMPTS: 5,
 
-    otpHash: {
-      type: String,
-      required: true,
-      select: false
-    },
+  MAX_RESENDS: 3,
 
-    expiresAt: {
-      type: Date,
-      required: true,
-      index: {
-        expires: 0
-      }
-    },
+  RESEND_COOLDOWN_SECONDS: 30,
 
-    attempts: {
-      type: Number,
-      min: 0,
-      default: 0
-    },
+  PURPOSES: {
+    CUSTOMER_LOGIN: "customer_login",
 
-    maxAttempts: {
-      type: Number,
-      min: 1,
-      default:
-        OTP.MAX_ATTEMPTS
-    },
+    DRIVER_LOGIN: "driver_login",
 
-    resendCount: {
-      type: Number,
-      min: 0,
-      default: 0
-    },
+    PHONE_VERIFICATION: "phone_verification",
 
-    lastSentAt: {
-      type: Date,
-      default: Date.now
-    },
+    PASSWORD_RESET: "password_reset",
 
-    verified: {
-      type: Boolean,
-      default: false
-    },
+    RIDE_START: "ride_start",
 
-    verifiedAt: {
-      type: Date,
-      default: null
-    },
-
-    ipAddress: {
-      type: String,
-      trim: true,
-      default: ""
-    },
-
-    userAgent: {
-      type: String,
-      trim: true,
-      default: ""
-    }
+    ADMIN_VERIFICATION: "admin_verification"
   },
-  {
-    timestamps: true
+
+  DEVELOPMENT: {
+    ENABLE_TEST_OTP:
+      process.env.NODE_ENV === "development",
+
+    TEST_OTP: "123456"
   }
-);
+};
 
-otpSchema.index({
-  phone: 1,
-  purpose: 1,
-  verified: 1,
-  createdAt: -1
-});
-
-module.exports = mongoose.model(
-  "Otp",
-  otpSchema
-);
+module.exports = OTP;

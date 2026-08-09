@@ -1,0 +1,397 @@
+.customerBookRideModal {
+  width: min(
+    1360px,
+    97vw
+  ) !important;
+
+  max-height: 95vh !important;
+  overflow-y: auto !important;
+}
+
+.customerBookRideModal
+.cvBookingGrid {
+  display: grid;
+
+  grid-template-columns:
+    minmax(390px, 0.85fr)
+    minmax(600px, 1.45fr)
+    !important;
+}
+
+.customerBookRideModal
+.cvBookingMap {
+  width: 100%;
+  min-height: 680px !important;
+}
+
+.customerBookRideModal
+.cvBookingMap
+.leaflet-container {
+  width: 100% !important;
+  height: 680px !important;
+  min-height: 680px !important;
+}
+
+.customerBookRideModal
+.osmMapHeader {
+  min-height: 70px !important;
+  padding: 14px 18px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+
+  background: #0d1117;
+}
+
+.customerBookRideModal
+.osmMapActions {
+  width: auto !important;
+  margin: 0 0 0 auto !important;
+
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+
+  gap: 10px !important;
+  flex-wrap: nowrap !important;
+}
+
+.customerBookRideModal
+.osmMapActions
+button {
+  width: auto !important;
+  min-width: 120px !important;
+  height: 44px !important;
+  margin: 0 !important;
+  padding: 0 18px !important;
+
+  white-space: nowrap !important;
+  cursor: pointer;
+}
+
+.cbrLocationField {
+  position: relative;
+
+  display: grid;
+  gap: 8px;
+
+  color: #171717;
+  font-weight: 800;
+}
+
+.cbrLocationField
+> span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cbrLocationField
+> span
+b {
+  color: #e11d48;
+}
+
+.cbrLocationInput {
+  position: relative;
+  width: 100%;
+}
+
+.cbrLocationInput
+> i {
+  position: absolute;
+  top: 50%;
+  left: 17px;
+  z-index: 5;
+
+  width: 11px;
+  height: 11px;
+
+  border-radius: 50%;
+  transform:
+    translateY(-50%);
+
+  pointer-events: none;
+}
+
+.cbrLocationInput
+> i.pickup {
+  background: #16a34a;
+
+  box-shadow:
+    0 0 0 5px
+    #dcfce7;
+}
+
+.cbrLocationInput
+> i.drop {
+  background: #ef4444;
+
+  box-shadow:
+    0 0 0 5px
+    #fee2e2;
+}
+
+.customerBookRideModal
+.cbrLocationInput
+input {
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+  min-height: 48px !important;
+
+  padding:
+    0 14px
+    0 48px !important;
+
+  color: #111827 !important;
+
+  -webkit-text-fill-color:
+    #111827 !important;
+
+  caret-color:
+    #111827 !important;
+
+  background:
+    #ffffff !important;
+
+  border:
+    1px solid
+    #cbd5e1 !important;
+
+  border-radius:
+    9px !important;
+
+  opacity: 1 !important;
+
+  font-size:
+    15px !important;
+
+  font-weight:
+    700 !important;
+
+  outline: none !important;
+}
+
+.customerBookRideModal
+.cbrLocationInput
+input::placeholder {
+  color:
+    #7c8798 !important;
+
+  -webkit-text-fill-color:
+    #7c8798 !important;
+
+  opacity: 1 !important;
+}
+
+.customerBookRideModal
+.cbrLocationInput
+input:focus {
+  color:
+    #111827 !important;
+
+  -webkit-text-fill-color:
+    #111827 !important;
+
+  background:
+    #ffffff !important;
+
+  border-color:
+    #ffc400 !important;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(
+      255,
+      196,
+      0,
+      0.18
+    ) !important;
+}
+
+.cbrSuggestions {
+  position: absolute;
+  top: calc(
+    100% + 7px
+  );
+  right: 0;
+  left: 0;
+  z-index: 7000;
+
+  max-height: 290px;
+  overflow-y: auto;
+
+  background: #ffffff;
+
+  border:
+    1px solid
+    #d7dce4;
+
+  border-radius:
+    10px;
+
+  box-shadow:
+    0 18px 45px
+    rgba(
+      0,
+      0,
+      0,
+      0.22
+    );
+}
+
+.cbrSuggestions
+p {
+  margin: 0;
+  padding: 16px;
+
+  color: #64748b;
+  font-weight: 600;
+}
+
+.cbrSuggestions
+button {
+  width: 100%;
+  min-height: 62px;
+  padding: 10px 13px;
+
+  display: grid;
+
+  grid-template-columns:
+    32px 1fr;
+
+  align-items: center;
+  gap: 10px;
+
+  color: #111827;
+  background: #ffffff;
+
+  border: 0;
+
+  border-bottom:
+    1px solid
+    #edf0f4;
+
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cbrSuggestions
+button:hover {
+  background: #fff9e5;
+}
+
+.cbrSuggestions
+button
+> i {
+  width: 30px;
+  height: 30px;
+
+  display: grid;
+  place-items: center;
+
+  color: #111827;
+  background: #f1f5f9;
+
+  border-radius: 50%;
+  font-style: normal;
+}
+
+.cbrSuggestions
+button
+span {
+  min-width: 0;
+
+  display: grid;
+  gap: 3px;
+}
+
+.cbrSuggestions
+button
+strong,
+.cbrSuggestions
+button
+small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cbrSuggestions
+button
+small {
+  color: #64748b;
+
+  font-size: 12px;
+  font-weight: 500;
+}
+
+@media (
+  max-width: 900px
+) {
+  .customerBookRideModal {
+    width: 100vw !important;
+    max-height: 100vh !important;
+
+    border-radius:
+      0 !important;
+  }
+
+  .customerBookRideModal
+  .cvBookingGrid {
+    grid-template-columns:
+      1fr !important;
+  }
+
+  .customerBookRideModal
+  .cvBookingMap {
+    min-height:
+      420px !important;
+  }
+
+  .customerBookRideModal
+  .cvBookingMap
+  .leaflet-container {
+    height:
+      420px !important;
+
+    min-height:
+      420px !important;
+  }
+}
+
+@media (
+  max-width: 560px
+) {
+  .customerBookRideModal
+  .osmMapHeader {
+    padding:
+      10px !important;
+  }
+
+  .customerBookRideModal
+  .osmMapActions {
+    width: 100% !important;
+  }
+
+  .customerBookRideModal
+  .osmMapActions
+  button {
+    flex: 1;
+
+    min-width:
+      0 !important;
+
+    padding:
+      0 10px !important;
+  }
+
+  .cbrSuggestions {
+    max-height:
+      230px;
+  }
+}

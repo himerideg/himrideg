@@ -1,0 +1,425 @@
+/* =========================================================
+   HimRideG Driver Route Map
+   ========================================================= */
+
+.driverRideMapWrapper {
+  position: relative !important;
+  top: auto !important;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
+}
+
+.driverMapHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px 10px;
+}
+
+.driverMapHeader > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.driverMapHeader small {
+  color: #a16207;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.3px;
+}
+
+.driverMapHeader strong {
+  overflow: hidden;
+  color: #111827;
+  font-size: 17px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.driverMapHeader > span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.driverMapHeader > span.locationActive {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.driverRouteSummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 14px 12px;
+}
+
+.driverRouteSummary article {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 13px;
+  background: #f8fafc;
+}
+
+.driverRouteSummary .summaryIcon {
+  display: grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff3c4;
+  font-size: 18px;
+}
+
+.driverRouteSummary article > div {
+  min-width: 0;
+}
+
+.driverRouteSummary small {
+  display: block;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.driverRouteSummary strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 1px;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.driverRouteSummary p {
+  margin: 2px 0 0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.driverMapMessage {
+  margin: 0 14px 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.driverMapMessage.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.driverMapMessage.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.driverCompactMap {
+  position: relative !important;
+  top: auto !important;
+  width: calc(100% - 28px);
+  height: 255px;
+  min-height: 255px;
+  margin: 0 14px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #e2e8f0;
+}
+
+.driverRideMap {
+  position: relative !important;
+  top: auto !important;
+  width: 100%;
+  height: 100% !important;
+  min-height: 255px !important;
+  z-index: 1;
+}
+
+.driverMapCustomIcon {
+  border: none !important;
+  background: transparent !important;
+}
+
+.driverMapPin {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  transform: rotate(-45deg);
+  border: 4px solid #ffffff;
+  border-radius: 50% 50% 50% 9px;
+  box-shadow:
+    0 8px 18px rgba(15, 23, 42, 0.32),
+    0 0 0 2px rgba(15, 23, 42, 0.08);
+}
+
+.driverMapPin span {
+  display: grid;
+  place-items: center;
+  transform: rotate(45deg);
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.pickupPin {
+  background: #16a34a;
+}
+
+.dropPin {
+  background: #ef4444;
+}
+
+.driverPin {
+  width: 54px;
+  height: 54px;
+  background: #2563eb;
+}
+
+.driverPin span {
+  font-size: 25px;
+}
+
+.driverMapLocations {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.driverMapLocations article {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 9px;
+}
+
+.locationBadge {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.locationBadge.pickup {
+  background: #16a34a;
+}
+
+.locationBadge.drop {
+  background: #ef4444;
+}
+
+.driverMapLocations article > div {
+  min-width: 0;
+}
+
+.driverMapLocations small {
+  display: block;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.driverMapLocations strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.driverMapActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.driverMapActions button {
+  min-height: 42px;
+  border: none;
+  border-radius: 11px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.driverMapActions button.secondary {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+}
+
+.driverMapActions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.driverMapUnavailable {
+  padding: 22px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 15px;
+  background: #f8fafc;
+  color: #475569;
+  text-align: center;
+}
+
+.driverMapUnavailable strong {
+  display: block;
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.driverMapUnavailable p {
+  margin: 7px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Purana legend aur sticky/fixed behavior band */
+.driverMapLegend {
+  display: none !important;
+}
+
+.driverFixedDashboard {
+  height: auto !important;
+  min-height: 100vh;
+  overflow: visible !important;
+}
+
+.driverDashboardPage,
+.driverDashboardMain,
+.driverDashboardContent,
+.driverRideMapWrapper,
+.driverCompactMap,
+.driverRideMap {
+  position: relative !important;
+  top: auto !important;
+}
+
+@media (max-width: 900px) {
+  .driverCompactMap {
+    height: 240px;
+    min-height: 240px;
+  }
+
+  .driverRideMap {
+    min-height: 240px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .driverRouteSummary,
+  .driverMapLocations,
+  .driverMapActions {
+    grid-template-columns: 1fr;
+  }
+
+  .driverCompactMap {
+    height: 225px;
+    min-height: 225px;
+  }
+
+  .driverRideMap {
+    min-height: 225px !important;
+  }
+
+  .driverMapHeader {
+    align-items: flex-start;
+  }
+
+  .driverMapHeader > span {
+    margin-top: 2px;
+  }
+}
+
+/* Final HimRideG compact square map */
+.driverRideMapWrapper { max-width: 560px; margin-left: auto; }
+.driverCompactMap { width: min(100% - 28px, 430px); aspect-ratio: 1 / 1; height: auto !important; min-height: 0 !important; margin-left: auto; margin-right: 14px; }
+.driverRideMap { height: 100% !important; min-height: 0 !important; }
+.driverRouteSummary, .driverMapLocations { display: none !important; }
+@media (max-width: 900px) { .driverRideMapWrapper { max-width: 100%; } .driverCompactMap { width: calc(100% - 28px); max-width: 430px; margin-left: auto; margin-right: auto; } }
+
+/* FINAL MAP CARD */
+.driverRideMapWrapper {
+  width: 100% !important;
+  border: 1px solid #26313a !important;
+  border-radius: 16px !important;
+  background: #0a1015 !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+.driverMapHeader { display: none !important; }
+.driverMapMessage { margin: 10px 12px !important; }
+.driverCompactMap {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 16 / 10 !important;
+  min-height: 520px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 16px 16px 0 0 !important;
+}
+.driverRideMap { width: 100% !important; height: 100% !important; min-height: 520px !important; }
+.driverMapActions {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 12px !important;
+  padding: 14px !important;
+  background: #080d12 !important;
+}
+.driverMapActions button {
+  min-height: 58px !important;
+  border-radius: 12px !important;
+  border: 1px solid #14532d !important;
+  background: #0b1712 !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+}
+.driverMapActions button.secondary { border-color: #7f1d1d !important; background: #180d0f !important; color: #fff !important; }
+@media(max-width:980px){
+  .driverCompactMap,.driverRideMap{min-height:420px !important;}
+}
+@media(max-width:640px){
+  .driverCompactMap,.driverRideMap{min-height:330px !important;}
+  .driverMapActions{grid-template-columns:1fr !important;}
+}
+
+/* ===== FINAL APPROVED MAP ===== */
+.driverRideMapWrapper{width:100%!important;max-width:none!important;background:transparent!important;border:0!important;box-shadow:none!important;border-radius:12px!important;overflow:hidden!important}.driverCompactMap{width:100%!important;max-width:none!important;height:575px!important;min-height:575px!important;margin:0!important;border:1px solid #26313b!important;border-radius:12px!important}.driverRideMap{height:100%!important;min-height:575px!important}.driverMapActions{grid-template-columns:1fr 1fr!important;gap:12px!important;padding:12px 0 0!important}.driverMapActions button{min-height:72px!important;border:1px solid #14532d!important;border-radius:11px!important;background:#07130d!important;color:#fff!important;font-size:14px!important}.driverMapActions button.secondary{border-color:#7f1d1d!important;background:#160b0d!important;color:#fff!important}.driverMapMessage{margin:0 0 10px!important}
+@media(max-width:1050px){.driverCompactMap,.driverRideMap{height:480px!important;min-height:480px!important}}
+@media(max-width:650px){.driverCompactMap,.driverRideMap{height:360px!important;min-height:360px!important}.driverMapActions{grid-template-columns:1fr!important}}

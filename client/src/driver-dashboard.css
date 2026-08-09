@@ -1,0 +1,2095 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  height: auto;
+  margin: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body:has(.driverFixedDashboard) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.driverDashboardPage {
+  width: 100%;
+  min-height: 100vh;
+  height: auto;
+  overflow: visible;
+  background: #07090c;
+  color: #151515;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.driverTopbar {
+  height: 74px;
+  padding: 0 clamp(18px, 2.2vw, 36px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  background: #050608;
+  border-bottom: 1px solid rgba(255, 196, 0, 0.45);
+  position: relative;
+  z-index: 100;
+}
+
+.driverBrand,
+.driverHeaderProfile,
+.driverDesktopNav,
+.driverWelcomeActions,
+.driverSelectedActions,
+.driverRideTabs {
+  display: flex;
+  align-items: center;
+}
+
+.driverBrand {
+  gap: 11px;
+  flex: 0 0 auto;
+}
+
+.driverLogo {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #ffc400;
+  border-radius: 13px;
+  color: #ffc400;
+  font-size: 17px;
+  font-weight: 950;
+}
+
+.driverBrandTag {
+  margin: 0 0 2px;
+  color: #ffc400;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+}
+
+.driverBrand h1 {
+  margin: 0;
+  color: #fff;
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.driverDesktopNav {
+  align-self: stretch;
+  gap: clamp(14px, 1.8vw, 28px);
+}
+
+.driverDesktopNav button {
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.driverDesktopNav button:hover,
+.driverDesktopNav button.active {
+  border-bottom-color: #ffc400;
+  color: #ffc400;
+}
+
+.driverHeaderProfile {
+  gap: 9px;
+  flex: 0 0 auto;
+}
+
+.driverBellButton {
+  width: 40px;
+  height: 40px;
+  position: relative;
+  border: 1px solid #30343b;
+  border-radius: 11px;
+  background: #11151a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.driverBellButton b {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  position: absolute;
+  top: -7px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #ffc400;
+  color: #050505;
+  font-size: 10px;
+}
+
+.driverOnlineButton {
+  min-width: 145px;
+  height: 42px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #fff;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.driverOnlineButton i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.driverOnlineButton.online {
+  background: #087d3b;
+  border-color: #21b763;
+}
+
+.driverOnlineButton.offline {
+  background: #168b3f;
+  border-color: #35c166;
+}
+
+.driverOnlineButton:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.driverSocketStatus {
+  padding: 6px 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: #2a2020;
+  color: #ff8e8e;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.driverSocketStatus::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.driverSocketStatus.connected {
+  background: #123725;
+  color: #48db86;
+}
+
+.driverHeaderAvatar {
+  width: 39px;
+  height: 39px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 2px solid #ffc400;
+  border-radius: 50%;
+  background: #ffc400;
+  color: #090909;
+  font-weight: 900;
+  padding: 0;
+  cursor: pointer;
+}
+
+.driverHeaderAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.driverHeaderUser {
+  min-width: 92px;
+  display: flex;
+  flex-direction: column;
+}
+
+.driverHeaderUser strong {
+  color: #fff;
+  font-size: 12px;
+}
+
+.driverHeaderUser span {
+  color: #89919c;
+  font-size: 10px;
+}
+
+.driverLogoutButton {
+  height: 40px;
+  padding: 0 13px;
+  border: 1px solid #353941;
+  border-radius: 10px;
+  background: #111419;
+  color: #fff;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.driverFixedContent {
+  min-height: calc(100vh - 74px);
+  height: auto;
+  padding: 12px 16px 56px;
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 10px;
+  overflow: visible;
+}
+
+.driverCompactWelcome {
+  min-height: 0;
+  padding: 17px 24px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 196, 0, 0.55);
+  border-radius: 18px;
+  background:
+    linear-gradient(90deg, rgba(3, 5, 8, 0.97), rgba(7, 9, 12, 0.76)),
+    radial-gradient(ellipse at 68% 100%, rgba(255, 196, 0, 0.2), transparent 45%);
+}
+
+.driverCompactWelcome::after {
+  content: "⛰︎  ⛰︎  ⛰︎  ⛰︎";
+  position: absolute;
+  right: 31%;
+  bottom: -17px;
+  color: rgba(255, 196, 0, 0.35);
+  font-size: 75px;
+  letter-spacing: -21px;
+  pointer-events: none;
+}
+
+.driverCompactWelcome > div {
+  position: relative;
+  z-index: 1;
+}
+
+.driverEyebrow {
+  margin: 0 0 3px;
+  color: #ffc400;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+}
+
+.driverCompactWelcome h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(22px, 2.4vw, 34px);
+  line-height: 1.05;
+}
+
+.driverWelcomeText {
+  margin: 7px 0 0;
+  color: #b4bac3;
+  font-size: 12px;
+}
+
+.driverWelcomeActions {
+  gap: 10px;
+}
+
+.driverApprovalPill,
+.driverRatingPill {
+  height: 38px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #3a414b;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.driverApprovalPill.approved {
+  border-color: #208a4a;
+  color: #6ce49c;
+}
+
+.driverApprovalPill.waiting {
+  border-color: #d5a300;
+  color: #ffc400;
+}
+
+.driverSummaryButton {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid #ffc400;
+  border-radius: 10px;
+  background: rgba(255, 196, 0, 0.08);
+  color: #ffc400;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.driverWorkspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(390px, 0.92fr) minmax(500px, 1.28fr);
+  gap: 10px;
+}
+
+.driverRequestPanel,
+.driverFixedMapPanel,
+.driverRideActivity,
+.driverWorkflow {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #dfe3e8;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.driverRequestPanel,
+.driverFixedMapPanel {
+  display: flex;
+  flex-direction: column;
+}
+
+.driverPanelHeader {
+  height: 54px;
+  padding: 9px 14px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e5e8ec;
+}
+
+.driverPanelHeader small {
+  display: block;
+  color: #b47d00;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.driverPanelHeader h2 {
+  margin: 1px 0 0;
+  font-size: 18px;
+}
+
+.driverPanelHeader > button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: #ffc400;
+  font-size: 19px;
+  cursor: pointer;
+}
+
+.driverPanelHeader > strong {
+  color: #111;
+  font-size: 21px;
+}
+
+.driverMapHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.driverMapHeaderActions > strong {
+  color: #111;
+  font-size: 20px;
+}
+
+.driverHeaderCallButton {
+  height: 34px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2463eb;
+  border-radius: 9px;
+  background: #2463eb;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.driverRequestScroll {
+  min-height: 0;
+  padding: 9px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ffc400 #f0f1f3;
+}
+
+.driverRequestCard {
+  padding: 10px;
+  border: 1px solid #e2e5e9;
+  border-radius: 13px;
+  background: #fff;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.driverRequestCard:hover,
+.driverRequestCard.selected {
+  border-color: #ffc400;
+  box-shadow: 0 6px 18px rgba(31, 35, 42, 0.1);
+}
+
+.driverRequestCard.selected {
+  background: #fffdf4;
+}
+
+.driverRequestTop {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+}
+
+.driverMiniAvatar {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #121823;
+  color: #fff;
+  font-weight: 900;
+}
+
+.driverRequestCustomer {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.driverRequestCustomer strong {
+  overflow: hidden;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.driverRequestCustomer small {
+  color: #78808b;
+  font-size: 9px;
+}
+
+.driverRequestTop > b {
+  font-size: 17px;
+}
+
+.driverCompactRoute {
+  margin: 8px 0;
+  padding: 7px 9px;
+  display: grid;
+  gap: 5px;
+  border-radius: 9px;
+  background: #f5f7f9;
+}
+
+.driverCompactRoute > div,
+.driverActivityRow span {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.driverCompactRoute i,
+.driverActivityRow i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.pickup {
+  background: #18a968;
+}
+
+.drop {
+  background: #ef4444;
+}
+
+.driverCompactRoute span {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 5px;
+  align-items: center;
+}
+
+.driverCompactRoute small {
+  color: #7b838e;
+  font-size: 8px;
+}
+
+.driverCompactRoute strong {
+  overflow: hidden;
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.driverRequestFacts {
+  display: flex;
+  gap: 11px;
+  color: #69717c;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.driverRequestActions {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 7px;
+}
+
+.driverRequestActions button {
+  height: 32px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.driverRequestActions .accept {
+  border: 1px solid #158b45;
+  background: #158b45;
+  color: #fff;
+}
+
+.driverRequestActions .reject {
+  border: 1px solid #ef4444;
+  background: #fff;
+  color: #d92727;
+}
+
+.driverMapStage {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.driverMapStage .driverRideMapWrapper {
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  display: grid;
+  grid-template-rows: 0 minmax(0, 1fr) 30px;
+}
+
+.driverMapStage .driverMapHeader {
+  height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+}
+
+.driverMapStage .driverRideMap,
+.driverMapStage .driverRideMap.leaflet-container {
+  width: 100%;
+  height: 100% !important;
+  min-height: 100% !important;
+}
+
+.driverMapStage .driverMapLegend {
+  height: 30px;
+  padding: 0 13px;
+}
+
+.driverMapLocationError {
+  position: absolute;
+  z-index: 500;
+  margin: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: #fff3d4;
+  color: #805700;
+  font-size: 9px;
+}
+
+.driverSelectedActions {
+  min-height: 42px;
+  padding: 5px 9px;
+  flex: 0 0 auto;
+  gap: 7px;
+  border-top: 1px solid #e3e6ea;
+}
+
+.driverSelectedActions button,
+.driverSelectedActions a {
+  min-height: 31px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: #ffc400;
+  color: #080808;
+  font-size: 10px;
+  font-weight: 850;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.driverSelectedActions .complete {
+  background: #118348;
+  color: #fff;
+}
+
+.locationMessage {
+  margin: 0;
+  padding: 4px 10px;
+  color: #14713e;
+  font-size: 9px;
+}
+
+.driverBottomDock {
+  min-height: 0;
+  display: block;
+}
+
+.driverRideActivity,
+.driverWorkflow {
+  padding: 10px 13px;
+}
+
+.driverRideActivity {
+  width: 100%;
+  height: 100%;
+}
+
+.driverRideActivity > header {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  border-bottom: 1px solid #e5e8ec;
+}
+
+.driverRideActivity h2,
+.driverWorkflow h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.driverRideTabs {
+  gap: 16px;
+}
+
+.driverRideTabs button {
+  height: 32px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #59616d;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.driverRideTabs button.active {
+  border-bottom-color: #ffc400;
+  color: #a16e00;
+  font-weight: 850;
+}
+
+.driverActivityRow {
+  height: 100px;
+  display: grid;
+  grid-template-columns: 1.1fr 1.2fr 1.2fr auto auto;
+  gap: 13px;
+  align-items: center;
+}
+
+.driverActivityRow > strong,
+.driverActivityRow > span,
+.driverActivityRow > b {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.driverActivityRow > button {
+  height: 30px;
+  border: 1px solid #d7a000;
+  border-radius: 7px;
+  background: #fff;
+  color: #986b00;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.driverActivityRow > p {
+  grid-column: 1 / -1;
+  color: #7c8490;
+  text-align: center;
+}
+
+.driverWorkflow > div {
+  height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.driverWorkflow span {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.driverWorkflow span b {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d9dde2;
+  border-radius: 50%;
+  background: #f2f3f5;
+  font-size: 12px;
+}
+
+.driverWorkflow span.active b {
+  border-color: #168a43;
+  background: #168a43;
+  color: #fff;
+}
+
+.driverWorkflow span small {
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.driverWorkflow > div > i {
+  color: #9fa5ad;
+  font-style: normal;
+}
+
+.driverCompactEmpty {
+  height: 100%;
+  min-height: 130px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: #6f7782;
+  text-align: center;
+}
+
+.driverCompactEmpty span {
+  font-size: 32px;
+}
+
+.driverCompactEmpty strong {
+  margin-top: 8px;
+  color: #24282e;
+}
+
+.driverCompactEmpty p {
+  margin: 4px 0 0;
+  font-size: 10px;
+}
+
+.driverSummaryOverlay,
+.driverOtpOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.driverSummaryModal,
+.driverOtpModal {
+  width: min(590px, 100%);
+  max-height: calc(100vh - 36px);
+  padding: 22px;
+  overflow-y: auto;
+  border: 1px solid #ffc400;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+}
+
+.driverSummaryModal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.driverSummaryModal header small {
+  color: #b17b00;
+  font-weight: 900;
+}
+
+.driverSummaryModal h2,
+.driverOtpModal h2 {
+  margin: 3px 0 0;
+}
+
+.driverSummaryModal header button {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: #eceff2;
+  font-size: 23px;
+  cursor: pointer;
+}
+
+.driverSummaryGrid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.driverSummaryGrid article {
+  min-height: 95px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e2e5e9;
+  border-radius: 12px;
+  background: #fafbfc;
+}
+
+.driverSummaryGrid article small {
+  margin-top: 5px;
+  color: #747c87;
+}
+
+.driverSummaryGrid article strong {
+  font-size: 23px;
+}
+
+.driverEarningsGrid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 11px;
+}
+
+.driverEarningsGrid article {
+  min-height: 105px;
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  border: 1px solid #e1e5e9;
+  border-radius: 13px;
+  background: #fafbfc;
+}
+
+.driverEarningsGrid article span {
+  color: #717985;
+  font-size: 11px;
+}
+
+.driverEarningsGrid article strong {
+  margin-top: 4px;
+  color: #111;
+  font-size: 25px;
+}
+
+.driverProfileOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+}
+
+.driverProfilePanel {
+  width: min(680px, 100%);
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #fff;
+  box-shadow: -25px 0 80px rgba(0, 0, 0, 0.38);
+}
+
+.driverProfilePanel > header {
+  min-height: 76px;
+  padding: 15px 21px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e2e5e9;
+  background: #080a0d;
+}
+
+.driverProfilePanel header small {
+  color: #ffc400;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+}
+
+.driverProfilePanel header h2 {
+  margin: 3px 0 0;
+  color: #fff;
+  font-size: 21px;
+}
+
+.driverProfilePanel header button {
+  width: 39px;
+  height: 39px;
+  border: 1px solid #3b4048;
+  border-radius: 50%;
+  background: #161a20;
+  color: #fff;
+  font-size: 23px;
+  cursor: pointer;
+}
+
+.driverProfileScroll {
+  min-height: 0;
+  padding: 18px 20px 30px;
+  overflow-y: auto;
+}
+
+.driverPhotoEditor {
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border: 1px solid #e0e4e8;
+  border-radius: 14px;
+  background: #fafbfc;
+}
+
+.driverLargeAvatar {
+  width: 76px;
+  height: 76px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 3px solid #ffc400;
+  border-radius: 50%;
+  background: #161a20;
+  color: #ffc400;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.driverLargeAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.driverPhotoEditor > div:last-child {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.driverPhotoEditor strong {
+  font-size: 17px;
+}
+
+.driverPhotoEditor span {
+  margin: 2px 0 7px;
+  color: #777f8a;
+  font-size: 10px;
+}
+
+.driverUploadPhoto,
+.driverDocumentsGrid article > label {
+  min-height: 32px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #ffc400;
+  color: #0a0a0a;
+  font-size: 10px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.driverUploadPhoto input,
+.driverDocumentsGrid article > label input {
+  display: none;
+}
+
+.driverProfileSection {
+  margin-top: 17px;
+  padding: 16px;
+  border: 1px solid #e1e4e8;
+  border-radius: 14px;
+}
+
+.driverProfileSection h3 {
+  margin: 0 0 13px;
+  color: #15181d;
+  font-size: 15px;
+}
+
+.driverProfileGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.driverProfileGrid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.driverProfileGrid label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.driverProfileGrid label > span {
+  color: #4c535d;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.driverProfileGrid input,
+.driverProfileGrid select,
+.driverProfileGrid textarea {
+  width: 100%;
+  min-width: 0;
+  height: 39px;
+  padding: 0 10px;
+  border: 1px solid #d7dce2;
+  border-radius: 8px;
+  background: #fff;
+  color: #15171a;
+  font-size: 11px;
+  outline: none;
+}
+
+.driverProfileGrid input:focus,
+.driverProfileGrid select:focus,
+.driverProfileGrid textarea:focus {
+  border-color: #d9a500;
+  box-shadow: 0 0 0 3px rgba(255, 196, 0, 0.12);
+}
+
+.driverProfileGrid input[readonly] {
+  background: #eef1f4;
+  color: #69717c;
+}
+
+.driverProfileGrid textarea {
+  height: 65px;
+  padding-top: 9px;
+  resize: vertical;
+}
+
+.driverProfileGrid label > small {
+  color: #858d98;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.driverWideField {
+  grid-column: 1 / -1;
+}
+
+.driverDocumentHelp {
+  margin: -6px 0 12px;
+  color: #737b86;
+  font-size: 9px;
+}
+
+.driverDocumentsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.driverDocumentsGrid article {
+  min-height: 92px;
+  padding: 11px;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid #e0e4e8;
+  border-radius: 11px;
+  background: #fafbfc;
+}
+
+.driverDocumentsGrid article > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.driverDocumentsGrid article strong {
+  font-size: 10px;
+}
+
+.driverDocumentsGrid article > small {
+  color: #c82929;
+  font-size: 8px;
+}
+
+.documentStatus {
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: #eceff2;
+  color: #68707a;
+  font-size: 7px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.documentStatus.pending {
+  background: #fff2c2;
+  color: #856000;
+}
+
+.documentStatus.verified {
+  background: #dcf8e7;
+  color: #08733d;
+}
+
+.documentStatus.rejected {
+  background: #ffe0e0;
+  color: #ad2020;
+}
+
+.driverProfilePanel > footer {
+  min-height: 66px;
+  padding: 11px 20px;
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 10px;
+  border-top: 1px solid #e0e4e8;
+  background: #fff;
+}
+
+.driverProfilePanel > footer button {
+  border: 1px solid #d5d9df;
+  border-radius: 9px;
+  background: #f1f3f5;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.driverProfilePanel > footer button[type="submit"] {
+  border-color: #ffc400;
+  background: #ffc400;
+  color: #090909;
+}
+
+.driverOtpModal {
+  width: min(430px, 100%);
+  text-align: center;
+}
+
+.driverOtpIcon {
+  font-size: 38px;
+}
+
+.driverOtpModal p {
+  color: #6d7480;
+}
+
+.driverOtpInput {
+  width: 100%;
+  height: 58px;
+  border: 2px solid #dfe3e8;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 12px;
+}
+
+.driverOtpActions {
+  margin-top: 15px;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 9px;
+}
+
+.driverOtpActions button {
+  height: 44px;
+  border-radius: 9px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.driverOtpCancel {
+  border: 1px solid #d7dbe0;
+  background: #f1f3f5;
+}
+
+.driverOtpVerify {
+  border: 1px solid #138440;
+  background: #138440;
+  color: #fff;
+}
+
+.driverNotice {
+  position: fixed;
+  top: 82px;
+  left: 50%;
+  z-index: 20000;
+  max-width: calc(100% - 30px);
+  padding: 11px 17px;
+  border-radius: 10px;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 850;
+  box-shadow: 0 12px 38px rgba(0, 0, 0, 0.3);
+}
+
+.driverNotice.success {
+  background: #0d813d;
+}
+
+.driverNotice.error {
+  background: #c7261b;
+}
+
+.driverMapCustomIcon {
+  border: 0;
+  background: transparent;
+}
+
+.driverMapPin {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3);
+}
+
+.driverMapPin span,
+.driverMapPin:not(:has(span)) {
+  line-height: 1;
+}
+
+.pickupPin { background: #18a968; }
+.dropPin { background: #ef4444; }
+.driverPin { background: #2563eb; }
+
+@media (max-width: 1180px) {
+  .driverDesktopNav,
+  .driverSocketStatus,
+  .driverHeaderUser {
+    display: none;
+  }
+
+  .driverWorkspace {
+    grid-template-columns: minmax(350px, 0.95fr) minmax(420px, 1.2fr);
+  }
+}
+
+@media (max-height: 760px) and (min-width: 901px) {
+  .driverTopbar {
+    height: 64px;
+  }
+
+  .driverFixedContent {
+    height: calc(100vh - 64px);
+    grid-template-rows: 92px minmax(0, 1fr) 108px;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .driverCompactWelcome {
+    padding: 11px 18px;
+  }
+
+  .driverBottomDock {
+    gap: 8px;
+  }
+
+  .driverRideActivity,
+  .driverWorkflow {
+    padding: 8px 10px;
+  }
+
+  .driverActivityRow {
+    height: 58px;
+  }
+
+  .driverWorkflow > div {
+    height: 87px;
+  }
+}
+
+@media (max-width: 900px) {
+  body:has(.driverFixedDashboard) {
+    overflow: auto;
+  }
+
+  .driverDashboardPage {
+    min-height: 100vh;
+    height: auto;
+    overflow: visible;
+  }
+
+  .driverTopbar {
+    height: auto;
+    min-height: 68px;
+    position: sticky;
+    top: 0;
+  }
+
+  .driverHeaderProfile {
+    margin-left: auto;
+  }
+
+  .driverBellButton,
+  .driverLogoutButton {
+    display: none;
+  }
+
+  .driverOnlineButton {
+    min-width: 120px;
+  }
+
+  .driverFixedContent {
+    height: auto;
+    padding: 10px;
+    display: block;
+    overflow: visible;
+  }
+
+  .driverCompactWelcome {
+    margin-bottom: 10px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .driverWelcomeActions {
+    flex-wrap: wrap;
+  }
+
+  .driverWorkspace,
+  .driverBottomDock {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .driverRequestPanel {
+    height: 440px;
+  }
+
+  .driverFixedMapPanel {
+    height: 480px;
+    margin: 10px 0;
+  }
+
+  .driverBottomDock {
+    gap: 10px;
+  }
+
+  .driverRideActivity,
+  .driverWorkflow {
+    min-height: 170px;
+  }
+}
+
+@media (max-width: 560px) {
+  .driverTopbar {
+    padding: 8px 11px;
+    gap: 8px;
+  }
+
+  .driverBrandTag {
+    display: none;
+  }
+
+  .driverBrand h1 {
+    font-size: 15px;
+  }
+
+  .driverLogo {
+    width: 40px;
+    height: 40px;
+  }
+
+  .driverHeaderAvatar {
+    display: none;
+  }
+
+  .driverOnlineButton {
+    min-width: 105px;
+    height: 38px;
+    padding: 0 9px;
+    font-size: 10px;
+  }
+
+  .driverCompactWelcome h2 {
+    font-size: 23px;
+  }
+
+  .driverRatingPill {
+    display: none;
+  }
+
+  .driverActivityRow {
+    grid-template-columns: 1fr auto;
+  }
+
+  .driverActivityRow > span {
+    display: none;
+  }
+
+  .driverRideTabs {
+    gap: 9px;
+    overflow-x: auto;
+  }
+
+  .driverWorkflow > div > i {
+    display: none;
+  }
+
+  .driverWorkflow span small {
+    max-width: 52px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .driverSummaryGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .driverProfileGrid,
+  .driverProfileGrid.three,
+  .driverDocumentsGrid,
+  .driverEarningsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .driverProfilePanel > header,
+  .driverProfileScroll,
+  .driverProfilePanel > footer {
+    padding-right: 13px;
+    padding-left: 13px;
+  }
+}
+/* ========================================================================== 
+   CUSTOMER-DASHBOARD STYLE DRIVER LAYOUT — FINAL OVERRIDES
+   ========================================================================== */
+.driverDashboardPage{min-height:100vh;background:#05090d;color:#fff}.driverCustomerStyleTopbar{position:sticky;top:0;z-index:100;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:24px;min-height:82px;padding:10px 22px;border-bottom:1px solid #26313b;background:#03070a}.driverCustomerStyleTopbar .driverDesktopNav{justify-content:center}.driverCustomerStyleTopbar .driverDesktopNav button{min-height:62px;padding:0 18px;border:0;border-bottom:3px solid transparent;background:transparent;color:#fff;font-weight:800}.driverCustomerStyleTopbar .driverDesktopNav button.active{border-bottom-color:#ffc400;color:#ffc400}.driverOnlineControl{display:flex;align-items:center;gap:12px;font-weight:800;white-space:nowrap}.driverOnlineSwitch{position:relative;width:58px;height:32px;border:0;border-radius:999px;background:#374151;padding:3px}.driverOnlineSwitch i{display:block;width:26px;height:26px;border-radius:50%;background:#fff;transition:.2s}.driverOnlineSwitch.online{background:#15aa58}.driverOnlineSwitch.online i{transform:translateX(26px)}.driverCustomerStylePage{padding:18px 28px 40px}.driverHeroBanner{display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:150px;margin-bottom:18px;padding:26px 30px;border:1px solid #d9b300;border-radius:20px;background:linear-gradient(90deg,#05080b 0%,#090d12 56%,#172112 100%);overflow:hidden}.driverHeroBanner small,.driverCustomerRideCard header small,.driverCustomerMapCard header small,.driverCustomerSummary header small,.driverRidesPage>header small{color:#ffc400;font-size:11px;font-weight:900;letter-spacing:.08em}.driverHeroBanner h2{margin:5px 0 8px;font-size:38px;line-height:1.05}.driverHeroBanner h2 span{color:#ffc400}.driverHeroBanner p{margin:0;color:#c8d0d8}.driverHeroActions{display:flex;align-items:center;gap:12px}.driverHeroActions span,.driverHeroActions button{padding:11px 15px;border:1px solid #2f3a44;border-radius:11px;background:#10161c;color:#fff;font-weight:800}.driverHeroActions span.approved{border-color:#198c4a;color:#65e391}.driverHeroActions button{border-color:#d4ae00;color:#ffc400}.driverCustomerGrid{display:grid;grid-template-columns:minmax(330px,1.1fr) minmax(520px,1.75fr) minmax(250px,.72fr);gap:18px;align-items:start}.driverCustomerRideCard,.driverCustomerMapCard,.driverCustomerSummary,.driverRidesPage{border:1px solid #303b45;border-radius:18px;background:#080d12;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,.2)}.driverCustomerRideCard>header,.driverCustomerMapCard>header,.driverCustomerSummary>header,.driverRidesPage>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:17px 20px;border-bottom:1px solid #29343d}.driverCustomerRideCard h2,.driverCustomerMapCard h2,.driverCustomerSummary h2,.driverRidesPage h2{margin:3px 0 0;font-size:21px}.driverCustomerRideCard>header button,.driverCustomerSummary>header button,.driverRidesPage>header button{min-width:38px;min-height:38px;border:1px solid #394651;border-radius:10px;background:#10171e;color:#ffc400;font-weight:900}.driverCustomerRideBody{padding:16px}.driverCustomerRow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding-bottom:14px}.driverCustomerAvatar{display:grid;width:48px;height:48px;place-items:center;border-radius:50%;background:#111b2a;font-size:18px;font-weight:900}.driverCustomerRow>div:nth-child(2){display:flex;min-width:0;flex-direction:column}.driverCustomerRow strong{font-size:17px}.driverCustomerRow small{margin-top:2px;color:#9da9b4}.driverCustomerRow a{display:grid;width:42px;height:42px;place-items:center;border:1px solid #175e39;border-radius:50%;color:#8af0b4;text-decoration:none}.driverCustomerRoute{padding:15px;border:1px solid #26333d;border-radius:13px;background:#0d141a}.driverCustomerRoute>div{display:grid;grid-template-columns:auto 1fr;gap:11px}.driverCustomerRoute>div+div{margin-top:17px}.driverCustomerRoute i,.driverRidesList i{width:10px;height:10px;margin-top:7px;border-radius:50%}.driverCustomerRoute i.pickup,.driverRidesList i.pickup{background:#20c875}.driverCustomerRoute i.drop,.driverRidesList i.drop{background:#ff414b}.driverCustomerRoute span{display:flex;min-width:0;flex-direction:column}.driverCustomerRoute small{color:#83909c;font-weight:800}.driverCustomerRoute strong{margin-top:4px;line-height:1.35}.driverCustomerFacts{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}.driverCustomerFacts article{padding:12px 8px;border:1px solid #293641;border-radius:11px;background:#0d141a;text-align:center}.driverCustomerFacts small{display:block;color:#8996a1;font-size:9px}.driverCustomerFacts strong{display:block;margin-top:5px;font-size:15px}.driverCustomerFareCard{margin-top:13px;padding:14px;border:1px solid #514173;border-radius:14px;background:linear-gradient(145deg,#11121a,#151126)}.driverCustomerFareCard>header{display:flex;align-items:start;justify-content:space-between;gap:10px}.driverCustomerFareCard h3{margin:3px 0 0;font-size:17px}.driverCustomerFareCard header b{padding:5px 8px;border:1px solid #6047a0;border-radius:8px;color:#d9c5ff;font-size:11px}.driverCustomerSuggested{display:flex;align-items:end;justify-content:space-between;margin:15px 0 10px}.driverCustomerSuggested span{color:#aab3bc}.driverCustomerSuggested strong{font-size:23px}.driverCustomerFareInput{display:grid;grid-template-columns:auto 1fr auto;overflow:hidden;border:1px solid #3b4751;border-radius:10px;background:#090e13}.driverCustomerFareInput span{padding:12px;color:#cbd5df}.driverCustomerFareInput input{min-width:0;border:0;outline:0;background:transparent;color:#fff;font-weight:800}.driverCustomerFareInput button{border:0;background:#6841a5;color:#fff;padding:0 15px;font-weight:900}.driverFareWaitLarge{margin-top:11px;padding:12px;border:1px solid #d0a900;border-radius:10px;background:#2c2608;color:#ffd62b;font-size:14px;font-weight:900;text-align:center}.driverCustomerFareFinal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:13px}.driverCustomerFareFinal article{padding:10px;border:1px solid #3c4650;border-radius:10px}.driverCustomerFareFinal small{display:block;color:#9aa6b1;font-size:8px}.driverCustomerFareFinal strong{display:block;margin-top:4px;font-size:17px}.driverCustomerFareFinal article:last-child strong{color:#39de7f}.driverCustomerCounter{text-align:center}.driverCustomerCounter>strong{display:block;margin:8px 0;font-size:25px;color:#ffd12a}.driverCustomerCounter>div{display:flex;gap:8px}.driverCustomerCounter button{flex:1;padding:10px;border:0;border-radius:9px;color:#fff;font-weight:900}.driverCustomerCounter .accept{background:#14984c}.driverCustomerCounter .reject{background:#c92b34}.driverCustomerAcceptRow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}.driverCustomerAcceptRow button{min-height:48px;border:0;border-radius:10px;color:#fff;font-weight:900}.driverCustomerAcceptRow .accept{background:#12a452}.driverCustomerAcceptRow .reject{background:#dc2935}.driverCustomerMapCard{min-height:640px}.driverCustomerMapCard>header span{padding:7px 10px;border-radius:999px;background:#123e28;color:#65e391;font-size:11px;font-weight:900}.driverCustomerMapStage{height:480px;padding:12px}.driverCustomerMapStage .driverRideMapWrapper,.driverCustomerMapStage .driverRideMap,.driverCustomerMapStage .leaflet-container{height:100%!important;min-height:100%!important;border-radius:13px}.driverCustomerMapActions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:0 12px 12px}.driverCustomerMapActions a,.driverCustomerMapActions button{display:flex;min-height:55px;align-items:center;justify-content:center;border:1px solid #35434e;border-radius:11px;background:#0d141a;color:#fff;text-decoration:none;font-weight:800}.driverCustomerMapActions a:first-child{border-color:#145b38;color:#76e9a6}.driverCustomerMapActions a:nth-child(2){border-color:#722c31;color:#ff747b}.driverCustomerMapActions button{border-color:#806800;color:#ffd02a}.driverCustomerRideActions{display:flex;gap:9px;padding:0 12px 13px}.driverCustomerRideActions button{flex:1;min-height:48px;border:1px solid #d6b000;border-radius:10px;background:#ffc400;color:#080b0e;font-weight:900}.driverCustomerRideActions button.waiting{background:#2d2705;color:#ffe044}.driverCustomerRideActions button.complete{border-color:#16864a;background:#17a957;color:#fff}.driverCustomerSummary{padding-bottom:14px}.driverCustomerSummary>article{display:flex;align-items:center;gap:12px;margin:12px 14px 0;padding:15px;border:1px solid #2b3741;border-radius:12px;background:#0d141a}.driverCustomerSummary>article>span{display:grid;width:42px;height:42px;place-items:center;border-radius:10px;background:#121d25;font-size:20px}.driverCustomerSummary article div{display:flex;flex-direction:column}.driverCustomerSummary article small{color:#a3adb7}.driverCustomerSummary article strong{margin-top:3px;font-size:22px}.driverCustomerSummaryBtn{width:calc(100% - 28px);min-height:43px;margin:14px;border:1px solid #d6b000;border-radius:10px;background:transparent;color:#ffc400;font-weight:900}.driverCustomerEmpty{display:flex;min-height:240px;align-items:center;justify-content:center;flex-direction:column;padding:30px;text-align:center}.driverCustomerEmpty span{font-size:36px}.driverCustomerEmpty strong{margin-top:10px}.driverCustomerEmpty p{color:#98a4ae}.driverRidesPage{min-height:650px}.driverRidesPage .driverRideTabs{display:flex;gap:8px;padding:14px 18px;border-bottom:1px solid #29343d}.driverRidesPage .driverRideTabs button{padding:9px 13px;border:1px solid #35424c;border-radius:9px;background:#0e151b;color:#cbd3da}.driverRidesPage .driverRideTabs button.active{border-color:#d3ae00;color:#ffc400}.driverRidesList{padding:16px}.driverRidesList article{display:grid;grid-template-columns:170px 1fr 1fr 90px auto;align-items:center;gap:14px;padding:14px;border-bottom:1px solid #25313a}.driverRidesList article span{display:flex;align-items:center;gap:8px}.driverRidesList article button{padding:8px 11px;border:1px solid #d3ae00;border-radius:8px;background:#ffc400;color:#080b0e;font-weight:900}@media(max-width:1180px){.driverCustomerGrid{grid-template-columns:340px 1fr}.driverCustomerSummary{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px}.driverCustomerSummary>header,.driverCustomerSummaryBtn{grid-column:1/-1}.driverCustomerSummary>article{margin:0}}@media(max-width:900px){.driverCustomerStyleTopbar{grid-template-columns:1fr auto}.driverDesktopNav{grid-column:1/-1;order:3;overflow-x:auto}.driverHeaderUser,.driverSocketStatus{display:none}.driverCustomerStylePage{padding:12px}.driverCustomerGrid{grid-template-columns:1fr}.driverCustomerMapCard{min-height:520px}.driverCustomerMapStage{height:390px}.driverCustomerSummary{display:block}.driverCustomerSummary>article{margin:10px 12px}.driverHeroBanner{align-items:flex-start;flex-direction:column}.driverRidesList article{grid-template-columns:1fr}.driverCustomerMapActions{grid-template-columns:1fr}}@media(max-width:600px){.driverCustomerStyleTopbar{padding:8px 10px}.driverBrandTag{display:none}.driverBrand h1{font-size:18px}.driverHeaderProfile{gap:6px}.driverLogoutButton{display:none}.driverOnlineControl>span{display:none}.driverHeroBanner h2{font-size:27px}.driverCustomerFacts,.driverCustomerFareFinal{grid-template-columns:1fr}.driverCustomerAcceptRow{grid-template-columns:1fr}.driverCustomerMapStage{height:330px}}
+
+/* =========================================================
+   OTP REGENERATE CONTROLS
+   ========================================================= */
+
+.driverOtpRegenerateRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid rgba(255, 196, 0, 0.32);
+  border-radius: 12px;
+  background: rgba(255, 196, 0, 0.07);
+}
+
+.driverOtpRegenerate {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #ffc400;
+  border-radius: 10px;
+  background: transparent;
+  color: #ffc400;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.driverOtpRegenerate:hover:not(:disabled) {
+  background: #ffc400;
+  color: #090d12;
+}
+
+.driverOtpRegenerate:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.driverOtpRegenerateRow small {
+  color: #a8b2bf;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+  .driverOtpRegenerateRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .driverOtpRegenerate {
+    width: 100%;
+  }
+}
+
+
+/* =========================================================
+   FINAL PAGE SCROLL SAFETY OVERRIDES
+   ========================================================= */
+html, body, #root {
+  min-height: 100% !important;
+  height: auto !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+body:has(.driverFixedDashboard),
+body:has(.driverDashboardPage) {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+.driverDashboardPage,
+.driverFixedDashboard {
+  min-height: 100vh !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+.driverFixedContent {
+  min-height: calc(100vh - 74px) !important;
+  height: auto !important;
+  overflow: visible !important;
+  grid-template-rows: auto auto auto !important;
+  padding-bottom: 64px !important;
+}
+.driverCustomerStylePage,
+.driverCustomerGrid,
+.driverMainGrid,
+.driverDashboardContent,
+.driverRideWorkspace {
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+@media (max-width: 900px) {
+  .driverDashboardPage,
+  .driverFixedDashboard,
+  .driverFixedContent {
+    min-height: 100vh !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+}
+/* Withdrawal Form */
+.driverWithdrawalForm{margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,.15)}
+.driverWithdrawalForm h3{margin:0 0 6px;font-size:15px;color:#ffc400}
+.driverWithdrawalForm p{margin:0 0 14px;font-size:13px;color:#9ca3af}
+.driverWithdrawalForm strong{color:#fff}
+.withdrawalFormWrap{display:grid;gap:10px}
+.withdrawalMethodTabs{display:flex;gap:8px}
+.withdrawalMethodTabs button{flex:1;height:36px;border:1px solid #374151;border-radius:7px;background:transparent;color:#9ca3af;font-size:13px;cursor:pointer;transition:all .15s}
+.withdrawalMethodTabs button.active{border-color:#ffc400;background:rgba(255,196,0,.12);color:#ffc400;font-weight:700}
+.withdrawalFields{display:grid;gap:8px}
+.withdrawalFields input{height:40px;padding:0 12px;border:1px solid #374151;border-radius:8px;background:#1f2937;color:#fff;font-size:13px;outline:0}
+.withdrawalFields input:focus{border-color:#ffc400}
+.withdrawalMsg{margin:0;padding:9px 12px;border-radius:7px;font-size:13px}
+.withdrawalMsg.success{background:rgba(22,163,74,.2);color:#4ade80}
+.withdrawalMsg.error{background:rgba(239,68,68,.15);color:#f87171}
+.withdrawalSubmitBtn{height:42px;border:0;border-radius:8px;background:#ffc400;color:#111;font-size:14px;font-weight:800;cursor:pointer;transition:opacity .15s;width:100%}
+.withdrawalSubmitBtn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ═══════════════════════════════════════════════════════════
+   HimRideG — New Profile & Documents Modal (v2)
+   Replaces old driverProfilePanel white-bg design
+═══════════════════════════════════════════════════════════ */
+
+.hgProfileOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  padding: 16px;
+}
+
+.hgProfileModal {
+  width: min(680px, 100%);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #0d1117;
+  border: 1px solid rgba(245, 197, 24, 0.2);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Identity Bar (top) ── */
+.hgProfileHead {
+  background: linear-gradient(135deg, #0d1117 0%, #1a1a2e 100%);
+  padding: 24px 24px 0;
+  border-bottom: 1px solid rgba(245, 197, 24, 0.15);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hgProfileCloseBtn {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.hgProfileCloseBtn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.hgProfileIdentity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.hgProfileAvatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3px solid #f5c518;
+  overflow: visible;
+  background: #2a2a3e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 900;
+  color: #f5c518;
+}
+
+.hgProfileAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.hgProfileAvatarEdit {
+  position: absolute;
+  bottom: -2px;
+  right: -4px;
+  width: 24px;
+  height: 24px;
+  background: #f5c518;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  border: 2px solid #0d1117;
+}
+
+.hgProfileAvatarEdit input { display: none; }
+
+.hgProfileName {
+  flex: 1;
+}
+
+.hgProfileName strong {
+  display: block;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.hgProfileName span {
+  display: block;
+  color: #aaa;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.hgStatusBadge {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 3px 11px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border-width: 1px;
+  border-style: solid;
+}
+
+/* ── Tab Switcher ── */
+.hgProfileTabs {
+  display: flex;
+  gap: 4px;
+}
+
+.hgProfileTabBtn {
+  padding: 10px 26px;
+  border: none;
+  cursor: pointer;
+  border-radius: 10px 10px 0 0;
+  font-weight: 600;
+  font-size: 14px;
+  transition: background 0.18s, color 0.18s;
+  background: transparent;
+  color: #888;
+}
+
+.hgProfileTabBtn.active {
+  background: #f5c518;
+  color: #000;
+}
+
+/* ── Scrollable content ── */
+.hgProfileBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: #0d1117;
+}
+
+/* ── Section heading ── */
+.hgSectionLabel {
+  color: #f5c518;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* ── Field grid ── */
+.hgFieldGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.hgFieldGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.hgFieldGrid label.full { grid-column: 1 / -1; }
+
+.hgFieldLabel {
+  font-size: 11px;
+  color: #aaa;
+  font-weight: 600;
+}
+
+.hgFieldInput,
+.hgFieldSelect,
+.hgFieldTextarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.hgFieldInput:focus,
+.hgFieldSelect:focus,
+.hgFieldTextarea:focus {
+  border-color: #f5c518;
+  box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.12);
+}
+
+.hgFieldInput[readonly] {
+  background: rgba(255, 255, 255, 0.03);
+  color: #666;
+  cursor: not-allowed;
+}
+
+.hgFieldInput.locked {
+  background: rgba(34, 197, 94, 0.07);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #4ade80;
+  cursor: not-allowed;
+}
+
+.hgFieldTextarea { height: 68px; resize: vertical; padding-top: 9px; }
+.hgFieldSelect { height: 42px; }
+
+.hgFieldNote {
+  font-size: 10px;
+  color: #888;
+  line-height: 1.4;
+}
+
+.hgFieldNote.success { color: #4ade80; }
+
+/* ── Commercial checkbox ── */
+.hgCommercialRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+  background: rgba(245, 197, 24, 0.05);
+  border: 1px solid rgba(245, 197, 24, 0.18);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.hgCommercialRow input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #f5c518;
+  flex-shrink: 0;
+}
+
+.hgCommercialRow strong {
+  color: #f5c518;
+  font-size: 14px;
+  display: block;
+}
+
+.hgCommercialRow small {
+  color: #888;
+  font-size: 12px;
+}
+
+/* ── Footer ── */
+.hgProfileFooter {
+  padding: 14px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+.hgBtnCancel {
+  flex: 1;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.hgBtnSave {
+  flex: 2;
+  padding: 12px;
+  background: #f5c518;
+  border: none;
+  border-radius: 10px;
+  color: #000;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.hgBtnSave:disabled { opacity: 0.65; cursor: not-allowed; }
+
+/* ── Document cards ── */
+.hgDocHelp {
+  color: #888;
+  font-size: 11px;
+  margin: 0 0 4px;
+}
+
+.hgDocCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hgDocCard.verified  { background: rgba(34,197,94,0.05);  border-color: rgba(34,197,94,0.22);  }
+.hgDocCard.pending   { background: rgba(245,197,24,0.05); border-color: rgba(245,197,24,0.18); }
+.hgDocCard.rejected  { background: rgba(239,68,68,0.05);  border-color: rgba(239,68,68,0.22);  }
+
+.hgDocIcon { font-size: 22px; flex-shrink: 0; width: 30px; text-align: center; }
+
+.hgDocInfo { flex: 1; min-width: 0; }
+
+.hgDocInfo strong {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  display: block;
+}
+
+.hgDocStatusRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.hgDocStatusDot { font-size: 11px; }
+
+.hgDocStatusText {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hgDocRejection {
+  margin-top: 5px;
+  padding: 4px 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 6px;
+  color: #f87171;
+  font-size: 11px;
+}
+
+.hgDocActions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+
+.hgDocVerifiedBadge {
+  padding: 6px 10px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  color: #4ade80;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hgDocViewBtn {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: #ccc;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.hgDocUploadLabel {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-block;
+  border: 1px solid transparent;
+}
+
+.hgDocUploadLabel.upload {
+  background: #f5c518;
+  color: #000;
+  border-color: #f5c518;
+}
+
+.hgDocUploadLabel.replace {
+  background: rgba(255, 255, 255, 0.07);
+  color: #ccc;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.hgDocUploadLabel.reupload {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.hgDocUploadLabel input { display: none; }
+
+.hgDocUploadLabel[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Close-only footer (docs tab) ── */
+.hgProfileFooterClose {
+  padding: 14px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+@media (max-width: 520px) {
+  .hgFieldGrid { grid-template-columns: 1fr; }
+  .hgProfileTabBtn { padding: 10px 16px; font-size: 13px; }
+  .hgDocCard { flex-wrap: wrap; }
+  .hgDocActions { width: 100%; justify-content: flex-end; }
+}
