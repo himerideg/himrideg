@@ -1,0 +1,23 @@
+HimRideG Final Run Steps
+========================
+
+1) Backend terminal:
+   cd server
+   npm install
+   npm run dev
+
+2) Frontend terminal:
+   cd client
+   npm install
+   npm run dev
+
+3) Chrome:
+   http://localhost:5173
+
+4) Backend health:
+   http://localhost:5001/api/v2/health
+
+Important:
+- server/.env is included for your local setup. Public GitHub par upload karne se pehle secrets rotate/remove karo.
+- Driver Dashboard final dark layout uses left ride-request card, right route map, online toggle, fare negotiation and ride actions.
+- Domain connect karne se pehle client and server production URLs .env files me update karo.

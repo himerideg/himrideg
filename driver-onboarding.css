@@ -1,0 +1,539 @@
+/* ==========================================================================
+   Driver Onboarding — Popup Modal
+   ========================================================================== */
+
+.onbOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.onbModal {
+  width: min(680px, 100%);
+  max-height: 88vh;
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 16px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.7);
+  color: #e5e7eb;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: onbSlideUp 0.28s ease;
+}
+
+.onbModalSmall {
+  width: min(460px, 100%);
+  padding: 34px 30px 28px;
+  text-align: center;
+  display: block;
+  max-height: none;
+}
+
+@keyframes onbSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Small Modal (intro / pending / loading) ---------- */
+
+.onbBigIcon {
+  font-size: 52px;
+  margin-bottom: 12px;
+}
+
+.onbModalSmall h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  color: #ffc400;
+}
+
+.onbModalSmall p {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: #d1d5db;
+  line-height: 1.6;
+}
+
+.onbSubText {
+  font-size: 13px !important;
+  color: #6b7280 !important;
+  margin-top: 14px !important;
+  margin-bottom: 0 !important;
+}
+
+.onbQuickStat {
+  padding: 11px 14px;
+  border-radius: 9px;
+  background: #0f172a;
+  border: 1px solid #1f2937;
+  font-size: 14px;
+  color: #d1d5db;
+  margin-bottom: 18px;
+}
+
+.onbRejectBox {
+  padding: 13px 15px;
+  border-radius: 9px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.32);
+  text-align: left;
+  margin-bottom: 16px;
+}
+
+.onbRejectBox strong {
+  display: block;
+  color: #f87171;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.onbRejectBox p {
+  margin: 0 !important;
+  color: #fca5a5;
+  font-size: 14px;
+}
+
+.onbPrimaryBtn {
+  width: 100%;
+  height: 48px;
+  border: 0;
+  border-radius: 10px;
+  background: #ffc400;
+  color: #111;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.onbPrimaryBtn:hover {
+  opacity: 0.9;
+}
+
+/* ---------- Spinner ---------- */
+
+.onbSpinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #1f2937;
+  border-top-color: #ffc400;
+  border-radius: 50%;
+  animation: onbSpin 0.8s linear infinite;
+  margin: 0 auto 14px;
+}
+
+@keyframes onbSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.onbLoadText {
+  color: #9ca3af;
+  margin: 0 !important;
+}
+
+/* ---------- Modal Header ---------- */
+
+.onbModalHead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  background: #0f172a;
+  border-bottom: 1px solid #1f2937;
+  flex-shrink: 0;
+}
+
+.onbBackBtn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #374151;
+  border-radius: 9px;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 19px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.onbBackBtn:hover {
+  border-color: #ffc400;
+  color: #ffc400;
+}
+
+.onbModalHead small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 1.3px;
+  color: #ffc400;
+  font-weight: 700;
+}
+
+.onbModalHead h2 {
+  margin: 2px 0 0;
+  font-size: 18px;
+  color: #fff;
+}
+
+/* ---------- Modal Body ---------- */
+
+.onbModalBody {
+  padding: 20px 22px 26px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ---------- Progress ---------- */
+
+.onbProgressWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.onbProgressBar {
+  flex: 1;
+  height: 8px;
+  border-radius: 99px;
+  background: #1f2937;
+  overflow: hidden;
+}
+
+.onbProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffc400, #ffdd57);
+  border-radius: 99px;
+  transition: width 0.35s ease;
+}
+
+.onbProgressWrap > span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffc400;
+  flex-shrink: 0;
+}
+
+/* ---------- Notice ---------- */
+
+.onbNotice {
+  padding: 12px 15px;
+  border-radius: 9px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.onbNotice.success {
+  background: rgba(22, 163, 74, 0.16);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.onbNotice.error {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+/* ---------- Sections ---------- */
+
+.onbSection {
+  padding: 18px 0;
+  border-top: 1px solid #1f2937;
+}
+
+.onbSection:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.onbSectionHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  margin-bottom: 15px;
+}
+
+.onbStepBadge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ffc400;
+  color: #111;
+  font-weight: 800;
+  font-size: 14px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.onbSectionHead h3 {
+  margin: 0 0 2px;
+  font-size: 16px;
+  color: #fff;
+}
+
+.onbSectionHead p {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ---------- Commercial Note ---------- */
+
+.onbCommercialNote {
+  padding: 13px 15px;
+  border-radius: 9px;
+  background: rgba(255, 196, 0, 0.09);
+  border: 1px solid rgba(255, 196, 0, 0.26);
+  margin-bottom: 15px;
+}
+
+.onbCommercialNote strong {
+  display: block;
+  color: #ffc400;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.onbCommercialNote p {
+  margin: 0;
+  font-size: 13px;
+  color: #d1d5db;
+  line-height: 1.55;
+}
+
+/* ---------- Documents ---------- */
+
+.onbDocList {
+  display: grid;
+  gap: 9px;
+}
+
+.onbDocItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  background: #0f172a;
+}
+
+.onbDocItem.done {
+  border-color: rgba(74, 222, 128, 0.38);
+  background: rgba(22, 163, 74, 0.07);
+}
+
+.onbDocItem.rejected {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.onbDocIcon {
+  font-size: 23px;
+  flex-shrink: 0;
+}
+
+.onbDocInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.onbDocInfo strong {
+  display: block;
+  font-size: 14px;
+  color: #fff;
+  margin-bottom: 2px;
+}
+
+.onbDocStatus {
+  font-size: 12px;
+}
+
+.onbDocStatus.not_uploaded {
+  color: #6b7280;
+}
+
+.onbDocStatus.pending {
+  color: #fbbf24;
+}
+
+.onbDocStatus.verified {
+  color: #4ade80;
+}
+
+.onbDocStatus.rejected {
+  color: #f87171;
+}
+
+.onbDocReason {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: #fca5a5;
+}
+
+.onbUploadBtn {
+  height: 34px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 7px;
+  background: #ffc400;
+  color: #111;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.onbUploadBtn:disabled {
+  opacity: 0.5;
+}
+
+/* ---------- Fields ---------- */
+
+.onbFieldGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.onbFieldGrid label {
+  display: grid;
+  gap: 6px;
+}
+
+.onbFieldGrid label > span {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.onbFieldGrid .req {
+  color: #f87171;
+}
+
+.onbFieldGrid input,
+.onbFieldGrid select {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 14px;
+  outline: 0;
+  width: 100%;
+}
+
+.onbFieldGrid input:focus,
+.onbFieldGrid select:focus {
+  border-color: #ffc400;
+}
+
+/* ---------- Buttons ---------- */
+
+.onbSaveBtn,
+.onbSubmitBtn {
+  width: 100%;
+  height: 46px;
+  border: 0;
+  border-radius: 9px;
+  background: #ffc400;
+  color: #111;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.onbSaveBtn:disabled,
+.onbSubmitBtn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+/* ---------- Missing Box ---------- */
+
+.onbMissingBox {
+  padding: 13px 15px;
+  border-radius: 9px;
+  background: rgba(251, 191, 36, 0.09);
+  border: 1px solid rgba(251, 191, 36, 0.26);
+  margin-bottom: 15px;
+}
+
+.onbMissingBox strong {
+  display: block;
+  color: #fbbf24;
+  font-size: 13px;
+  margin-bottom: 7px;
+}
+
+.onbMissingBox ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.onbMissingBox li {
+  font-size: 13px;
+  color: #d1d5db;
+  margin-bottom: 4px;
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 640px) {
+  .onbOverlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .onbModal {
+    width: 100%;
+    max-height: 94vh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .onbModalSmall {
+    padding: 28px 22px 24px;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .onbFieldGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .onbModalBody {
+    padding: 18px 16px 24px;
+  }
+
+  .onbModalHead {
+    padding: 15px 16px;
+  }
+
+  .onbDocItem {
+    flex-wrap: wrap;
+  }
+
+  .onbUploadBtn {
+    width: 100%;
+    margin-top: 4px;
+  }
+}

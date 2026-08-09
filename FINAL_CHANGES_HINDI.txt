@@ -1,0 +1,32 @@
+HimRideG Final Driver Dashboard Update
+=====================================
+
+1. Driver Dashboard approved reference layout ke hisaab se:
+   - Dark navbar
+   - Go Online toggle
+   - Left ride request card
+   - Right large route map
+   - Navigate Pickup / Navigate Destination
+   - Fare negotiation panel
+   - Today's Summary
+   - Online status card
+
+2. Fare flow:
+   - Customer booking ke samay final fare decide nahi karta.
+   - Driver ride accept karne ke baad apna fare offer karta hai.
+   - Customer counter offer kar sakta hai.
+   - Driver/customer latest offer accept karte hain.
+   - Final fare lock hone par 10% commission aur driver payable calculate hota hai.
+   - Final fare lock hone se pehle Go to Pickup disabled rahega.
+
+3. My Rides:
+   - Dashboard par permanent list nahi.
+   - Navbar My Rides click karne par khulti hai.
+
+4. Verification:
+   - Server JavaScript syntax checks pass.
+   - Frontend build container registry dependency problem ki wajah se run nahi ho saka.
+   - Local Windows par client aur server me npm install karke test karein.
+
+IMPORTANT SECURITY:
+Domain/live launch se pehle MongoDB password, JWT secrets aur Razorpay keys rotate/change karein.

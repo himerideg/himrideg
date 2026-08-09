@@ -1,0 +1,228 @@
+/* ==========================================================================
+   Fare Negotiation UI — HimRideG
+   CustomerDashboard mein import karo:
+   import "../fare-negotiation.css";
+   ========================================================================== */
+
+/* Fare Locked */
+.fareLockedBox {
+  background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(16,185,129,0.1));
+  border: 1.5px solid rgba(34,197,94,0.4);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.fareLockedIcon {
+  font-size: 24px;
+}
+
+.fareLockedBox small {
+  display: block;
+  color: #86efac;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.fareLockedBox strong {
+  color: #22c55e;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+/* Fare Negotiation Box */
+.fareNegotiateBox {
+  background: rgba(251,191,36,0.08);
+  border: 1.5px solid rgba(251,191,36,0.3);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin: 12px 0;
+}
+
+.fareOfferHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.fareOfferHeader span {
+  color: #d1d5db;
+  font-size: 13px;
+}
+
+.fareOfferHeader strong {
+  color: #fbbf24;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+/* Fare Actions */
+.fareActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fareBtn {
+  flex: 1;
+  min-width: 80px;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fareAccept {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+}
+
+.fareAccept:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34,197,94,0.3);
+}
+
+.fareCounter {
+  background: rgba(251,191,36,0.15);
+  border: 1px solid rgba(251,191,36,0.4) !important;
+  color: #fbbf24;
+}
+
+.fareCounter:hover {
+  background: rgba(251,191,36,0.25);
+}
+
+.fareReject {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3) !important;
+  color: #f87171;
+}
+
+.fareReject:hover {
+  background: rgba(239,68,68,0.2);
+}
+
+.fareBtnCancel {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  color: #9ca3af;
+}
+
+/* Counter Input */
+.fareCounterInput {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fareCounterInput input {
+  width: 100%;
+  background: rgba(0,0,0,0.3);
+  border: 1.5px solid rgba(251,191,36,0.4);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #fff;
+  font-size: 16px;
+  outline: none;
+}
+
+.fareCounterInput input:focus {
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 3px rgba(251,191,36,0.1);
+}
+
+.fareCounterInput input::placeholder {
+  color: #6b7280;
+}
+
+.fareCounterActions {
+  display: flex;
+  gap: 8px;
+}
+
+.fareCounterSend {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #000;
+}
+
+.fareCounterSend:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(251,191,36,0.4);
+}
+
+/* Warning */
+.fareWarning {
+  display: block;
+  color: #f87171;
+  font-size: 11px;
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* Wait Box */
+.fareWaitBox {
+  background: rgba(59,130,246,0.1);
+  border: 1.5px solid rgba(59,130,246,0.3);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.fareWaitIcon {
+  font-size: 24px;
+  animation: pulse 1.5s ease infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.fareWaitBox small {
+  display: block;
+  color: #93c5fd;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fareWaitBox strong {
+  color: #60a5fa;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.fareWaitBox p {
+  color: #9ca3af;
+  font-size: 12px;
+  margin: 2px 0 0;
+}
+
+/* Driver Live Tag */
+.driverLiveTag strong {
+  color: #3b82f6;
+  animation: blink 1.5s ease infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Fare Highlight in Map Summary */
+.fareHighlight {
+  color: #fbbf24 !important;
+  font-size: 18px !important;
+}

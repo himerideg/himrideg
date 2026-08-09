@@ -1,0 +1,25 @@
+HimRideG Final Review - 07 August 2026
+
+Is package me kiye gaye focused changes:
+1. Driver Dashboard ka unreachable duplicate/legacy render block remove kiya.
+2. Dashboard default view alag rakha; My Rides navbar click par hi bottom rides section khulta hai.
+3. Go Online ko proper visual toggle banaya; existing API action wahi rakha.
+4. Driver map se upar ke ETA/time cards remove kiye.
+5. Map ke neeche duplicate Pickup/Destination panel remove kiya.
+6. Map compact square (1:1) aur right-aligned desktop layout me kiya.
+7. Existing fare negotiation implementation ko preserve kiya; 1204-line fareController ko replace nahi kiya.
+8. Admin warning endpoint compatibility route add kiya.
+9. Fare routes app me register hain ya ensure kiye gaye.
+10. Server JavaScript syntax checks pass hue.
+
+Launch se pehle manually test karna zaroori:
+- Customer booking -> driver request -> accept -> fare offer -> counter -> accept.
+- Driver online/offline toggle and mobile location permission.
+- OTP verify, start, complete ride.
+- Razorpay test payment and signature verification.
+- Admin approve/reject/block/warning.
+- Cash platform due and due-limit blocking.
+- Production CLIENT_URL, API URL, Socket URL, MongoDB and Razorpay environment variables.
+
+Build note:
+Uploaded node_modules Windows platform ka hai. Linux container me Rollup optional native package missing tha, isliye frontend production build yahan complete nahi ho saka. Clean machine par client folder me npm install/npm ci karke npm run build chalana hoga.

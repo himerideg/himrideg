@@ -1,0 +1,101 @@
+HimRideG — SOFT LAUNCH DEPLOYMENT GUIDE
+=========================================
+
+TARGET SETUP
+------------
+Frontend : https://himrideg.com
+Backend  : https://api.himrideg.com
+Database : MongoDB Atlas
+Frontend Hosting : Vercel
+Backend Hosting  : Render
+DNS Provider     : Bluehost
+
+IMPORTANT
+---------
+1. Is deploy package me actual .env files aur purane driver documents intentionally include nahi kiye gaye hain.
+2. Production secrets Render/Vercel dashboard ke Environment Variables me hi dalne hain.
+3. Driver documents/profile photos local disk par save hote hain. Production me persistent storage required hai. Code UPLOAD_ROOT support ke saath ready hai.
+4. Render par persistent disk mount path: /var/data/himrideg-uploads
+5. Soft launch ke liye Razorpay TEST keys use kar sakte ho. Public paid launch se pehle LIVE keys + webhook/payment flow final test karna hai.
+
+A. BACKEND — RENDER
+-------------------
+Repo/Project Root : HimRideG-v2
+Root Directory    : server
+Build Command     : npm ci
+Start Command     : npm start
+Health Check      : /api/v2/health
+
+Environment variables:
+NODE_ENV=production
+MONGODB_URI=<Atlas URI>
+JWT_ACCESS_SECRET=<long random secret>
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_SECRET=<different long random secret>
+JWT_REFRESH_EXPIRES_IN=7d
+CLIENT_URL=https://himrideg.com,https://www.himrideg.com
+COOKIE_SECURE=true
+COOKIE_SAME_SITE=lax
+UPLOAD_ROOT=/var/data/himrideg-uploads
+RAZORPAY_KEY_ID=<test/live key id>
+RAZORPAY_KEY_SECRET=<matching secret>
+FAST2SMS_API_KEY=<key>
+SMS_ENABLED=false   (soft test; real OTP ready ho tab true)
+
+Persistent disk:
+Mount Path : /var/data/himrideg-uploads
+Size       : start with 1 GB
+
+Deploy hone ke baad health URL test:
+https://<your-render-service>.onrender.com/api/v2/health
+
+Render Custom Domain:
+api.himrideg.com
+Render dashboard jo exact CNAME target de, wahi Bluehost DNS me add karna hai.
+
+B. FRONTEND — VERCEL
+--------------------
+Root Directory : client
+Framework      : Vite
+Build Command  : npm run build
+Output         : dist
+
+Environment variables:
+VITE_API_URL=https://api.himrideg.com/api/v2
+VITE_SOCKET_URL=https://api.himrideg.com
+
+Custom domains:
+himrideg.com
+www.himrideg.com
+
+Vercel dashboard jo exact DNS records maange, Bluehost DNS me wahi set karna hai. Existing Bluehost under-construction A records tab tak mat badalna jab tak Vercel/Render exact values na de dein.
+
+C. FINAL SOFT-LAUNCH TEST
+-------------------------
+1. https://himrideg.com open
+2. Customer OTP login
+3. Driver OTP login
+4. Driver onboarding + documents
+5. Admin login + document review
+6. Driver online
+7. Customer booking
+8. Driver ride receive
+9. Fare lock
+10. Ride lifecycle
+11. Razorpay TEST payment
+12. Socket notifications
+13. Driver/customer/admin refresh ke baad data consistency
+14. Phone/mobile network se test
+
+KNOWN ITEMS BEFORE FULL PUBLIC COMMERCIAL LAUNCH
+------------------------------------------------
+- Final Pay Now / Pay Later flow ko agreed specification ke exact hisaab se end-to-end test karna hai.
+- Razorpay webhook-based server confirmation add/finalize karna recommended hai before real-money launch.
+- Driver wallet/commission/automatic payout design abhi final business decision pending hai.
+- Production Razorpay keys, payout setup and legal/commercial checks complete karne hain.
+
+SECURITY
+--------
+- .env GitHub/Vercel/Render source me commit/upload mat karna.
+- Production launch se pehle payment/SMS/JWT secrets rotate karo.
+- Driver documents ko public URL par expose mat karo; admin/driver authenticated routes se hi access rakho.

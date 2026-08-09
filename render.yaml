@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: himrideg-api
+    runtime: node
+    plan: starter
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/v2/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_URL
+        value: https://himrideg.com,https://www.himrideg.com
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAME_SITE
+        value: lax
+      - key: UPLOAD_ROOT
+        value: /var/data/himrideg-uploads
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: FAST2SMS_API_KEY
+        sync: false
+      - key: SMS_ENABLED
+        value: "false"
+    disk:
+      name: himrideg-uploads
+      mountPath: /var/data/himrideg-uploads
+      sizeGB: 1
