@@ -60,8 +60,8 @@ function sendFast2SMS(phone, otp) {
     const message = `${otp} is your HimRideG OTP. Valid for 10 minutes. Do not share with anyone.`;
 
     const postData = JSON.stringify({
-      route: "otp",
-      variables_values: String(otp),
+      route: "q",
+      message: message,
       numbers: cleanPhone,
       flash: 0
     });
