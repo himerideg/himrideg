@@ -558,6 +558,16 @@ function CustomerDashboard({
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
 
+  /*
+  |--------------------------------------------------------------------------
+  | Customer Wallet
+  |--------------------------------------------------------------------------
+  | User model me wallet already available hai. Customer dashboard par sirf
+  | customer-useful balance dikhaya ja raha hai; driver commission fields ko
+  | intentionally expose nahi kiya gaya.
+  */
+  const customerWalletBalance = Number(user?.wallet?.balance || 0);
+
   // Payment states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentBooking, setPaymentBooking] = useState(null);
@@ -1189,6 +1199,38 @@ function CustomerDashboard({
       ?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const scrollToWallet = () => {
+    document
+      .getElementById("customer-wallet")
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Book Ride -> Back To Main Dashboard
+  |--------------------------------------------------------------------------
+  | Parent createBooking success par ride object/true return karta hai. Sirf
+  | successful booking par modal close hota hai; validation/API error par form
+  | wahi khula rehta hai taaki customer details correct kar sake.
+  */
+  const createBookingAndReturnToDashboard = async (event) => {
+    const result = await createBooking(event);
+
+    if (!result) {
+      return;
+    }
+
+    setBookOpen(false);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
   /* ──────────────────────────────────────────────────────────────────
      Render
   ────────────────────────────────────────────────────────────────── */
@@ -1212,6 +1254,7 @@ function CustomerDashboard({
           </button>
           <button onClick={() => scrollToRides("active")}>My Rides</button>
           <button onClick={openBookRide}>Bookings</button>
+          <button onClick={scrollToWallet}>Wallet</button>
           <button onClick={() => setProfileOpen(true)}>Profile</button>
           <button onClick={() => window.alert("Support: HimRideG team se contact karein")}>
             Support
@@ -1252,7 +1295,29 @@ function CustomerDashboard({
               Namaste, <span>{profile.name}</span>
             </h1>
             <p>Aapki ride, aapke apne pahadon mein.</p>
-            <button onClick={openBookRide}>🚕 &nbsp; Book New Ride</button>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                flexWrap: "wrap",
+                alignItems: "center",
+              }}
+            >
+              <button onClick={openBookRide}>🚕 &nbsp; Book New Ride</button>
+
+              <button
+                type="button"
+                onClick={scrollToWallet}
+                style={{
+                  background: "#ffffff",
+                  color: "#111318",
+                  border: "1px solid #ffc400",
+                }}
+              >
+                💰 Wallet ₹{money(customerWalletBalance)}
+              </button>
+            </div>
           </div>
           <div className="cvMountains" aria-hidden="true" />
         </section>
@@ -1503,6 +1568,65 @@ function CustomerDashboard({
           </aside>
         </section>
 
+        <section
+          id="customer-wallet"
+          style={{
+            marginTop: 20,
+            padding: "22px 26px",
+            display: "grid",
+            gridTemplateColumns: "minmax(220px, 0.7fr) minmax(280px, 1.3fr)",
+            gap: 18,
+            alignItems: "stretch",
+            background: "#ffffff",
+            color: "#111318",
+            border: "1px solid #dfe3e8",
+            borderRadius: 13,
+            boxShadow: "0 14px 35px rgba(0,0,0,.22)",
+          }}
+        >
+          <div
+            style={{
+              padding: 20,
+              borderRadius: 12,
+              background: "linear-gradient(135deg, #ffc400, #ffe889)",
+              color: "#111318",
+            }}
+          >
+            <small style={{ fontWeight: 800 }}>HimRideG Customer Wallet</small>
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: "clamp(30px, 4vw, 46px)",
+                fontWeight: 950,
+                lineHeight: 1,
+              }}
+            >
+              ₹{money(customerWalletBalance)}
+            </div>
+            <p style={{ margin: "9px 0 0", fontSize: 13 }}>Available balance</p>
+          </div>
+
+          <div
+            style={{
+              padding: "4px 2px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+            }}
+          >
+            <h2 style={{ margin: "0 0 8px" }}>Wallet</h2>
+            <p style={{ margin: 0, color: "#6b7280", lineHeight: 1.6 }}>
+              Aapka HimRideG wallet balance yahan hamesha visible rahega. Ride
+              refund ya wallet credit aane par updated balance isi section me
+              dikhega.
+            </p>
+            <small style={{ marginTop: 12, color: "#9ca3af" }}>
+              Wallet se related driver commission details customer ko show nahi
+              ki jaati.
+            </small>
+          </div>
+        </section>
+
         <section className="cvMyRides" id="customer-rides">
           <header>
             <div>
@@ -1628,7 +1752,7 @@ function CustomerDashboard({
         setBooking={setBooking}
         mapData={mapData}
         setMapData={setMapData}
-        createBooking={createBooking}
+        createBooking={createBookingAndReturnToDashboard}
         activeRide={activeRide}
         driverLocation={driverLocation}
       />

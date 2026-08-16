@@ -2259,6 +2259,27 @@ function App() {
         );
 
         await loadBookings();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Booking Success -> Customer Main Dashboard
+        |--------------------------------------------------------------------------
+        |
+        | Ride successfully create hone ke baad hamesha customer ko main
+        | dashboard par rakho. Return value CustomerDashboard ko batata hai ki
+        | booking successful hui, taaki booking modal turant close ho sake.
+        |
+        */
+        setPage(
+          "dashboard"
+        );
+
+        return (
+          createdRide ||
+          {
+            success: true
+          }
+        );
       } catch (error) {
         notify(
           getErrorMessage(
@@ -2266,6 +2287,8 @@ function App() {
             "Ride book nahi hui"
           )
         );
+
+        return null;
       }
     };
 
