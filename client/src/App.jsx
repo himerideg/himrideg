@@ -2651,6 +2651,9 @@ function App() {
           updateBooking={
             updateBooking
           }
+          onUserUpdate={
+            setUser
+          }
           logout={
             logout
           }

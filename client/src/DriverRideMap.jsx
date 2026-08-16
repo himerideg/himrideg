@@ -18,6 +18,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./driver-ride-map.css";
 
+import { getRoadRoute } from "./locationService";
+
 const DEFAULT_CENTER = [32.1109, 76.5363];
 
 const pickupIcon = L.divIcon({
@@ -310,6 +312,75 @@ async function fetchRoadRoute(
     endLongitude,
   ] = end;
 
+  /*
+  |--------------------------------------------------------------------------
+  | Production Route — HimRideG Map API / Geoapify
+  |--------------------------------------------------------------------------
+  |
+  | Public OSRM code fallback ke liye preserve hai, lekin production route
+  | HimRideG backend ke managed /maps/route endpoint se aata hai.
+  |
+  */
+
+  try {
+    const managedRoute = await getRoadRoute(
+      {
+        latitude: startLatitude,
+        longitude: startLongitude,
+      },
+      {
+        latitude: endLatitude,
+        longitude: endLongitude,
+      },
+      {
+        signal,
+      }
+    );
+
+    if (
+      Array.isArray(managedRoute?.coordinates) &&
+      managedRoute.coordinates.length >= 2
+    ) {
+      return {
+        positions: managedRoute.coordinates.map((point) => {
+          if (Array.isArray(point)) {
+            return [Number(point[0]), Number(point[1])];
+          }
+
+          return [
+            Number(point.latitude ?? point.lat),
+            Number(point.longitude ?? point.lng ?? point.lon),
+          ];
+        }).filter((point) =>
+          Number.isFinite(point[0]) &&
+          Number.isFinite(point[1])
+        ),
+        distanceKm: Number(managedRoute.distanceKm || 0),
+        durationSeconds: Number(managedRoute.durationMinutes || 0) * 60,
+        provider: managedRoute.provider || "geoapify",
+      };
+    }
+  } catch (managedError) {
+    if (signal?.aborted) {
+      throw managedError;
+    }
+
+    console.warn(
+      "Managed road route unavailable, development fallback try hoga:",
+      managedError?.message || managedError
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Legacy OSRM Fallback
+  |--------------------------------------------------------------------------
+  |
+  | Existing code delete nahi kiya gaya. Production me managed route fail ho
+  | to visual continuity ke liye fallback available hai.
+  |
+  */
+
   const routeUrl =
     "https://router.project-osrm.org/route/v1/driving/" +
     `${startLongitude},${startLatitude};` +
@@ -359,6 +430,8 @@ async function fetchRoadRoute(
 
     durationSeconds:
       Number(route.duration || 0),
+
+    provider: "osrm-fallback",
   };
 }
 

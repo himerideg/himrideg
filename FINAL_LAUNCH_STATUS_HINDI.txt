@@ -1,0 +1,47 @@
+HimRideG WEBSITE — FINAL LAUNCH PATCH STATUS
+Date: 2026-08-16
+
+FINAL REQUIREMENTS INCLUDED
+---------------------------
+1. Existing canonical client/server code preserve kiya gaya; changed existing canonical files ko line-count me chhota nahi kiya gaya.
+2. Customer Book / Book Ride action booking page kholta hai.
+3. My Location: high-accuracy GPS -> map center -> pickup marker -> reverse address -> Pickup auto-fill.
+4. Geoapify-backed autocomplete/reverse/routing backend endpoints.
+5. Road route, distance/time and improved map fitting/tracking.
+6. Driver incoming requests compact list me; tap/open ke baad hi Accept/Reject.
+7. Driver accepts ride -> initial fare offer.
+8. Customer counter fare.
+9. Driver FINAL fare.
+10. Customer dashboard FINAL fare par exactly Accept / Reject.
+11. Customer Accept par hi final fare lock.
+12. Customer Reject par current driver release + booking re-dispatch.
+13. Accepted/unconfirmed ride par Driver Cancel/Release option; driver free/available hota hai aur booking re-dispatch hoti hai.
+14. Ride start final fare lock se gated; Pay Now booking me payment requirement respected.
+15. Razorpay webhook raw-body route added.
+16. Payment ownership / assigned-driver cash confirmation hardening.
+17. Cash commission idempotent wallet settlement.
+18. Online driver share Razorpay Route linked account transfer support.
+19. Wallet ledger + withdrawal records + admin withdrawal management.
+20. OTP/admin/payment rate limiting and production env validation patterns.
+21. Admin env-only bootstrap; hard-coded production password removed from canonical server path.
+22. SEO robots/sitemap/hero asset/.gitignore/canonical-source notice.
+
+TESTS RUN BEFORE ZIP
+--------------------
+- Server JS syntax: 59/59 PASS
+- Client JS/JSX parser: 23/23 PASS
+- Launch contract checks: 27/27 PASS
+- Changed canonical files: 32
+- Changed canonical files with fewer lines than original: 0
+- Secret-pattern scan in package: PASS (no real Razorpay/MongoDB/Geoapify secrets embedded)
+- Full Vite build: not executed because sandbox client dependencies are not fully installed (vite binary unavailable). Source parser checks passed; deploy environment must run npm ci && npm run build.
+
+AFTER DEPLOY
+------------
+1. Razorpay webhook create:
+   https://api.himrideg.com/api/v2/payments/webhook
+   Secret = Render RAZORPAY_WEBHOOK_SECRET exact same value
+   Events = payment.captured, payment.failed
+2. Driver automatic bank transfer ke liye har approved driver ka Razorpay Route linked account ID admin dashboard me map karein.
+3. Real device/browser E2E test:
+   customer booking -> driver list -> accept -> initial fare -> customer counter -> driver final fare -> customer accept/reject -> ride start -> complete -> online/cash payment -> settlement.

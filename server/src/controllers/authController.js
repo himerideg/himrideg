@@ -448,12 +448,20 @@ const sendCustomerOtp =
         .NODE_ENV ===
         "production"
     ) {
-      console.warn(
+      console.error(
         `[Auth] SMS delivery failed for ${phone}: ${
           smsResult.error ||
           "disabled"
         }`
       );
+
+      return res
+        .status(503)
+        .json({
+          success: false,
+          message:
+            "OTP SMS deliver nahi ho saki. Thodi der baad dobara try karein."
+        });
     }
 
     /*

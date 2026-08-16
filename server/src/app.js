@@ -20,6 +20,10 @@ const adminRoutes = require("./routes/adminRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const fareRoutes = require("./routes/fareRoutes");
 
+const mapRoutes = require("./routes/mapRoutes");
+const walletRoutes = require("./routes/walletRoutes");
+const launchPaymentController = require("./controllers/launchPaymentController");
+
 const notFound = require("./middlewares/notFound");
 const errorHandler = require("./middlewares/errorHandler");
 
@@ -168,6 +172,21 @@ app.use(cors(corsOptions));
 
 /*
 |--------------------------------------------------------------------------
+| Razorpay Webhook — RAW BODY MUST COME BEFORE express.json()
+|--------------------------------------------------------------------------
+|
+| Razorpay webhook signature raw request body se verify hoti hai. Isliye
+| is route ko JSON body parser se pehle mount kiya gaya hai.
+|
+*/
+app.post(
+  "/api/v2/payments/webhook",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  launchPaymentController.razorpayWebhook
+);
+
+/*
+|--------------------------------------------------------------------------
 | Middleware
 |--------------------------------------------------------------------------
 */
@@ -223,9 +242,33 @@ if (process.env.NODE_ENV !== "test") {
 
 /*
 |--------------------------------------------------------------------------
-| Health Check
+| Root Probe + Health Check
 |--------------------------------------------------------------------------
+|
+| Render, uptime monitors and browser probes often request / or HEAD /.
+| Keep the versioned health endpoint below and add a lightweight root probe
+| so a healthy backend does not look like a 404 to infrastructure checks.
+|
 */
+
+app.get(
+  "/",
+  (req, res) => {
+    return res.status(200).json({
+      success: true,
+      service: "HimRideG API",
+      health: "/api/v2/health",
+      timestamp: new Date().toISOString()
+    });
+  }
+);
+
+app.head(
+  "/",
+  (req, res) => {
+    return res.sendStatus(200);
+  }
+);
 
 app.get(
   "/api/v2/health",
@@ -257,6 +300,16 @@ app.get(
 app.use(
   "/api/v2/auth",
   authRoutes
+);
+
+app.use(
+  "/api/v2/maps",
+  mapRoutes
+);
+
+app.use(
+  "/api/v2/wallet",
+  walletRoutes
 );
 
 app.use(

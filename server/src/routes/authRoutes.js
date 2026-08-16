@@ -19,6 +19,11 @@ const {
 
 const User = require("../models/User");
 
+const {
+  otpLimiter,
+  loginLimiter
+} = require("../middlewares/rateLimits");
+
 const router = express.Router();
 
 /*
@@ -70,11 +75,13 @@ router.get("/stats", async (req, res) => {
 
 router.post(
   "/customer/send-otp",
+  otpLimiter,
   sendCustomerOtp
 );
 
 router.post(
   "/customer/verify-otp",
+  loginLimiter,
   verifyCustomerOtp
 );
 
@@ -116,11 +123,13 @@ router.patch(
 
 router.post(
   "/driver/send-otp",
+  otpLimiter,
   sendDriverOtp
 );
 
 router.post(
   "/driver/verify-otp",
+  loginLimiter,
   verifyDriverOtp
 );
 

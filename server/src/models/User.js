@@ -292,6 +292,34 @@ const walletSchema =
         type: Number,
         min: 0,
         default: 0
+      },
+
+      /*
+      |--------------------------------------------------------------------------
+      | Launch V3 Cash Commission
+      |--------------------------------------------------------------------------
+      |
+      | Cash ride me customer full fare driver ko deta hai.
+      | Company commission wallet balance se deduct hota hai.
+      | Agar balance kam ho to shortfall commissionDue me track hota hai.
+      |
+      */
+      commissionDue: {
+        type: Number,
+        min: 0,
+        default: 0
+      },
+
+      totalCommissionPaid: {
+        type: Number,
+        min: 0,
+        default: 0
+      },
+
+      totalOnlineTransferred: {
+        type: Number,
+        min: 0,
+        default: 0
       }
     },
     {
@@ -469,6 +497,45 @@ const driverProfileSchema =
         default: () => ({})
       },
 
+      /*
+      |--------------------------------------------------------------------------
+      | Razorpay Route Linked Account
+      |--------------------------------------------------------------------------
+      |
+      | Online ride payment ka driver share automatically linked account
+      | ko transfer karne ke liye.
+      |
+      */
+      razorpayLinkedAccountId: {
+        type: String,
+        trim: true,
+        default: "",
+        index: true
+      },
+
+      razorpayRouteStatus: {
+        type: String,
+        enum: [
+          "not_created",
+          "pending",
+          "active",
+          "failed"
+        ],
+        default: "not_created"
+      },
+
+      razorpayRouteLastError: {
+        type: String,
+        trim: true,
+        maxlength: 1000,
+        default: ""
+      },
+
+      razorpayRouteUpdatedAt: {
+        type: Date,
+        default: null
+      },
+
       approvalStatus: {
         type: String,
         enum: [
@@ -479,13 +546,13 @@ const driverProfileSchema =
           "suspended"
         ],
         default: "not_submitted",
-        index: true
+        index: false
       },
 
       isApproved: {
         type: Boolean,
         default: false,
-        index: true
+        index: false
       },
 
       rejectionReason: {

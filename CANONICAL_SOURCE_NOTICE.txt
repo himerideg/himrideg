@@ -1,0 +1,14 @@
+HimRideG WEBSITE — CANONICAL SOURCE NOTICE
+
+The deployable website source is:
+  client/   -> Vite/React frontend
+  server/   -> Node/Express backend
+
+This archive also preserves older/root duplicate source files because the project owner requested that existing code must not be deleted. Do not deploy or edit the duplicate root copies. All launch fixes in this package are applied to client/ and server/.
+
+Frontend production API base:
+  https://api.himrideg.com/api/v2
+Backend health:
+  https://api.himrideg.com/api/v2/health
+
+Never commit .env files or secrets.

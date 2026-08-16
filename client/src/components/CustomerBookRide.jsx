@@ -6,6 +6,12 @@ import React, {
 
 import RideMap from "../RideMap";
 
+import {
+  searchLocations,
+  getHighAccuracyBrowserLocation,
+  reverseLocation
+} from "../locationService";
+
 import "../customer-book-ride.css";
 
 const money = (value) =>
@@ -22,6 +28,9 @@ function LocationSearchField({
   placeholder,
   onChange,
   onCoordinateSelect,
+  onMyLocation,
+  myLocationBusy = false,
+  locationMessage = "",
 }) {
   const [
     focused,
@@ -49,7 +58,7 @@ function LocationSearchField({
 
     if (
       !focused ||
-      query.length < 1
+      query.length < 2
     ) {
       setSuggestions([]);
       setLoading(false);
@@ -71,41 +80,15 @@ function LocationSearchField({
           setLoading(true);
 
           try {
-            const url =
-              "https://nominatim.openstreetmap.org/search" +
-              "?format=jsonv2" +
-              "&addressdetails=1" +
-              "&limit=7" +
-              "&countrycodes=in" +
-              "&accept-language=en" +
-              `&q=${encodeURIComponent(
-                query
-              )}`;
-
-            const response =
-              await fetch(
-                url,
+            const result =
+              await searchLocations(
+                query,
                 {
                   signal:
                     controller.signal,
-
-                  headers: {
-                    Accept:
-                      "application/json",
-                  },
+                  limit: 7,
                 }
               );
-
-            if (
-              !response.ok
-            ) {
-              throw new Error(
-                "Location search failed"
-              );
-            }
-
-            const result =
-              await response.json();
 
             setSuggestions(
               Array.isArray(
@@ -159,17 +142,21 @@ function LocationSearchField({
     item
   ) => {
     const address =
+      item?.address ||
       item?.display_name ||
       "";
 
     const latitude =
       Number(
+        item?.latitude ??
         item?.lat
       );
 
     const longitude =
       Number(
-        item?.lon
+        item?.longitude ??
+        item?.lon ??
+        item?.lng
       );
 
     onChange(address);
@@ -273,11 +260,32 @@ function LocationSearchField({
         />
       </div>
 
+      {type === "pickup" && onMyLocation && (
+        <>
+          <button
+            type="button"
+            className="cbrMyLocationButton"
+            onClick={onMyLocation}
+            disabled={myLocationBusy}
+          >
+            {myLocationBusy
+              ? "◎ Getting My Location…"
+              : "◎ My Location"}
+          </button>
+
+          {locationMessage && (
+            <small className="cbrLocationMessage">
+              {locationMessage}
+            </small>
+          )}
+        </>
+      )}
+
       {focused &&
         String(
           value || ""
-        ).trim().length >
-          0 && (
+        ).trim().length >=
+          2 && (
           <div className="cbrSuggestions">
             {loading && (
               <p>
@@ -293,7 +301,8 @@ function LocationSearchField({
                   <button
                     type="button"
                     key={
-                      item.place_id
+                      item.id ||
+                      `${item.latitude}_${item.longitude}`
                     }
                     onMouseDown={(
                       event
@@ -312,14 +321,17 @@ function LocationSearchField({
 
                     <span>
                       <strong>
-                        {item.name ||
-                          item.display_name.split(
+                        {item.shortName ||
+                          item.name ||
+                          item.address?.split(
                             ","
-                          )[0]}
+                          )[0] ||
+                          "Location"}
                       </strong>
 
                       <small>
                         {
+                          item.address ||
                           item.display_name
                         }
                       </small>
@@ -354,6 +366,16 @@ function CustomerBookRide({
   activeRide,
   driverLocation,
 }) {
+  const [
+    myLocationBusy,
+    setMyLocationBusy,
+  ] = useState(false);
+
+  const [
+    locationMessage,
+    setLocationMessage,
+  ] = useState("");
+
   if (!open) {
     return null;
   }
@@ -394,6 +416,62 @@ function CustomerBookRide({
       })
     );
   };
+
+  const useMyLocation =
+    async () => {
+      setMyLocationBusy(true);
+      setLocationMessage(
+        "High-accuracy GPS location li ja rahi hai…"
+      );
+
+      try {
+        const point =
+          await getHighAccuracyBrowserLocation({
+            targetAccuracy: 30,
+            maxWaitMs: 9000,
+          });
+
+        const location =
+          await reverseLocation(
+            point.latitude,
+            point.longitude
+          );
+
+        const address =
+          location?.address ||
+          `${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}`;
+
+        changeBooking({
+          pickup:
+            address,
+        });
+
+        setMapData(
+          (current) => ({
+            ...current,
+            pickup: [
+              point.latitude,
+              point.longitude,
+            ],
+            pickupAccuracy:
+              point.accuracy,
+          })
+        );
+
+        setLocationMessage(
+          `My Location set • GPS ±${Math.round(
+            point.accuracy
+          )}m`
+        );
+      } catch (error) {
+        setLocationMessage(
+          error.message ||
+          "My Location nahi mil saki"
+        );
+      } finally {
+        setMyLocationBusy(false);
+      }
+    };
 
   const handleSubmit = (
     event
@@ -482,6 +560,15 @@ function CustomerBookRide({
                   })
                 );
               }}
+              onMyLocation={
+                useMyLocation
+              }
+              myLocationBusy={
+                myLocationBusy
+              }
+              locationMessage={
+                locationMessage
+              }
             />
 
             <LocationSearchField
@@ -668,6 +755,56 @@ function CustomerBookRide({
               </label>
             </div>
 
+            <div className="cvPaymentTiming">
+              <span>
+                Payment Option
+              </span>
+
+              <div>
+                <button
+                  type="button"
+                  className={
+                    (booking.paymentTiming || "pay_later") ===
+                    "pay_later"
+                      ? "active"
+                      : ""
+                  }
+                  onClick={() => {
+                    changeBooking({
+                      paymentTiming:
+                        "pay_later",
+                    });
+                  }}
+                >
+                  Pay Later
+                  <small>
+                    Ride complete hone ke baad Online / Cash
+                  </small>
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    booking.paymentTiming ===
+                    "pay_now"
+                      ? "active"
+                      : ""
+                  }
+                  onClick={() => {
+                    changeBooking({
+                      paymentTiming:
+                        "pay_now",
+                    });
+                  }}
+                >
+                  Pay Now
+                  <small>
+                    Final fare lock hote hi Online only
+                  </small>
+                </button>
+              </div>
+            </div>
+
             <label>
               Note
 
@@ -702,13 +839,25 @@ function CustomerBookRide({
               </span>
 
               <span>
-                Estimated Fare
+                Est. Time
 
                 <strong>
-                  ₹
-                  {money(
-                    mapData.estimatedFare
-                  )}
+                  {mapData.duration
+                    ? `${Math.max(
+                        1,
+                        Math.round(
+                          mapData.duration
+                        )
+                      )} min`
+                    : "—"}
+                </strong>
+              </span>
+
+              <span>
+                Fare
+
+                <strong>
+                  Driver offer karega
                 </strong>
               </span>
             </div>

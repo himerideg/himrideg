@@ -123,6 +123,7 @@ async function createRide(
       fare,
       estimatedFare,
       paymentMethod,
+      paymentTiming,
       note
     } = req.body;
 
@@ -178,6 +179,9 @@ async function createRide(
 
         paymentMethod:
           paymentMethod || "cash",
+
+        paymentTiming:
+          paymentTiming || "pay_later",
 
         note:
           typeof note === "string"

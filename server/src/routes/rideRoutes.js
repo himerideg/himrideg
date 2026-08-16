@@ -226,6 +226,28 @@ router.post(
 
 /*
 |--------------------------------------------------------------------------
+| Driver Release Accepted / Unconfirmed Ride
+|--------------------------------------------------------------------------
+|
+| Customer response na de ya final fare lock na ho to booking cancel nahi
+| hoti. Driver release hota hai aur booking dobara dispatch hoti hai.
+|
+*/
+
+router.patch(
+  "/:bookingId/driver-release",
+  driverRideFeedController
+    .releaseAcceptedRide
+);
+
+router.post(
+  "/:bookingId/driver-release",
+  driverRideFeedController
+    .releaseAcceptedRide
+);
+
+/*
+|--------------------------------------------------------------------------
 | Driver Arrival
 |--------------------------------------------------------------------------
 */

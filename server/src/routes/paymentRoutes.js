@@ -1,13 +1,25 @@
 const express = require("express");
 const router = express.Router();
 
+/*
+|--------------------------------------------------------------------------
+| Legacy Payment Controller
+|--------------------------------------------------------------------------
+|
+| Purana controller code preserve hai. Launch routes neeche hardened
+| controller use karte hain.
+|
+*/
+const legacyPaymentController = require("../controllers/paymentController");
+
 const {
   createPaymentOrder,
   verifyPayment,
   getPaymentStatus,
   confirmCashPayment,
-  getPaymentReceipt
-} = require("../controllers/paymentController");
+  getPaymentReceipt,
+  retrySettlement
+} = require("../controllers/launchPaymentController");
 
 const { protect } = require("../middlewares/auth");
 
@@ -36,6 +48,13 @@ router.post("/verify", verifyPayment);
 |--------------------------------------------------------------------------
 */
 router.post("/cash-confirm", confirmCashPayment);
+
+/*
+|--------------------------------------------------------------------------
+| Retry Online Driver Settlement — Admin Only
+|--------------------------------------------------------------------------
+*/
+router.post("/:bookingId/retry-settlement", retrySettlement);
 
 /*
 |--------------------------------------------------------------------------

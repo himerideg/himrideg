@@ -1,0 +1,15 @@
+# HimRideG secrets and local dependencies
+.env
+.env.*
+!.env.example
+!.env.production.example
+node_modules/
+client/node_modules/
+server/node_modules/
+dist/
+client/dist/
+*.log
+.DS_Store
+Thumbs.db
+server/uploads/*
+!server/uploads/.gitkeep

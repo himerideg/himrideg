@@ -140,141 +140,279 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
 
   const bookingId = ride?._id || ride?.id;
   const fareStatus = ride?.fareStatus;
-  const driverOffer = ride?.driverOfferedFare;
-  const customerCounter = ride?.customerCounterFare;
-  const finalFare = ride?.finalFare;
-  const offerCount = ride?.fareOfferCount || 0;
+  const driverOffer = Number(ride?.driverOfferedFare || 0);
+  const customerCounter = Number(ride?.customerCounterFare || 0);
+  const driverFinalFare = Number(ride?.driverFinalFareProposal || 0);
+  const finalFare = Number(ride?.finalFare || ride?.fare?.finalFare || 0);
+  const offerCount = Number(ride?.fareOfferCount || 0);
 
-  if (!bookingId) return null;
+  if (!bookingId) {
+    return null;
+  }
 
-  // Fare lock ho gayi
-  if (fareStatus === "fare_accepted" || finalFare) {
+  /*
+  |--------------------------------------------------------------------------
+  | Locked Fare
+  |--------------------------------------------------------------------------
+  |
+  | Fare sirf customer ke final driver fare accept karne ke baad lock hota hai.
+  |
+  */
+
+  if (fareStatus === "fare_accepted" || ride?.status === "fare_accepted") {
     return (
       <div className="fareLockedBox">
         <div className="fareLockedIcon">🔒</div>
+
         <div>
           <small>Final Fare Locked</small>
-          <strong>₹{money(finalFare || driverOffer)}</strong>
+
+          <strong>
+            ₹{money(finalFare || driverFinalFare || driverOffer)}
+          </strong>
+
+          <p>
+            Customer ne driver ka final fare accept kar diya hai.
+          </p>
         </div>
       </div>
     );
   }
 
-  // Customer ne counter kiya — driver ka jawab wait karo (no repeat)
-  if (fareStatus === "customer_countered" || counterSent) {
+  /*
+  |--------------------------------------------------------------------------
+  | Driver FINAL Fare — Customer ke paas EXACTLY Accept / Reject
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    fareStatus === "driver_final" &&
+    driverFinalFare > 0
+  ) {
+    return (
+      <div className="fareNegotiateBox fareFinalDecisionBox">
+        <div className="fareOfferHeader">
+          <span>🔐 Driver Final Fare</span>
+
+          <strong>
+            ₹{money(driverFinalFare)}
+          </strong>
+        </div>
+
+        <p
+          style={{
+            fontSize: "13px",
+            color: "#aaa",
+            margin: "8px 0"
+          }}
+        >
+          Driver ne final fare bhej diya hai. Accept karne par fare lock ho
+          jayega. Reject karne par current driver release hoga aur ride dobara
+          driver search me jayegi.
+        </p>
+
+        <div className="fareActions">
+          <button
+            className="fareBtn fareAccept"
+            onClick={() =>
+              onAccept(
+                bookingId,
+                driverFinalFare
+              )
+            }
+          >
+            ✅ Accept ₹{money(driverFinalFare)}
+          </button>
+
+          <button
+            className="fareBtn fareReject"
+            onClick={() =>
+              onReject(
+                bookingId
+              )
+            }
+          >
+            ❌ Reject
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Customer Counter Sent — Driver Final Fare ka wait
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    fareStatus === "customer_countered" ||
+    counterSent
+  ) {
     return (
       <div className="fareWaitBox">
         <div className="fareWaitIcon">⏳</div>
+
         <div>
-          <small>Your counter offer</small>
-          <strong>₹{money(customerCounter || counterInput)}</strong>
-          <p>Waiting for driver response...</p>
+          <small>Your Negotiation Fare</small>
+
+          <strong>
+            ₹{money(customerCounter || counterInput)}
+          </strong>
+
+          <p>
+            Waiting for driver final fare...
+          </p>
         </div>
       </div>
     );
   }
 
-  // Driver ne offer kiya — customer ke paas options
-  if (fareStatus === "driver_offered" && driverOffer) {
+  /*
+  |--------------------------------------------------------------------------
+  | Driver Initial Fare — Customer Negotiation Only
+  |--------------------------------------------------------------------------
+  |
+  | Latest HimRideG rule:
+  |
+  | Driver initial fare
+  |      ↓
+  | Customer negotiation/counter
+  |      ↓
+  | Driver FINAL fare
+  |      ↓
+  | Customer Accept / Reject
+  |
+  | Is stage par initial fare direct lock nahi hota.
+  |
+  */
+
+  if (
+    fareStatus === "driver_offered" &&
+    driverOffer > 0
+  ) {
     return (
       <div className="fareNegotiateBox">
         <div className="fareOfferHeader">
-          <span>🚖 Driver Offer</span>
-          <strong>₹{money(driverOffer)}</strong>
+          <span>🚖 Driver Initial Fare</span>
+
+          <strong>
+            ₹{money(driverOffer)}
+          </strong>
         </div>
 
         {showCounterInput ? (
           <div className="fareCounterInput">
             <input
               type="number"
-              placeholder="Counter amount (₹)"
+              placeholder="Aapka negotiation fare (₹)"
               value={counterInput}
-              onChange={(e) => setCounterInput(e.target.value)}
+              onChange={(event) =>
+                setCounterInput(
+                  event.target.value
+                )
+              }
               min={50}
               max={10000}
               autoFocus
             />
+
             <div className="fareCounterActions">
               <button
                 className="fareBtn fareCounterSend"
                 onClick={() => {
-                  if (!counterInput || Number(counterInput) <= 0) return;
-                  onCounter(bookingId, counterInput);
+                  const amount =
+                    Number(counterInput);
+
+                  if (
+                    !Number.isFinite(amount) ||
+                    amount <= 0
+                  ) {
+                    return;
+                  }
+
+                  onCounter(
+                    bookingId,
+                    amount
+                  );
+
                   setCounterSent(true);
+
                   setShowCounterInput(false);
                 }}
               >
                 Send ₹{counterInput || "?"}
               </button>
+
               <button
                 className="fareBtn fareBtnCancel"
-                onClick={() => { setShowCounterInput(false); setCounterInput(""); }}
+                onClick={() => {
+                  setShowCounterInput(false);
+                  setCounterInput("");
+                }}
               >
-                Cancel
+                Back
               </button>
             </div>
           </div>
         ) : (
           <div className="fareActions">
             <button
-              className="fareBtn fareAccept"
-              onClick={() => onAccept(bookingId, driverOffer)}
+              className="fareBtn fareCounter"
+              onClick={() =>
+                setShowCounterInput(true)
+              }
             >
-              ✅ Accept ₹{money(driverOffer)}
-            </button>
-            {offerCount < 6 && (
-              <button
-                className="fareBtn fareCounter"
-                onClick={() => setShowCounterInput(true)}
-              >
-                💬 Counter Offer
-              </button>
-            )}
-            <button
-              className="fareBtn fareReject"
-              onClick={() => onReject(bookingId)}
-            >
-              ❌ Reject
+              💬 Negotiate Fare
             </button>
           </div>
         )}
 
-        {offerCount >= 5 && (
-          <small className="fareWarning">
-            ⚠️ Last chance — only 1 offer remaining
-          </small>
-        )}
+        <small className="fareWarning">
+          Initial fare direct lock nahi hoga. Aap negotiation fare bhejenge,
+          phir driver final fare bhejega.
+        </small>
       </div>
     );
   }
 
-  // Driver ne reject kiya aur final fare aaya — customer accept/cancel
+  /*
+  |--------------------------------------------------------------------------
+  | Legacy Rejected State Fallback
+  |--------------------------------------------------------------------------
+  */
+
   if (fareStatus === "fare_rejected") {
     return (
-      <div className="fareNegotiateBox">
-        <div className="fareOfferHeader" style={{borderColor:"#f87171"}}>
-          <span>❌ Counter Rejected</span>
-          <strong style={{color:"#f87171"}}>Driver ne reject kiya</strong>
+      <div className="fareWaitBox">
+        <div className="fareWaitIcon">↻</div>
+
+        <div>
+          <small>Fare negotiation updated</small>
+
+          <p>
+            Driver response / new dispatch ka wait karein.
+          </p>
         </div>
-        <p style={{fontSize:"13px",color:"#aaa",margin:"8px 0"}}>
-          Driver ka final offer lock ho gaya hai. Accept karo ya cancel karo.
-        </p>
-        {driverOffer && (
-          <div className="fareActions">
-            <button
-              className="fareBtn fareAccept"
-              onClick={() => onAccept(bookingId, driverOffer)}
-            >
-              ✅ Accept ₹{money(driverOffer)}
-            </button>
-            <button
-              className="fareBtn fareReject"
-              onClick={() => onReject(bookingId)}
-            >
-              🚫 Cancel Ride
-            </button>
-          </div>
-        )}
+      </div>
+    );
+  }
+
+  if (
+    ride?.status === "accepted" ||
+    ride?.status === "driver_assigned"
+  ) {
+    return (
+      <div className="fareWaitBox">
+        <div className="fareWaitIcon">₹</div>
+
+        <div>
+          <small>Waiting for Driver Fare</small>
+
+          <p>
+            Driver initial fare bhejne ke baad negotiation yahin start hogi.
+          </p>
+        </div>
       </div>
     );
   }
@@ -551,7 +689,30 @@ function CustomerDashboard({
       );
     };
 
-    // Fare accepted (by either side)
+    // Driver final fare — customer Accept / Reject decision
+    const handleFinalFareOffered = (data) => {
+      setLocalBookings((prev) =>
+        prev.map((b) =>
+          idOf(b) === String(data.bookingId)
+            ? {
+                ...b,
+                fareStatus: "driver_final",
+                driverFinalFareProposal: Number(
+                  data.driverFinalFareProposal || 0
+                ),
+                customerCounterFare: Number(
+                  data.customerCounterFare ||
+                  b.customerCounterFare ||
+                  0
+                ),
+                status: data.status || "negotiating"
+              }
+            : b
+        )
+      );
+    };
+
+    // Fare accepted (final customer confirmation)
     const handleFareAccepted = (data) => {
       setLocalBookings((prev) =>
         prev.map((b) =>
@@ -583,12 +744,14 @@ function CustomerDashboard({
     };
 
     socket.on("fare:offered", handleFareOffered);
+    socket.on("fare:final-offered", handleFinalFareOffered);
     socket.on("fare:accepted", handleFareAccepted);
     socket.on("fare:rejected", handleFareRejected);
     socket.on("payment:requested", handlePaymentRequested);
 
     return () => {
       socket.off("fare:offered", handleFareOffered);
+      socket.off("fare:final-offered", handleFinalFareOffered);
       socket.off("fare:accepted", handleFareAccepted);
       socket.off("fare:rejected", handleFareRejected);
       socket.off("payment:requested", handlePaymentRequested);
@@ -656,7 +819,15 @@ function CustomerDashboard({
     const isPaid =
       unratedCompleted.paymentStatus === "paid" ||
       unratedCompleted.payment?.status === "paid" ||
-      unratedCompleted.paymentMethod === "cash" || // cash mein turant
+      /*
+      |--------------------------------------------------------------------------
+      | Cash payment driver confirmation ke baad hi PAID
+      |--------------------------------------------------------------------------
+      |
+      | Legacy flow me paymentMethod === "cash" ko turant paid maana ja raha tha.
+      | Launch flow me cash tabhi paid hoga jab assigned driver cash-confirm kare.
+      |
+      */
       fare === 0;
 
     if (!isPaid) return;
@@ -712,21 +883,124 @@ function CustomerDashboard({
   /* ──────────────────────────────────────────────────────────────────
      Fare Negotiation Handlers
   ────────────────────────────────────────────────────────────────── */
-  const handleFareAccept = useCallback((bookingId, amount) => {
-    socket.emit("fare:accept", { bookingId }, (res) => {
-      if (res?.success) {
-        loadBookings?.();
-      } else {
-        alert(res?.message || "Fare accept nahi ho saka");
+  const handleFareAccept = useCallback(
+    async (bookingId, amount) => {
+      try {
+        const { data } =
+          await api.post(
+            `/fares/${bookingId}/customer-accept-final`,
+            {}
+          );
+
+        const result =
+          data?.data ||
+          data ||
+          {};
+
+        const acceptedFare =
+          Number(
+            result.finalFare ||
+            amount ||
+            0
+          );
+
+        setLocalBookings(
+          (
+            previous
+          ) =>
+            previous.map(
+              (
+                booking
+              ) =>
+                idOf(
+                  booking
+                ) ===
+                String(
+                  bookingId
+                )
+                  ? {
+                      ...booking,
+                      fareStatus:
+                        "fare_accepted",
+                      status:
+                        "fare_accepted",
+                      finalFare:
+                        acceptedFare,
+                      driverFinalFareProposal:
+                        acceptedFare
+                    }
+                  : booking
+            )
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Pay Now
+        |--------------------------------------------------------------------------
+        |
+        | Pay Now booking me final fare accept hote hi online payment open hogi.
+        |
+        */
+
+        if (
+          result.paymentRequiredNow
+        ) {
+          const currentRide =
+            localBookings.find(
+              (
+                booking
+              ) =>
+                idOf(
+                  booking
+                ) ===
+                String(
+                  bookingId
+                )
+            );
+
+          setPaymentBooking({
+            ...(currentRide || {}),
+            _id:
+              currentRide?._id ||
+              bookingId,
+            finalFare:
+              acceptedFare,
+            fareStatus:
+              "fare_accepted",
+            status:
+              "fare_accepted",
+            paymentTiming:
+              "pay_now",
+            paymentMethod:
+              "online"
+          });
+
+          setShowPaymentModal(
+            true
+          );
+        }
+
+        await loadBookings?.();
+      } catch (error) {
+        alert(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Final fare accept nahi ho saka"
+        );
       }
-    });
-  }, [loadBookings]);
+    },
+    [
+      loadBookings,
+      localBookings
+    ]
+  );
 
   const handleFareCounter = useCallback((bookingId, counterAmount) => {
     if (!counterAmount || Number(counterAmount) <= 0) {
       alert("Valid amount enter karo");
       return;
     }
+
     socket.emit(
       "fare:counter",
       { bookingId, amount: Number(counterAmount) },
@@ -735,7 +1009,12 @@ function CustomerDashboard({
           setLocalBookings((prev) =>
             prev.map((b) =>
               idOf(b) === String(bookingId)
-                ? { ...b, fareStatus: "customer_countered", customerCounterFare: Number(counterAmount) }
+                ? {
+                    ...b,
+                    fareStatus: "customer_countered",
+                    customerCounterFare: Number(counterAmount),
+                    status: "negotiating"
+                  }
                 : b
             )
           );
@@ -746,28 +1025,91 @@ function CustomerDashboard({
     );
   }, []);
 
-  const handleFareReject = useCallback((bookingId) => {
-    socket.emit("fare:reject", { bookingId }, (res) => {
-      if (!res?.success) alert(res?.message || "Kuch error hua");
-      loadBookings?.();
-    });
-  }, [loadBookings]);
+  const handleFareReject = useCallback(
+    async (bookingId) => {
+      try {
+        await api.post(
+          `/fares/${bookingId}/customer-reject-final`,
+          {}
+        );
+
+        setLocalBookings(
+          (
+            previous
+          ) =>
+            previous.map(
+              (
+                booking
+              ) =>
+                idOf(
+                  booking
+                ) ===
+                String(
+                  bookingId
+                )
+                  ? {
+                      ...booking,
+                      fareStatus:
+                        "fare_rejected",
+                      driver:
+                        null,
+                      status:
+                        "searching_driver"
+                    }
+                  : booking
+            )
+        );
+
+        await loadBookings?.();
+      } catch (error) {
+        alert(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Final fare reject nahi hua"
+        );
+      }
+    },
+    [
+      loadBookings
+    ]
+  );
 
   /* ──────────────────────────────────────────────────────────────────
      Payment Success Handler
   ────────────────────────────────────────────────────────────────── */
   const handlePaymentSuccess = useCallback((paymentData) => {
     const bid = idOf(paymentBooking);
-    if (bid) {
+    const method = String(paymentData?.paymentMethod || "").toLowerCase();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cash is NOT paid until assigned driver confirms receipt
+    |--------------------------------------------------------------------------
+    |
+    | PaymentModal uses onSuccess when the customer selects Cash so that the
+    | UI can close gracefully. Do not add a cash booking to paidBookingIds here.
+    | The backend /payments/cash-confirm endpoint is the only authority that can
+    | mark a cash ride paid, and it is restricted to the assigned driver.
+    |
+    */
+
+    if (bid && method === "online") {
       setPaidBookingIds((prev) => new Set([...prev, bid]));
     }
+
     loadBookings?.();
 
-    if (paymentData?.paymentMethod === "online") {
+    if (method === "online") {
       setTimeout(() => {
         setShowPaymentModal(false);
         setPaymentBooking(null);
       }, 3000);
+      return;
+    }
+
+    if (method === "cash") {
+      setShowPaymentModal(false);
+      setPaymentBooking(null);
     }
   }, [paymentBooking, loadBookings]);
 
@@ -798,6 +1140,7 @@ function CustomerDashboard({
       const updatedUser = data?.data?.user || data?.user || data?.data;
       if (updatedUser?._id) {
         localStorage.setItem("himrideg_user", JSON.stringify(updatedUser));
+        sessionStorage.setItem("himrideg_user", JSON.stringify(updatedUser));
         setProfile({
           name: updatedUser.name || "Customer",
           phone: updatedUser.phone || "",
@@ -1022,7 +1365,19 @@ function CustomerDashboard({
                     ☎ Call Driver
                   </button>
 
-                  <button onClick={() => window.alert("Chat agle step me connect hoga")}>
+                  <button
+                    disabled={!driverPhone}
+                    onClick={() => {
+                      if (!driverPhone) return;
+
+                      const message = encodeURIComponent(
+                        `Namaste, main HimRideG booking ${activeRide?.bookingNumber || idOf(activeRide) || ""} ke baare mein message kar raha/rahi hoon.`
+                      );
+
+                      window.location.href = `sms:${driverPhone}?body=${message}`;
+                    }}
+                    title={driverPhone ? "Message driver" : "Driver number abhi available nahi hai"}
+                  >
                     ▤ Message
                   </button>
 

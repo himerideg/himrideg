@@ -35,7 +35,15 @@ services:
       - key: FAST2SMS_API_KEY
         sync: false
       - key: SMS_ENABLED
-        value: "false"
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: GEOAPIFY_API_KEY
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_BOOTSTRAP_PASSWORD
+        sync: false
     disk:
       name: himrideg-uploads
       mountPath: /var/data/himrideg-uploads

@@ -19,7 +19,7 @@ import L from "leaflet";
 
 import "leaflet/dist/leaflet.css";
 
-import api from "../api";
+import api, { apiBaseUrl } from "../api";
 import socket from "../socket";
 
 import DriverLocationTracker from "../DriverLocationTracker";
@@ -998,6 +998,192 @@ function createNavigationUrl(coordinates) {
   );
 }
 
+
+/* ==========================================================================
+   Razorpay Checkout Loader
+   ========================================================================== */
+function loadRazorpayCheckout() {
+  if (window.Razorpay) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(
+      'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+    );
+
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Razorpay checkout load nahi hua")),
+        { once: true }
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () =>
+      reject(new Error("Razorpay checkout load nahi hua"));
+
+    document.body.appendChild(script);
+  });
+}
+
+/* ==========================================================================
+   Wallet Top-up Component
+   ========================================================================== */
+function WalletTopupForm({ onSuccess }) {
+  const [amount, setAmount] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [msg, setMsg] = React.useState({ text: "", type: "" });
+
+  const startTopup = async () => {
+    const topupAmount = Math.round(Number(amount || 0));
+
+    if (
+      !Number.isFinite(topupAmount) ||
+      topupAmount < 100 ||
+      topupAmount > 50000
+    ) {
+      setMsg({
+        text: "Top-up ₹100 se ₹50,000 ke beech rakho.",
+        type: "error"
+      });
+      return;
+    }
+
+    setLoading(true);
+    setMsg({ text: "", type: "" });
+
+    try {
+      await loadRazorpayCheckout();
+
+      const { data } = await api.post(
+        "/wallet/topup/create-order",
+        { amount: topupAmount }
+      );
+
+      const order = data?.data || data || {};
+
+      if (!order?.keyId || !order?.orderId) {
+        throw new Error("Wallet top-up order details incomplete hain");
+      }
+
+      const razorpay = new window.Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency || "INR",
+        name: "HimRideG",
+        description: "Driver Wallet Top-up",
+        order_id: order.orderId,
+        prefill: {
+          name: order.driverName || "Driver",
+          contact: order.driverPhone || ""
+        },
+        theme: {
+          color: "#f5c518"
+        },
+        handler: async (response) => {
+          try {
+            const verify = await api.post(
+              "/wallet/topup/verify",
+              {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                amount: topupAmount
+              }
+            );
+
+            setMsg({
+              text:
+                verify?.data?.message ||
+                "Wallet top-up successful",
+              type: "success"
+            });
+
+            setAmount("");
+            onSuccess?.(verify?.data?.data);
+          } catch (error) {
+            setMsg({
+              text:
+                error?.response?.data?.message ||
+                error?.message ||
+                "Top-up verify nahi hua",
+              type: "error"
+            });
+          } finally {
+            setLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setLoading(false)
+        }
+      });
+
+      razorpay.on("payment.failed", (response) => {
+        setLoading(false);
+
+        setMsg({
+          text:
+            response?.error?.description ||
+            "Wallet payment fail ho gayi",
+          type: "error"
+        });
+      });
+
+      razorpay.open();
+    } catch (error) {
+      setLoading(false);
+
+      setMsg({
+        text:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Wallet top-up start nahi hua",
+        type: "error"
+      });
+    }
+  };
+
+  return (
+    <div className="withdrawalFormWrap driverWalletTopupForm">
+      <div className="withdrawalFields">
+        <input
+          type="number"
+          min={100}
+          max={50000}
+          value={amount}
+          onChange={(event) =>
+            setAmount(event.target.value)
+          }
+          placeholder="Add Money amount (₹100 - ₹50,000)"
+        />
+      </div>
+
+      {msg.text && (
+        <p className={`withdrawalMsg ${msg.type}`}>
+          {msg.text}
+        </p>
+      )}
+
+      <button
+        type="button"
+        className="withdrawalSubmitBtn"
+        onClick={startTopup}
+        disabled={loading}
+      >
+        {loading
+          ? "Payment open ho rahi hai..."
+          : "＋ Add Money to Wallet"}
+      </button>
+    </div>
+  );
+}
 
 /* ==========================================================================
    Withdrawal Form Component
@@ -2161,6 +2347,68 @@ function DriverDashboard({
       return;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Customer counter ke baad Driver FINAL Fare
+    |--------------------------------------------------------------------------
+    |
+    | Latest HimRideG rule:
+    | Driver initial fare -> Customer counter -> Driver FINAL fare ->
+    | Customer Accept / Reject -> Accept par fare lock.
+    |
+    */
+
+    if (ride?.fareStatus === "customer_countered") {
+      setFareAction(`${bookingId}:final`);
+
+      try {
+        const { data } = await api.post(
+          `/fares/${bookingId}/driver-final`,
+          { fare }
+        );
+
+        const result = data?.data || data || {};
+
+        setLocalBookings((previous) =>
+          previous.map((item) =>
+            getId(item) === bookingId
+              ? {
+                  ...item,
+                  driverFinalFareProposal: fare,
+                  fareStatus: "driver_final",
+                  fareOfferedBy: "driver",
+                  fareOfferCount: Number(result.fareOfferCount || item.fareOfferCount || 0),
+                  status: result.rideStatus || "negotiating"
+                }
+              : item
+          )
+        );
+
+        setFareInputs((current) => ({
+          ...current,
+          [bookingId]: ""
+        }));
+
+        showNotice(
+          "success",
+          `₹${fare.toFixed(0)} final fare customer ko bhej diya. Ab customer Accept / Reject karega.`
+        );
+
+        await loadBookings?.();
+      } catch (error) {
+        showNotice(
+          "error",
+          error?.response?.data?.message ||
+            error?.message ||
+            "Final fare nahi bheja ja saka."
+        );
+      } finally {
+        setFareAction("");
+      }
+
+      return;
+    }
+
     setFareAction(`${bookingId}:offer`);
 
     socket.emit(
@@ -2359,6 +2607,133 @@ function DriverDashboard({
         setRequestExpiresAt(
           null
         );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Driver Release Accepted / Unconfirmed Ride
+  |--------------------------------------------------------------------------
+  |
+  | Customer response na de, fare lock na ho ya ride confirm na ho to driver
+  | current ride release kar sakta hai. Customer booking cancel nahi hoti;
+  | current driver free hota hai aur ride dobara dispatch hoti hai.
+  |
+  */
+
+  const releaseAcceptedRide =
+    async (ride) => {
+      const bookingId =
+        getId(ride);
+
+      if (!bookingId) {
+        showNotice(
+          "error",
+          "Booking ID nahi mili."
+        );
+
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          "Is unconfirmed ride ko release karna hai? Aap turant next ride lene ke liye available ho jayenge."
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setLoadingAction(
+        `${bookingId}:release`
+      );
+
+      try {
+        const { data } =
+          await api.patch(
+            `/rides/${bookingId}/driver-release`,
+            {
+              reason:
+                "Customer not responding / ride not confirmed"
+            }
+          );
+
+        showNotice(
+          "success",
+          data?.message ||
+            "Ride release ho gayi. Aap next ride le sakte hain."
+        );
+
+        setIncomingRide(null);
+        setRequestExpiresAt(null);
+        setSelectedRideId("");
+
+        await loadBookings?.();
+      } catch (error) {
+        showNotice(
+          "error",
+          error?.response?.data?.message ||
+            error?.message ||
+            "Ride release nahi hui."
+        );
+      } finally {
+        setLoadingAction("");
+      }
+    };
+
+  const confirmCashReceived =
+    async (ride) => {
+      const bookingId =
+        getId(ride);
+
+      if (!bookingId) {
+        return;
+      }
+
+      const fare =
+        Number(
+          getFinalFare(ride) ||
+          0
+        );
+
+      const confirmed =
+        window.confirm(
+          `Customer se ₹${fare.toFixed(0)} cash receive hua confirm karna hai?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setLoadingAction(
+        `${bookingId}:cash-confirm`
+      );
+
+      try {
+        const { data } =
+          await api.post(
+            "/payments/cash-confirm",
+            {
+              bookingId
+            }
+          );
+
+        showNotice(
+          "success",
+          data?.message ||
+            "Cash payment confirmed."
+        );
+
+        await loadBookings?.();
+      } catch (error) {
+        showNotice(
+          "error",
+          error?.response?.data?.message ||
+            error?.message ||
+            "Cash payment confirm nahi hui."
+        );
+      } finally {
+        setLoadingAction("");
       }
     };
 
@@ -2960,16 +3335,33 @@ function DriverDashboard({
       [displayBookings]
     );
 
+  /*
+  |--------------------------------------------------------------------------
+  | Explicit Ride Selection
+  |--------------------------------------------------------------------------
+  |
+  | Incoming ride pehle LIST me aayegi. Driver jab kisi ride par tap/click
+  | karega tabhi selectedRide set hogi aur Accept / Reject detail me dikhenge.
+  | Pehli request ko automatic open nahi karna.
+  |
+  */
+
   const selectedRide =
     useMemo(
-      () =>
-        requestRides.find(
-          (ride) =>
-            getId(ride) ===
-            selectedRideId
-        ) ||
-        requestRides[0] ||
-        null,
+      () => {
+        if (!selectedRideId) {
+          return null;
+        }
+
+        return (
+          requestRides.find(
+            (ride) =>
+              getId(ride) ===
+              selectedRideId
+          ) ||
+          null
+        );
+      },
       [
         displayBookings,
         requestRides,
@@ -2979,16 +3371,19 @@ function DriverDashboard({
 
   useEffect(() => {
     if (
-      selectedRide &&
-      getId(selectedRide) !==
-        selectedRideId
+      selectedRideId &&
+      !requestRides.some(
+        (ride) =>
+          getId(ride) ===
+          selectedRideId
+      )
     ) {
       setSelectedRideId(
-        getId(selectedRide)
+        ""
       );
     }
   }, [
-    selectedRide,
+    requestRides,
     selectedRideId
   ]);
 
@@ -3020,6 +3415,7 @@ function DriverDashboard({
           (ride) =>
             [
               "pending",
+              "searching",
               "searching_driver",
               "driver_assigned"
             ].includes(
@@ -3063,6 +3459,7 @@ function DriverDashboard({
       selectedRide &&
       [
         "pending",
+        "searching",
         "searching_driver",
         "driver_assigned"
       ].includes(
@@ -3486,7 +3883,13 @@ function DriverDashboard({
               </article>
               <article>
                 <span>Pending Amount</span>
-                <strong>₹{Number(driverWallet.pendingBalance || 0).toFixed(0)}</strong>
+                <strong>
+                  ₹{Number(
+                    driverWallet.pendingAmount ??
+                      driverWallet.pendingBalance ??
+                      0
+                  ).toFixed(0)}
+                </strong>
               </article>
               <article>
                 <span>Total Earned</span>
@@ -3504,6 +3907,25 @@ function DriverDashboard({
                 <span>Platform Commission</span>
                 <strong>{driverView?.driverProfile?.commissionPercentage || 10}%</strong>
               </article>
+            </div>
+
+            <div className="driverWithdrawalForm">
+              <h3>＋ Add Money</h3>
+              <p>
+                Cash rides ki platform commission aur wallet balance ke liye
+                secure Razorpay top-up.
+              </p>
+
+              <WalletTopupForm
+                onSuccess={(data) => {
+                  if (data?.wallet) {
+                    setProfileData((current) => ({
+                      ...(current || {}),
+                      wallet: data.wallet
+                    }));
+                  }
+                }}
+              />
             </div>
 
             <div className="driverWithdrawalForm">
@@ -3859,7 +4281,11 @@ function DriverDashboard({
                           const token = sessionStorage.getItem("himrideg_token") ||
                             sessionStorage.getItem("accessToken") || "";
                           const host = window.location.hostname || "localhost";
-                          const url = `http://${host}:5001/api/v2/driver/documents/${doc._id}/file`;
+                          const legacyDevelopmentUrl = `http://${host}:5001/api/v2/driver/documents/${doc._id}/file`;
+                          const productionDocumentUrl = `${apiBaseUrl}/driver/documents/${doc._id}/file`;
+                          const url = import.meta.env.PROD
+                            ? productionDocumentUrl
+                            : legacyDevelopmentUrl;
                           const resp = await fetch(url, { headers: token ? { Authorization:`Bearer ${token}` } : {} });
                           if (!resp.ok) throw new Error("Fetch failed " + resp.status);
                           const blob = await resp.blob();
@@ -3978,7 +4404,44 @@ function DriverDashboard({
                 </header>
 
                 {!selectedRide ? (
-                  <div className="driverCustomerEmpty"><span>🚖</span><strong>Waiting for New Ride</strong><p>Online raho. Nayi customer booking yahin dikhai degi.</p></div>
+                  <div className="driverRequestCompactList">
+                    {tabRides.length ? (
+                      <>
+                        <p className="driverRequestListHint">Ride request par tap karo. Accept / Reject sirf details open hone ke baad aayega.</p>
+                        {tabRides.slice(0, 8).map((ride) => {
+                          const rideId = getId(ride);
+
+                          return (
+                            <button
+                              type="button"
+                              className="driverRequestCompactItem"
+                              key={rideId}
+                              onClick={() => setSelectedRideId(rideId)}
+                            >
+                              <span className="driverRequestCompactRoute">
+                                <small>PICKUP</small>
+                                <strong>{getPickupName(ride)}</strong>
+                                <small>DROP</small>
+                                <strong>{getDropName(ride)}</strong>
+                              </span>
+
+                              <span className="driverRequestCompactMeta">
+                                <b>{formatDistance(getDistance(ride))}</b>
+                                <em>{STATUS_LABELS[ride.status] || ride.status}</em>
+                                <i>Tap to view →</i>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </>
+                    ) : (
+                      <div className="driverCustomerEmpty">
+                        <span>🚖</span>
+                        <strong>Waiting for New Ride</strong>
+                        <p>Online raho. Nayi customer booking yahin list me dikhai degi.</p>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="driverCustomerRideBody">
                     <div className="driverCustomerRow">
@@ -4007,10 +4470,35 @@ function DriverDashboard({
                             <article><small>COMMISSION</small><strong>₹{getCommissionAmount(selectedRide).toFixed(0)}</strong></article>
                             <article><small>YOUR EARNING</small><strong>₹{getDriverPayable(selectedRide).toFixed(0)}</strong></article>
                           </div>
+                        ) : selectedRide.fareStatus === "driver_final" ? (
+                          <div className="driverCustomerCounter">
+                            <p>FINAL Fare Sent</p>
+                            <strong>₹{Number(selectedRide.driverFinalFareProposal || 0).toFixed(0)}</strong>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Customer ke Accept / Reject ka wait ho raha hai.</small>
+                          </div>
                         ) : selectedRide.fareStatus === "customer_countered" ? (
                           <div className="driverCustomerCounter">
-                            <p>Customer Counter Offer</p><strong>₹{Number(selectedRide.customerCounterFare || 0).toFixed(0)}</strong>
-                            <div><button type="button" className="accept" onClick={() => acceptCustomerCounter(selectedRide)} disabled={Boolean(fareAction)}>Accept</button><button type="button" className="reject" onClick={() => rejectCustomerCounter(selectedRide)} disabled={Boolean(fareAction)}>Reject</button></div>
+                            <p>Customer Negotiation Fare</p>
+                            <strong>₹{Number(selectedRide.customerCounterFare || 0).toFixed(0)}</strong>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Ab aap FINAL fare bhejein. Customer dashboard par sirf Accept / Reject aayega.</small>
+                            <div className="driverCustomerFareInput" style={{marginTop:"12px"}}>
+                              <span>₹</span>
+                              <input
+                                type="number"
+                                min="50"
+                                max="10000"
+                                placeholder="Driver FINAL fare enter kare"
+                                value={fareInputs[selectedRideIdValue] ?? ""}
+                                onChange={(event) => setFareInputs((current) => ({...current,[selectedRideIdValue]: event.target.value}))}
+                              />
+                              <button
+                                type="button"
+                                disabled={Boolean(fareAction)}
+                                onClick={() => sendDriverFare(selectedRide)}
+                              >
+                                Send Final Fare
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <>
@@ -4040,6 +4528,16 @@ function DriverDashboard({
                   <div className="driverCustomerRideActions">
                     {selectedRide.status === "fare_accepted" && <button type="button" onClick={() => markArriving(selectedRide)}>🚕 Go to Pickup</button>}
                     {["accepted","fare_offered","negotiating"].includes(selectedRide.status) && <button type="button" className="waiting" disabled>🔒 Fare final hone ka wait</button>}
+                    {["accepted","fare_offered","negotiating"].includes(selectedRide.status) && (
+                      <button
+                        type="button"
+                        className="danger"
+                        disabled={Boolean(loadingAction)}
+                        onClick={() => releaseAcceptedRide(selectedRide)}
+                      >
+                        × Cancel / Release Ride
+                      </button>
+                    )}
                     {selectedRide.status === "driver_arriving" && <button type="button" onClick={() => markArrived(selectedRide)}>📍 I Have Arrived</button>}
                     {selectedRide.status === "driver_arrived" && <button type="button" onClick={() => { setOtpRide(selectedRide); setOtp(""); }}>🔐 Enter Customer OTP</button>}
                     {selectedRide.status === "started" && <button type="button" className="complete" onClick={() => completeRide(selectedRide)}>🏁 Complete Ride</button>}
@@ -4264,6 +4762,19 @@ function DriverDashboard({
                               )
                             }
                           </p>
+
+                          {(String(ride.paymentMethod || ride?.payment?.method || "").toLowerCase() === "cash") &&
+                            !(["paid", "completed"].includes(String(ride.paymentStatus || ride?.payment?.status || "").toLowerCase())) && (
+                              <button
+                                type="button"
+                                className="accept"
+                                disabled={Boolean(loadingAction)}
+                                onClick={() => confirmCashReceived(ride)}
+                                style={{marginTop:"10px"}}
+                              >
+                                💵 Confirm Cash Received
+                              </button>
+                            )}
                         </div>
                       )
                     }

@@ -602,6 +602,68 @@ const bookingSchema = new mongoose.Schema(
       default: "pending"
     },
 
+    /*
+    |--------------------------------------------------------------------------
+    | Launch V3 Payment Timing
+    |--------------------------------------------------------------------------
+    |
+    | pay_now   = final fare customer accept karte hi online payment required
+    | pay_later = ride complete hone ke baad online/cash choose kar sakta hai
+    |
+    */
+    paymentTiming: {
+      type: String,
+      enum: [
+        "pay_now",
+        "pay_later"
+      ],
+      default: "pay_later",
+      index: true
+    },
+
+    paymentChoiceAfterRide: {
+      type: String,
+      enum: [
+        "online",
+        "cash",
+        null
+      ],
+      default: null
+    },
+
+    settlementStatus: {
+      type: String,
+      enum: [
+        "not_started",
+        "pending",
+        "transferred",
+        "wallet_fallback",
+        "cash_commission_debited",
+        "cash_commission_due",
+        "failed"
+      ],
+      default: "not_started",
+      index: true
+    },
+
+    settlementReference: {
+      type: String,
+      default: null,
+      trim: true
+    },
+
+    settlementError: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 1000
+    },
+
+    settledAt: {
+      type: Date,
+      default: null
+    },
+
     razorpayOrderId: {
       type: String,
       default: null
@@ -635,6 +697,31 @@ const bookingSchema = new mongoose.Schema(
       min: 0
     },
 
+    /*
+    |--------------------------------------------------------------------------
+    | Launch V3 Final Fare Proposal
+    |--------------------------------------------------------------------------
+    |
+    | Driver customer counter dekhne ke baad final fare propose karega.
+    | Customer accept karega tabhi `finalFare` lock hoga.
+    |
+    */
+    driverFinalFareProposal: {
+      type: Number,
+      default: null,
+      min: 0
+    },
+
+    driverFinalFareProposedAt: {
+      type: Date,
+      default: null
+    },
+
+    finalFareRejectedAt: {
+      type: Date,
+      default: null
+    },
+
     finalFare: {
       type: Number,
       default: null,
@@ -647,6 +734,7 @@ const bookingSchema = new mongoose.Schema(
         "not_offered",
         "driver_offered",
         "customer_countered",
+        "driver_final",
         "fare_accepted",
         "fare_rejected"
       ],
@@ -748,6 +836,38 @@ const bookingSchema = new mongoose.Schema(
     driverLocation: {
       type: driverLocationSchema,
       default: () => ({})
+    },
+
+    /*
+    |--------------------------------------------------------------------------
+    | Driver Release / Customer Non-response
+    |--------------------------------------------------------------------------
+    |
+    | Driver accepted ride ko ride-start se pehle release kar sakta hai.
+    | Booking cancel nahi hoti; new driver ke liye re-dispatch hoti hai.
+    |
+    */
+    driverReleaseHistory: {
+      type: [
+        {
+          driver: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+          },
+          reason: {
+            type: String,
+            trim: true,
+            maxlength: 500,
+            default: ""
+          },
+          releasedAt: {
+            type: Date,
+            default: Date.now
+          }
+        }
+      ],
+      default: []
     },
 
     cancellation: {
