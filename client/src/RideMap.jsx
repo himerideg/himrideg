@@ -11,6 +11,7 @@ import {
   Popup,
   TileLayer,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 
 import L from "leaflet";
@@ -18,7 +19,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./driver-ride-map.css";
 
-import { getRoadRoute } from "./locationService";
+import {
+  getRoadRoute,
+  reverseLocation,
+} from "./locationService";
 
 const DEFAULT_CENTER = [32.1109, 76.5363];
 
@@ -1018,4 +1022,568 @@ function DriverRideMap({ ride }) {
   );
 }
 
-export default DriverRideMap;
+
+/*
+|--------------------------------------------------------------------------
+| Customer Map Compatibility + Advanced Route Layer
+|--------------------------------------------------------------------------
+|
+| IMPORTANT:
+| Purana DriverRideMap code upar intentionally preserve kiya gaya hai.
+| Customer dashboard / booking form RideMap ko direct props ke saath call
+| karte hain, isliye un props ke liye dedicated customer map layer add hai.
+|
+| Is layer se:
+| - pickup/drop direct props actually map par use hote hain
+| - Geoapify road route draw hota hai
+| - distance + ETA parent form ko return hota hai
+| - customer map driver GPS permission automatically nahi maangta
+| - modal open hone par Leaflet size automatically recalculate hota hai
+| - map click se pickup/drop pin + reverse address set ho sakta hai
+| - live driver marker active ride me show hota hai
+|
+*/
+
+function normalizeCustomerPosition(value) {
+  return getCoordinates(value);
+}
+
+function CustomerMapViewport({
+  pickupPosition,
+  dropPosition,
+  driverPosition,
+  routePositions,
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const invalidateTimers = [
+      0,
+      120,
+      350,
+      700,
+    ].map((delay) =>
+      window.setTimeout(() => {
+        map.invalidateSize({
+          pan: false,
+          animate: false,
+        });
+      }, delay)
+    );
+
+    const routePoints = Array.isArray(routePositions)
+      ? routePositions.filter(Boolean)
+      : [];
+
+    const fallbackPoints = [
+      pickupPosition,
+      dropPosition,
+      driverPosition,
+    ].filter(Boolean);
+
+    const points =
+      routePoints.length > 1
+        ? [
+            ...routePoints,
+            ...fallbackPoints,
+          ]
+        : fallbackPoints;
+
+    if (points.length === 1) {
+      map.setView(points[0], 16, {
+        animate: true,
+      });
+    } else if (points.length > 1) {
+      map.fitBounds(points, {
+        padding: [42, 42],
+        maxZoom: 16,
+        animate: true,
+      });
+    }
+
+    return () => {
+      invalidateTimers.forEach((timer) => {
+        window.clearTimeout(timer);
+      });
+    };
+  }, [
+    map,
+    pickupPosition?.[0],
+    pickupPosition?.[1],
+    dropPosition?.[0],
+    dropPosition?.[1],
+    driverPosition?.[0],
+    driverPosition?.[1],
+    routePositions,
+  ]);
+
+  return null;
+}
+
+function CustomerMapClickHandler({
+  enabled,
+  pickupPosition,
+  dropPosition,
+  onPick,
+}) {
+  useMapEvents({
+    click(event) {
+      if (!enabled) {
+        return;
+      }
+
+      const latitude = Number(event?.latlng?.lat);
+      const longitude = Number(event?.latlng?.lng);
+
+      if (
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
+      ) {
+        return;
+      }
+
+      let target = "drop";
+
+      if (!pickupPosition) {
+        target = "pickup";
+      } else if (!dropPosition) {
+        target = "drop";
+      }
+
+      onPick?.({
+        target,
+        latitude,
+        longitude,
+      });
+    },
+  });
+
+  return null;
+}
+
+function CustomerRideMap({
+  ride = null,
+  onLocationChange,
+  onAddressChange,
+  pickupAddress = "",
+  dropAddress = "",
+  pickupCoordinates = null,
+  dropCoordinates = null,
+  driverLocation = null,
+  readOnly = false,
+}) {
+  const effectivePickup = useMemo(() => {
+    return (
+      normalizeCustomerPosition(pickupCoordinates) ||
+      getPickupPosition(ride)
+    );
+  }, [
+    pickupCoordinates,
+    ride,
+  ]);
+
+  const effectiveDrop = useMemo(() => {
+    return (
+      normalizeCustomerPosition(dropCoordinates) ||
+      getDropPosition(ride)
+    );
+  }, [
+    dropCoordinates,
+    ride,
+  ]);
+
+  const effectiveDriver = useMemo(() => {
+    return normalizeCustomerPosition(driverLocation);
+  }, [driverLocation]);
+
+  const effectivePickupAddress =
+    pickupAddress ||
+    (ride ? getPickupAddress(ride) : "Pickup location");
+
+  const effectiveDropAddress =
+    dropAddress ||
+    (ride ? getDropAddress(ride) : "Destination");
+
+  const [routePositions, setRoutePositions] = useState([]);
+  const [routeInfo, setRouteInfo] = useState({
+    distanceKm: 0,
+    durationMinutes: 0,
+    provider: "",
+  });
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState("");
+  const [pinMessage, setPinMessage] = useState("");
+
+  const pushMapData = (
+    extra = {}
+  ) => {
+    if (typeof onLocationChange !== "function") {
+      return;
+    }
+
+    onLocationChange((current) => ({
+      ...(current && typeof current === "object"
+        ? current
+        : {}),
+      pickup: effectivePickup || null,
+      drop: effectiveDrop || null,
+      distance: Number(routeInfo.distanceKm || 0),
+      duration: Number(routeInfo.durationMinutes || 0),
+      routeCoordinates: routePositions,
+      routeProvider: routeInfo.provider || "",
+      ...extra,
+    }));
+  };
+
+  useEffect(() => {
+    if (!effectivePickup || !effectiveDrop) {
+      setRoutePositions([]);
+      setRouteInfo({
+        distanceKm: 0,
+        durationMinutes: 0,
+        provider: "",
+      });
+      setRouteError("");
+
+      if (typeof onLocationChange === "function") {
+        onLocationChange((current) => ({
+          ...(current && typeof current === "object"
+            ? current
+            : {}),
+          pickup: effectivePickup || null,
+          drop: effectiveDrop || null,
+          distance: 0,
+          duration: 0,
+          routeCoordinates: [],
+          routeProvider: "",
+        }));
+      }
+
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    const loadCustomerRoute = async () => {
+      try {
+        setRouteLoading(true);
+        setRouteError("");
+
+        const result = await fetchRoadRoute(
+          effectivePickup,
+          effectiveDrop,
+          controller.signal
+        );
+
+        const positions = Array.isArray(result?.positions)
+          ? result.positions.filter(
+              (point) =>
+                Array.isArray(point) &&
+                Number.isFinite(Number(point[0])) &&
+                Number.isFinite(Number(point[1]))
+            )
+          : [];
+
+        const nextInfo = {
+          distanceKm: Number(result?.distanceKm || 0),
+          durationMinutes:
+            Number(result?.durationSeconds || 0) / 60,
+          provider: result?.provider || "geoapify",
+        };
+
+        setRoutePositions(positions);
+        setRouteInfo(nextInfo);
+
+        if (typeof onLocationChange === "function") {
+          onLocationChange((current) => ({
+            ...(current && typeof current === "object"
+              ? current
+              : {}),
+            pickup: effectivePickup,
+            drop: effectiveDrop,
+            distance: Number(nextInfo.distanceKm.toFixed(1)),
+            duration: Number(nextInfo.durationMinutes.toFixed(1)),
+            routeCoordinates: positions,
+            routeProvider: nextInfo.provider,
+          }));
+        }
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
+
+        console.error(
+          "Customer road route error:",
+          error
+        );
+
+        setRoutePositions([]);
+        setRouteInfo({
+          distanceKm: 0,
+          durationMinutes: 0,
+          provider: "",
+        });
+
+        setRouteError(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Road route calculate nahi hua"
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setRouteLoading(false);
+        }
+      }
+    };
+
+    loadCustomerRoute();
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    effectivePickup?.[0],
+    effectivePickup?.[1],
+    effectiveDrop?.[0],
+    effectiveDrop?.[1],
+  ]);
+
+  useEffect(() => {
+    if (typeof onLocationChange !== "function") {
+      return;
+    }
+
+    onLocationChange((current) => ({
+      ...(current && typeof current === "object"
+        ? current
+        : {}),
+      pickup: effectivePickup || null,
+      drop: effectiveDrop || null,
+    }));
+  }, [
+    effectivePickup?.[0],
+    effectivePickup?.[1],
+    effectiveDrop?.[0],
+    effectiveDrop?.[1],
+  ]);
+
+  const handleMapPick = async ({
+    target,
+    latitude,
+    longitude,
+  }) => {
+    if (readOnly) {
+      return;
+    }
+
+    setPinMessage(
+      target === "pickup"
+        ? "Pickup pin set ho raha hai…"
+        : "Destination pin set ho raha hai…"
+    );
+
+    try {
+      const location = await reverseLocation(
+        latitude,
+        longitude
+      );
+
+      const address =
+        location?.address ||
+        `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+
+      if (typeof onAddressChange === "function") {
+        onAddressChange(
+          target === "pickup"
+            ? { pickup: address }
+            : { dropoff: address }
+        );
+      }
+
+      if (typeof onLocationChange === "function") {
+        onLocationChange((current) => ({
+          ...(current && typeof current === "object"
+            ? current
+            : {}),
+          ...(target === "pickup"
+            ? { pickup: [latitude, longitude] }
+            : { drop: [latitude, longitude] }),
+        }));
+      }
+
+      setPinMessage(
+        target === "pickup"
+          ? "Pickup map se set ho gaya"
+          : "Destination map se set ho gaya"
+      );
+    } catch (error) {
+      setPinMessage(
+        error?.message ||
+          "Map location address me convert nahi hui"
+      );
+    }
+  };
+
+  const center =
+    effectivePickup ||
+    effectiveDrop ||
+    effectiveDriver ||
+    DEFAULT_CENTER;
+
+  return (
+    <section
+      className="driverRideMapWrapper customerRideMapWrapper"
+      style={{
+        width: "100%",
+        height: "100%",
+        minHeight: "100%",
+        borderRadius: 0,
+        border: 0,
+        boxShadow: "none",
+        background: "#e2e8f0",
+      }}
+    >
+      {(routeLoading || routeError || pinMessage) && (
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 900,
+            top: 10,
+            left: 10,
+            right: 10,
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "8px 10px",
+            borderRadius: 10,
+            background: routeError
+              ? "rgba(254,226,226,.96)"
+              : "rgba(255,255,255,.95)",
+            color: routeError ? "#991b1b" : "#334155",
+            fontSize: 11,
+            fontWeight: 800,
+            boxShadow: "0 6px 20px rgba(15,23,42,.12)",
+          }}
+        >
+          <span>
+            {routeLoading
+              ? "Road route calculate ho raha hai…"
+              : routeError || pinMessage}
+          </span>
+
+          {routeInfo.distanceKm > 0 && !routeError && (
+            <span>
+              {routeInfo.distanceKm.toFixed(1)} km •{" "}
+              {Math.max(
+                1,
+                Math.round(routeInfo.durationMinutes)
+              )}{" "}
+              min
+            </span>
+          )}
+        </div>
+      )}
+
+      <div
+        className="driverCompactMap customerCompactMap"
+        style={{
+          width: "100%",
+          maxWidth: "none",
+          height: "100%",
+          minHeight: "100%",
+          margin: 0,
+          border: 0,
+          borderRadius: 0,
+        }}
+      >
+        <MapContainer
+          center={center}
+          zoom={13}
+          scrollWheelZoom
+          doubleClickZoom
+          touchZoom
+          dragging
+          zoomControl
+          className="driverRideMap customerRideMap"
+          style={{
+            width: "100%",
+            height: "100%",
+            minHeight: "100%",
+          }}
+        >
+          <TileLayer
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+
+          <CustomerMapViewport
+            pickupPosition={effectivePickup}
+            dropPosition={effectiveDrop}
+            driverPosition={effectiveDriver}
+            routePositions={routePositions}
+          />
+
+          <CustomerMapClickHandler
+            enabled={!readOnly}
+            pickupPosition={effectivePickup}
+            dropPosition={effectiveDrop}
+            onPick={handleMapPick}
+          />
+
+          {effectivePickup && (
+            <Marker
+              position={effectivePickup}
+              icon={pickupIcon}
+            >
+              <Popup>
+                <strong>Pickup</strong>
+                <br />
+                {effectivePickupAddress || "Pickup location"}
+              </Popup>
+            </Marker>
+          )}
+
+          {effectiveDrop && (
+            <Marker
+              position={effectiveDrop}
+              icon={dropIcon}
+            >
+              <Popup>
+                <strong>Destination</strong>
+                <br />
+                {effectiveDropAddress || "Destination"}
+              </Popup>
+            </Marker>
+          )}
+
+          {effectiveDriver && (
+            <Marker
+              position={effectiveDriver}
+              icon={driverIcon}
+            >
+              <Popup>
+                <strong>Driver Live</strong>
+              </Popup>
+            </Marker>
+          )}
+
+          {routePositions.length > 1 && (
+            <Polyline
+              positions={routePositions}
+              pathOptions={{
+                color: "#f5b700",
+                weight: 6,
+                opacity: 0.96,
+                lineCap: "round",
+                lineJoin: "round",
+              }}
+            />
+          )}
+        </MapContainer>
+      </div>
+    </section>
+  );
+}
+
+export default CustomerRideMap;

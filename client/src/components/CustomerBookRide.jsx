@@ -548,6 +548,16 @@ function CustomerBookRide({
                 changeBooking({
                   pickup,
                 });
+
+                setMapData(
+                  (current) => ({
+                    ...current,
+                    pickup: null,
+                    distance: 0,
+                    duration: 0,
+                    routeCoordinates: [],
+                  })
+                );
               }}
               onCoordinateSelect={(
                 coordinates
@@ -584,6 +594,16 @@ function CustomerBookRide({
                 changeBooking({
                   dropoff,
                 });
+
+                setMapData(
+                  (current) => ({
+                    ...current,
+                    drop: null,
+                    distance: 0,
+                    duration: 0,
+                    routeCoordinates: [],
+                  })
+                );
               }}
               onCoordinateSelect={(
                 coordinates
