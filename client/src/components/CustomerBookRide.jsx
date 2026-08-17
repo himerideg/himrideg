@@ -811,17 +811,75 @@ function CustomerBookRide({
                       : ""
                   }
                   onClick={() => {
+                    /*
+                    | Legacy value pay_now ko data compatibility ke liye preserve
+                    | kiya gaya hai. Latest payment rule ke mutabik actual UPI
+                    | payment driver ke ride complete karne ke baad hi enable hogi.
+                    */
                     changeBooking({
                       paymentTiming:
                         "pay_now",
                     });
                   }}
                 >
-                  Pay Now
+                  Online Preferred
                   <small>
-                    Final fare lock hote hi Online only
+                    UPI payment ride complete hone ke baad
                   </small>
                 </button>
+              </div>
+
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  padding: "9px 11px",
+                  borderRadius: 8,
+                  background: "#fff8db",
+                  color: "#6b4b00",
+                  fontSize: 11,
+                  lineHeight: 1.5,
+                }}
+              >
+                🔒 Payment button driver ke ride complete karne ke baad hi
+                enable hoga. Final locked fare hi Online UPI / Cash payment
+                amount hoga.
+              </p>
+
+              <div
+                style={{
+                  marginTop: 8,
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
+                }}
+              >
+                <small
+                  style={{
+                    padding: "8px 9px",
+                    border: "1px solid #dbeafe",
+                    borderRadius: 7,
+                    background: "#eff6ff",
+                    color: "#1e3a8a",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  📱 Online: completed ride ke baad UPI App / QR Scanner se
+                  locked fare pay hoga.
+                </small>
+
+                <small
+                  style={{
+                    padding: "8px 9px",
+                    border: "1px solid #fde68a",
+                    borderRadius: 7,
+                    background: "#fffbeb",
+                    color: "#713f12",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  💵 Cash: completed ride ke baad driver ko locked fare dein;
+                  driver receive confirm karega.
+                </small>
               </div>
             </div>
 

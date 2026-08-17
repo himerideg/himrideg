@@ -57,6 +57,34 @@ const fareOf = (ride) =>
       0
   ) || 0;
 
+/*
+|--------------------------------------------------------------------------
+| Locked Fare Helper — Payment ke liye ONLY final locked fare
+|--------------------------------------------------------------------------
+| Display ke kuch purane sections driver offered fare dikha sakte hain,
+| lekin actual payment amount kabhi estimated/offer se nahi banega.
+| Customer payment ke liye sirf finalFare / fare.finalFare valid hai.
+*/
+const lockedFareOf = (ride) =>
+  Number(
+    ride?.finalFare ??
+      ride?.fare?.finalFare ??
+      0
+  ) || 0;
+
+const isRidePaid = (ride, paidBookingIds = new Set()) =>
+  ride?.paymentStatus === "paid" ||
+  ride?.payment?.status === "paid" ||
+  paidBookingIds.has(idOf(ride));
+
+const canCustomerPayRide = (ride, paidBookingIds = new Set()) =>
+  Boolean(
+    ride &&
+      ride.status === "completed" &&
+      lockedFareOf(ride) > 0 &&
+      !isRidePaid(ride, paidBookingIds)
+  );
+
 const distanceOf = (ride) =>
   Number(
     ride?.distanceKm ??
@@ -539,6 +567,540 @@ function RatingModal({ ride, onSubmit, onSkip }) {
   );
 }
 
+
+/* ==========================================================================
+   Customer Wallet — Separate Page
+   ==========================================================================
+
+   Wallet ko dashboard card ki tarah render nahi kiya jaata. Navbar ke Wallet
+   button se yeh dedicated page open hota hai. Wallet balance/add-money feature
+   abhi launch nahi hua hai, isliye clearly "Available Soon" dikhaya gaya hai.
+
+   Ride payment isi page se ki ja sakti hai, lekin sirf tab jab:
+   1) driver ride ko completed kare,
+   2) final fare locked ho, aur
+   3) payment already paid na ho.
+*/
+function CustomerWalletPage({
+  rides = [],
+  activeRide,
+  paidBookingIds,
+  onPay,
+  onBack,
+  onBookRide,
+  onShowCompleted,
+  onRefresh,
+}) {
+  const completedUnpaid = useMemo(
+    () =>
+      rides.filter((ride) =>
+        canCustomerPayRide(ride, paidBookingIds)
+      ),
+    [rides, paidBookingIds]
+  );
+
+  const completedPaid = useMemo(
+    () =>
+      rides
+        .filter(
+          (ride) =>
+            ride?.status === "completed" &&
+            isRidePaid(ride, paidBookingIds)
+        )
+        .slice(0, 5),
+    [rides, paidBookingIds]
+  );
+
+  const pendingPaymentRide = useMemo(() => {
+    if (completedUnpaid.length) {
+      return completedUnpaid[0];
+    }
+
+    if (activeRide && !isRidePaid(activeRide, paidBookingIds)) {
+      return activeRide;
+    }
+
+    return null;
+  }, [completedUnpaid, activeRide, paidBookingIds]);
+
+  const paymentEnabled = canCustomerPayRide(
+    pendingPaymentRide,
+    paidBookingIds
+  );
+
+  const paymentFare = lockedFareOf(pendingPaymentRide);
+
+  return (
+    <section
+      aria-label="Customer Wallet"
+      style={{
+        display: "grid",
+        gap: 20,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 14,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              border: 0,
+              background: "transparent",
+              color: "#ffc400",
+              cursor: "pointer",
+              fontWeight: 800,
+              padding: 0,
+              marginBottom: 8,
+            }}
+          >
+            ← Back to Dashboard
+          </button>
+
+          <h1
+            style={{
+              margin: 0,
+              color: "#ffffff",
+              fontSize: "clamp(30px, 4vw, 46px)",
+            }}
+          >
+            HimRideG Wallet
+          </h1>
+
+          <p
+            style={{
+              margin: "8px 0 0",
+              color: "#c7cbd1",
+              maxWidth: 760,
+              lineHeight: 1.6,
+            }}
+          >
+            Wallet balance, add money aur wallet credits feature abhi launch
+            ke liye prepare ho raha hai. Ride payment section abhi se available
+            hai aur completed ride ka locked fare hi use karega.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onRefresh}
+          style={{
+            minHeight: 44,
+            padding: "0 18px",
+            border: "1px solid #4b5563",
+            borderRadius: 10,
+            background: "#111318",
+            color: "#fff",
+            cursor: "pointer",
+            fontWeight: 800,
+          }}
+        >
+          ↻ Refresh Payments
+        </button>
+      </div>
+
+      <div
+        style={{
+          padding: "28px",
+          borderRadius: 18,
+          border: "1px solid rgba(255,196,0,.85)",
+          background:
+            "linear-gradient(135deg, rgba(255,196,0,.15), rgba(255,196,0,.04)), #0a0c10",
+          boxShadow: "0 18px 50px rgba(0,0,0,.35)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 18,
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              display: "grid",
+              placeItems: "center",
+              borderRadius: 18,
+              background: "#ffc400",
+              color: "#050608",
+              fontSize: 34,
+            }}
+          >
+            👛
+          </div>
+
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <small
+              style={{
+                color: "#ffc400",
+                fontWeight: 900,
+                letterSpacing: ".7px",
+              }}
+            >
+              CUSTOMER WALLET
+            </small>
+
+            <h2
+              style={{
+                margin: "5px 0 2px",
+                color: "#ffffff",
+                fontSize: 30,
+              }}
+            >
+              Available Soon
+            </h2>
+
+            <p style={{ margin: 0, color: "#aeb4bd", lineHeight: 1.55 }}>
+              Wallet balance, add money aur wallet transaction features jaldi
+              available honge. Abhi customer ride payment Online UPI ya Cash se
+              kar sakta hai.
+            </p>
+          </div>
+
+          <span
+            style={{
+              padding: "10px 15px",
+              borderRadius: 999,
+              background: "rgba(255,196,0,.12)",
+              border: "1px solid rgba(255,196,0,.5)",
+              color: "#ffc400",
+              fontWeight: 900,
+              whiteSpace: "nowrap",
+            }}
+          >
+            COMING SOON
+          </span>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          gap: 16,
+        }}
+      >
+        <article
+          style={{
+            padding: 20,
+            borderRadius: 14,
+            background: "#ffffff",
+            color: "#111318",
+            border: "1px solid #e4e7eb",
+          }}
+        >
+          <div style={{ fontSize: 30 }}>📱</div>
+          <h3 style={{ margin: "10px 0 6px" }}>Online — UPI</h3>
+          <p style={{ margin: 0, color: "#6b7280", lineHeight: 1.55 }}>
+            Mobile par UPI app open hogi. Desktop par UPI QR scan karke payment
+            ki ja sakti hai. Amount customer type nahi karega — locked fare
+            automatically payment order me jayega.
+          </p>
+        </article>
+
+        <article
+          style={{
+            padding: 20,
+            borderRadius: 14,
+            background: "#ffffff",
+            color: "#111318",
+            border: "1px solid #e4e7eb",
+          }}
+        >
+          <div style={{ fontSize: 30 }}>💵</div>
+          <h3 style={{ margin: "10px 0 6px" }}>Cash</h3>
+          <p style={{ margin: 0, color: "#6b7280", lineHeight: 1.55 }}>
+            Ride complete hone ke baad customer Cash select kar sakta hai.
+            Driver ko locked fare cash dene ke baad assigned driver payment
+            receive confirm karega.
+          </p>
+        </article>
+      </div>
+
+      <article
+        style={{
+          padding: 24,
+          borderRadius: 16,
+          background: "#ffffff",
+          color: "#111318",
+          border: "1px solid #dfe3e8",
+          boxShadow: "0 14px 35px rgba(0,0,0,.22)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 14,
+            flexWrap: "wrap",
+            marginBottom: 18,
+          }}
+        >
+          <div>
+            <small style={{ color: "#6b7280", fontWeight: 800 }}>
+              RIDE PAYMENT
+            </small>
+            <h2 style={{ margin: "5px 0 0" }}>Pay completed ride</h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onShowCompleted}
+            style={{
+              border: 0,
+              background: "transparent",
+              color: "#d89600",
+              cursor: "pointer",
+              fontWeight: 850,
+            }}
+          >
+            View completed rides →
+          </button>
+        </div>
+
+        {pendingPaymentRide ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) auto",
+              gap: 18,
+              alignItems: "center",
+              padding: 18,
+              border: "1px solid #f4d47b",
+              borderRadius: 12,
+              background: "#fffbeb",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  marginBottom: 9,
+                }}
+              >
+                <span
+                  style={{
+                    padding: "5px 9px",
+                    borderRadius: 999,
+                    background:
+                      pendingPaymentRide.status === "completed"
+                        ? "#dcfce7"
+                        : "#f3f4f6",
+                    color:
+                      pendingPaymentRide.status === "completed"
+                        ? "#166534"
+                        : "#4b5563",
+                    fontSize: 11,
+                    fontWeight: 900,
+                  }}
+                >
+                  {statusText(pendingPaymentRide.status)}
+                </span>
+
+                {paymentFare > 0 && (
+                  <span
+                    style={{
+                      padding: "5px 9px",
+                      borderRadius: 999,
+                      background: "#111318",
+                      color: "#ffc400",
+                      fontSize: 11,
+                      fontWeight: 900,
+                    }}
+                  >
+                    🔒 Locked Fare ₹{money(paymentFare)}
+                  </span>
+                )}
+              </div>
+
+              <strong style={{ display: "block", fontSize: 16 }}>
+                {pickupOf(pendingPaymentRide)}
+              </strong>
+              <span style={{ color: "#ef233c", fontWeight: 900 }}>↓</span>
+              <strong style={{ display: "block", fontSize: 16 }}>
+                {dropOf(pendingPaymentRide)}
+              </strong>
+
+              {!paymentEnabled && (
+                <p
+                  style={{
+                    margin: "10px 0 0",
+                    color: "#6b7280",
+                    fontSize: 13,
+                  }}
+                >
+                  Payment button driver ke ride complete karne ke baad hi
+                  enable hoga. Final locked fare ke bina payment start nahi hogi.
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              disabled={!paymentEnabled}
+              onClick={() => paymentEnabled && onPay(pendingPaymentRide)}
+              style={{
+                minWidth: 190,
+                minHeight: 50,
+                padding: "0 18px",
+                border: 0,
+                borderRadius: 10,
+                background: paymentEnabled ? "#ffc400" : "#e5e7eb",
+                color: paymentEnabled ? "#111318" : "#9ca3af",
+                cursor: paymentEnabled ? "pointer" : "not-allowed",
+                fontWeight: 950,
+              }}
+            >
+              {paymentEnabled
+                ? `Pay ₹${money(paymentFare)}`
+                : "Payment Locked"}
+            </button>
+          </div>
+        ) : (
+          <div
+            style={{
+              padding: 26,
+              textAlign: "center",
+              border: "1px dashed #d1d5db",
+              borderRadius: 12,
+              color: "#6b7280",
+            }}
+          >
+            <div style={{ fontSize: 34, marginBottom: 7 }}>✅</div>
+            <strong style={{ color: "#111318" }}>No pending payment</strong>
+            <p style={{ margin: "5px 0 14px" }}>
+              Completed unpaid ride aayegi to payment yahin enable ho jayega.
+            </p>
+            <button
+              type="button"
+              onClick={onBookRide}
+              style={{
+                minHeight: 42,
+                padding: "0 17px",
+                border: 0,
+                borderRadius: 8,
+                background: "#ffc400",
+                color: "#111318",
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              Book a Ride
+            </button>
+          </div>
+        )}
+      </article>
+
+      {completedUnpaid.length > 1 && (
+        <article
+          style={{
+            padding: 22,
+            borderRadius: 16,
+            background: "#ffffff",
+            color: "#111318",
+            border: "1px solid #dfe3e8",
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>Other pending ride payments</h2>
+          <div style={{ display: "grid", gap: 10 }}>
+            {completedUnpaid.slice(1, 6).map((ride) => (
+              <div
+                key={idOf(ride)}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto",
+                  gap: 12,
+                  alignItems: "center",
+                  padding: 13,
+                  border: "1px solid #eceff3",
+                  borderRadius: 10,
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <strong>{pickupOf(ride)}</strong>
+                  <small
+                    style={{
+                      display: "block",
+                      color: "#6b7280",
+                      marginTop: 3,
+                    }}
+                  >
+                    to {dropOf(ride)} · Locked ₹{money(lockedFareOf(ride))}
+                  </small>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onPay(ride)}
+                  style={{
+                    minHeight: 38,
+                    padding: "0 13px",
+                    border: 0,
+                    borderRadius: 8,
+                    background: "#ffc400",
+                    color: "#111318",
+                    fontWeight: 900,
+                    cursor: "pointer",
+                  }}
+                >
+                  Pay
+                </button>
+              </div>
+            ))}
+          </div>
+        </article>
+      )}
+
+      {completedPaid.length > 0 && (
+        <article
+          style={{
+            padding: 22,
+            borderRadius: 16,
+            background: "#ffffff",
+            color: "#111318",
+            border: "1px solid #dfe3e8",
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>Recent paid rides</h2>
+          <div style={{ display: "grid", gap: 9 }}>
+            {completedPaid.map((ride) => (
+              <div
+                key={idOf(ride)}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "11px 0",
+                  borderBottom: "1px solid #f0f1f3",
+                }}
+              >
+                <span>
+                  {pickupOf(ride)} → {dropOf(ride)}
+                </span>
+                <strong style={{ color: "#16a34a", whiteSpace: "nowrap" }}>
+                  ✅ Paid ₹{money(lockedFareOf(ride))}
+                </strong>
+              </div>
+            ))}
+          </div>
+        </article>
+      )}
+    </section>
+  );
+}
+
 function CustomerDashboard({
   user,
   booking,
@@ -554,6 +1116,15 @@ function CustomerDashboard({
 }) {
   const [bookOpen, setBookOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Customer Page State
+  |--------------------------------------------------------------------------
+  | Wallet ab dashboard ke andar scroll section nahi hai. Yeh dedicated
+  | customer page/view hai jo top navbar se open hota hai.
+  */
+  const [customerPage, setCustomerPage] = useState("dashboard");
   const [rideTab, setRideTab] = useState("active");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
@@ -567,6 +1138,8 @@ function CustomerDashboard({
   | intentionally expose nahi kiya gaya.
   */
   const customerWalletBalance = Number(user?.wallet?.balance || 0);
+  // Balance intentionally dashboard/wallet UI me expose nahi ho raha jab tak feature launch na ho.
+  void customerWalletBalance;
 
   // Payment states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -746,10 +1319,35 @@ function CustomerDashboard({
 
     // Payment requested
     const handlePaymentRequested = (data) => {
-      const bid = String(data.bookingId);
-      if (paymentShownRef.current.has(bid)) return;
+      const bid = String(data?.bookingId || "");
+
+      if (!bid || paymentShownRef.current.has(bid)) {
+        return;
+      }
+
+      /*
+      |--------------------------------------------------------------------
+      | HARD RULE: payment only after driver completes ride
+      |--------------------------------------------------------------------
+      | Fare lock/pay-now socket event payment modal ko early open nahi karega.
+      | Existing local ride ka status completed hona compulsory hai.
+      */
+      const currentRide = localBookings.find(
+        (ride) => idOf(ride) === bid
+      );
+
+      const mergedRide = {
+        ...(currentRide || {}),
+        ...(data || {}),
+        _id: currentRide?._id || data?._id || bid,
+      };
+
+      if (!canCustomerPayRide(mergedRide, paidBookingIds)) {
+        return;
+      }
+
       paymentShownRef.current.add(bid);
-      setPaymentBooking(data);
+      setPaymentBooking(mergedRide);
       setShowPaymentModal(true);
     };
 
@@ -766,7 +1364,7 @@ function CustomerDashboard({
       socket.off("fare:rejected", handleFareRejected);
       socket.off("payment:requested", handlePaymentRequested);
     };
-  }, []);
+  }, [localBookings, paidBookingIds]);
 
   /* ──────────────────────────────────────────────────────────────────
      Auto Payment Modal — Ride Complete hone pe
@@ -776,10 +1374,7 @@ function CustomerDashboard({
 
     const bid = idOf(activeRide);
     if (
-      activeRide.status === "completed" &&
-      fareOf(activeRide) > 0 &&
-      activeRide.paymentStatus !== "paid" &&
-      !paidBookingIds.has(bid) &&
+      canCustomerPayRide(activeRide, paidBookingIds) &&
       !paymentShownRef.current.has(bid)
     ) {
       const timer = setTimeout(() => {
@@ -789,7 +1384,12 @@ function CustomerDashboard({
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [activeRide?.status, activeRide?.paymentStatus]);
+  }, [
+    activeRide,
+    activeRide?.status,
+    activeRide?.paymentStatus,
+    paidBookingIds,
+  ]);
 
   /* ──────────────────────────────────────────────────────────────────
      Auto Rating Modal — Ride Complete + Payment Done ke baad
@@ -945,48 +1545,35 @@ function CustomerDashboard({
 
         /*
         |--------------------------------------------------------------------------
-        | Pay Now
+        | Payment Deferred Until Driver Completes Ride
         |--------------------------------------------------------------------------
+        | Latest customer rule:
+        | - final fare accept hote hi fare lock hoga
+        | - payment modal abhi open NAHI hogi
+        | - chahe legacy booking paymentTiming = pay_now ho, customer payment
+        |   driver ke ride complete karne ke baad hi start kar sakta hai
+        | - backend bhi isi rule ko enforce karta hai
         |
-        | Pay Now booking me final fare accept hote hi online payment open hogi.
-        |
+        | result.paymentRequiredNow ko preserve/observe karte hain taaki old
+        | bookings ka data lose na ho, lekin UI payment ko completed status tak
+        | defer karta hai.
         */
 
-        if (
-          result.paymentRequiredNow
-        ) {
-          const currentRide =
-            localBookings.find(
-              (
-                booking
-              ) =>
-                idOf(
-                  booking
-                ) ===
-                String(
-                  bookingId
-                )
-            );
-
-          setPaymentBooking({
-            ...(currentRide || {}),
-            _id:
-              currentRide?._id ||
-              bookingId,
-            finalFare:
-              acceptedFare,
-            fareStatus:
-              "fare_accepted",
-            status:
-              "fare_accepted",
-            paymentTiming:
-              "pay_now",
-            paymentMethod:
-              "online"
-          });
-
-          setShowPaymentModal(
-            true
+        if (result.paymentRequiredNow) {
+          setLocalBookings((previous) =>
+            previous.map((ride) =>
+              idOf(ride) === String(bookingId)
+                ? {
+                    ...ride,
+                    paymentTiming: "pay_now",
+                    paymentDeferredUntilComplete: true,
+                    paymentStatus:
+                      ride.paymentStatus === "paid"
+                        ? "paid"
+                        : ride.paymentStatus || "pending",
+                  }
+                : ride
+            )
           );
         }
 
@@ -1118,8 +1705,14 @@ function CustomerDashboard({
     }
 
     if (method === "cash") {
-      setShowPaymentModal(false);
-      setPaymentBooking(null);
+      /*
+      | Cash select karne ke baad success instructions thodi der visible rahein.
+      | Cash ko paidBookingIds me add nahi karna; driver confirmation required hai.
+      */
+      setTimeout(() => {
+        setShowPaymentModal(false);
+        setPaymentBooking(null);
+      }, 2500);
     }
   }, [paymentBooking, loadBookings]);
 
@@ -1192,21 +1785,58 @@ function CustomerDashboard({
     updateBooking(idOf(activeRide), "cancelled");
   };
 
+  const openDashboardPage = useCallback(() => {
+    setCustomerPage("dashboard");
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    });
+  }, []);
+
+  const openWalletPage = useCallback(() => {
+    setCustomerPage("wallet");
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    });
+  }, []);
+
   const scrollToRides = (tab) => {
+    setCustomerPage("dashboard");
     setRideTab(tab);
-    document
-      .getElementById("customer-rides")
-      ?.scrollIntoView({ behavior: "smooth" });
+
+    window.setTimeout(() => {
+      document
+        .getElementById("customer-rides")
+        ?.scrollIntoView({ behavior: "smooth" });
+    }, 0);
   };
 
-  const scrollToWallet = () => {
-    document
-      .getElementById("customer-wallet")
-      ?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+  const openBookingsFromNav = () => {
+    setCustomerPage("dashboard");
+    openBookRide();
   };
+
+  const openPaymentForRide = useCallback(
+    (ride) => {
+      if (!canCustomerPayRide(ride, paidBookingIds)) {
+        window.alert(
+          "Payment driver ke ride complete karne aur final fare lock hone ke baad hi enable hoga."
+        );
+        return;
+      }
+
+      setPaymentBooking(ride);
+      setShowPaymentModal(true);
+    },
+    [paidBookingIds]
+  );
 
   /*
   |--------------------------------------------------------------------------
@@ -1224,6 +1854,7 @@ function CustomerDashboard({
     }
 
     setBookOpen(false);
+    setCustomerPage("dashboard");
 
     window.scrollTo({
       top: 0,
@@ -1240,7 +1871,7 @@ function CustomerDashboard({
         <button
           className="cvBrand"
           type="button"
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          onClick={openDashboardPage}
         >
           <span>HG</span>
           <strong>
@@ -1249,12 +1880,20 @@ function CustomerDashboard({
         </button>
 
         <nav>
-          <button className="active" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+          <button
+            className={customerPage === "dashboard" ? "active" : ""}
+            onClick={openDashboardPage}
+          >
             Dashboard
           </button>
           <button onClick={() => scrollToRides("active")}>My Rides</button>
-          <button onClick={openBookRide}>Bookings</button>
-          <button onClick={scrollToWallet}>Wallet</button>
+          <button onClick={openBookingsFromNav}>Bookings</button>
+          <button
+            className={customerPage === "wallet" ? "active" : ""}
+            onClick={openWalletPage}
+          >
+            Wallet
+          </button>
           <button onClick={() => setProfileOpen(true)}>Profile</button>
           <button onClick={() => window.alert("Support: HimRideG team se contact karein")}>
             Support
@@ -1289,6 +1928,19 @@ function CustomerDashboard({
       </header>
 
       <main className="cvMain">
+        {customerPage === "wallet" ? (
+          <CustomerWalletPage
+            rides={localBookings}
+            activeRide={activeRide}
+            paidBookingIds={paidBookingIds}
+            onPay={openPaymentForRide}
+            onBack={openDashboardPage}
+            onBookRide={openBookingsFromNav}
+            onShowCompleted={() => scrollToRides("completed")}
+            onRefresh={loadBookings}
+          />
+        ) : (
+          <>
         <section className="cvHero">
           <div>
             <h1>
@@ -1308,14 +1960,14 @@ function CustomerDashboard({
 
               <button
                 type="button"
-                onClick={scrollToWallet}
+                onClick={openWalletPage}
                 style={{
                   background: "#ffffff",
                   color: "#111318",
                   border: "1px solid #ffc400",
                 }}
               >
-                💰 Wallet ₹{money(customerWalletBalance)}
+                💰 Wallet
               </button>
             </div>
           </div>
@@ -1447,10 +2099,7 @@ function CustomerDashboard({
                   </button>
 
                   {/* Manual Payment Button — ride complete hone pe */}
-                  {activeRide.status === "completed" &&
-                    fareOf(activeRide) > 0 &&
-                    activeRide.paymentStatus !== "paid" &&
-                    !paidBookingIds.has(idOf(activeRide)) && (
+                  {canCustomerPayRide(activeRide, paidBookingIds) && (
                       <button
                         className="payNowBtn"
                         style={{
@@ -1462,12 +2111,9 @@ function CustomerDashboard({
                           padding: "10px 16px",
                           cursor: "pointer",
                         }}
-                        onClick={() => {
-                          setPaymentBooking(activeRide);
-                          setShowPaymentModal(true);
-                        }}
+                        onClick={() => openPaymentForRide(activeRide)}
                       >
-                        💳 Pay Now ₹{money(fareOf(activeRide))}
+                        💳 Pay ₹{money(lockedFareOf(activeRide))}
                       </button>
                     )}
 
@@ -1568,65 +2214,6 @@ function CustomerDashboard({
           </aside>
         </section>
 
-        <section
-          id="customer-wallet"
-          style={{
-            marginTop: 20,
-            padding: "22px 26px",
-            display: "grid",
-            gridTemplateColumns: "minmax(220px, 0.7fr) minmax(280px, 1.3fr)",
-            gap: 18,
-            alignItems: "stretch",
-            background: "#ffffff",
-            color: "#111318",
-            border: "1px solid #dfe3e8",
-            borderRadius: 13,
-            boxShadow: "0 14px 35px rgba(0,0,0,.22)",
-          }}
-        >
-          <div
-            style={{
-              padding: 20,
-              borderRadius: 12,
-              background: "linear-gradient(135deg, #ffc400, #ffe889)",
-              color: "#111318",
-            }}
-          >
-            <small style={{ fontWeight: 800 }}>HimRideG Customer Wallet</small>
-            <div
-              style={{
-                marginTop: 8,
-                fontSize: "clamp(30px, 4vw, 46px)",
-                fontWeight: 950,
-                lineHeight: 1,
-              }}
-            >
-              ₹{money(customerWalletBalance)}
-            </div>
-            <p style={{ margin: "9px 0 0", fontSize: 13 }}>Available balance</p>
-          </div>
-
-          <div
-            style={{
-              padding: "4px 2px",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-            }}
-          >
-            <h2 style={{ margin: "0 0 8px" }}>Wallet</h2>
-            <p style={{ margin: 0, color: "#6b7280", lineHeight: 1.6 }}>
-              Aapka HimRideG wallet balance yahan hamesha visible rahega. Ride
-              refund ya wallet credit aane par updated balance isi section me
-              dikhega.
-            </p>
-            <small style={{ marginTop: 12, color: "#9ca3af" }}>
-              Wallet se related driver commission details customer ko show nahi
-              ki jaati.
-            </small>
-          </div>
-        </section>
-
         <section className="cvMyRides" id="customer-rides">
           <header>
             <div>
@@ -1709,10 +2296,7 @@ function CustomerDashboard({
                   </span>
 
                   {/* Pay button in ride list */}
-                  {ride.status === "completed" &&
-                    fareOf(ride) > 0 &&
-                    ride.paymentStatus !== "paid" &&
-                    !paidBookingIds.has(idOf(ride)) && (
+                  {canCustomerPayRide(ride, paidBookingIds) && (
                       <button
                         style={{
                           background: "#fbbf24",
@@ -1724,12 +2308,9 @@ function CustomerDashboard({
                           cursor: "pointer",
                           color: "#000",
                         }}
-                        onClick={() => {
-                          setPaymentBooking(ride);
-                          setShowPaymentModal(true);
-                        }}
+                        onClick={() => openPaymentForRide(ride)}
                       >
-                        💳 Pay
+                        💳 Pay ₹{money(lockedFareOf(ride))}
                       </button>
                     )}
 
@@ -1743,6 +2324,8 @@ function CustomerDashboard({
             )}
           </div>
         </section>
+          </>
+        )}
       </main>
 
       <CustomerBookRide

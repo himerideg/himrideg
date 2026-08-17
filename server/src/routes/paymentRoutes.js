@@ -15,6 +15,7 @@ const legacyPaymentController = require("../controllers/paymentController");
 const {
   createPaymentOrder,
   verifyPayment,
+  selectPaymentMethod,
   getPaymentStatus,
   confirmCashPayment,
   getPaymentReceipt,
@@ -40,6 +41,16 @@ router.post("/create-order", createPaymentOrder);
 |--------------------------------------------------------------------------
 */
 router.post("/verify", verifyPayment);
+
+/*
+|--------------------------------------------------------------------------
+| Customer Select Payment Method
+| POST /api/v2/payments/select-method
+|--------------------------------------------------------------------------
+| Ride completed + final fare locked hone ke baad customer Online/Cash
+| choice select kar sakta hai. Cash selection ko paid nahi maana jaata.
+*/
+router.post("/select-method", selectPaymentMethod);
 
 /*
 |--------------------------------------------------------------------------

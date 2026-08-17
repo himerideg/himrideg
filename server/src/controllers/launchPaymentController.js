@@ -41,42 +41,40 @@ function requireCustomerOwner(booking, req) {
 }
 
 function canPayOnlineNow(booking) {
+  /*
+  |--------------------------------------------------------------------------
+  | HARD PAYMENT GATE — RIDE MUST BE COMPLETED
+  |--------------------------------------------------------------------------
+  |
+  | Latest HimRideG customer rule:
+  | - legacy paymentTiming value preserve rahegi
+  | - lekin actual customer payment ride complete hone se pehle start nahi hogi
+  | - final locked fare compulsory hai
+  |
+  | Is backend gate ko frontend button ke saath intentionally duplicate rakha
+  | gaya hai. Frontend bypass hone par bhi API early payment allow nahi karegi.
+  */
+
+  const status = String(booking?.status || "");
+
+  if (["cancelled", "expired"].includes(status)) {
+    return {
+      allowed: false,
+      message: "Cancelled/expired ride ka payment nahi ho sakta"
+    };
+  }
+
+  if (status !== "completed") {
+    return {
+      allowed: false,
+      message: "Payment driver ke ride complete karne ke baad hi enable hoga"
+    };
+  }
+
   if (!isFareLocked(booking)) {
     return {
       allowed: false,
-      message: "Driver final fare customer accept kare tabhi payment ho sakti hai"
-    };
-  }
-
-  const timing = paymentTimingOf(booking);
-
-  if (timing === "pay_now") {
-    if (
-      ["cancelled", "expired", "completed"].includes(
-        String(booking.status || "")
-      )
-    ) {
-      if (booking.status === "completed") {
-        return {
-          allowed: true
-        };
-      }
-
-      return {
-        allowed: false,
-        message: "Cancelled/expired ride ka online payment nahi ho sakta"
-      };
-    }
-
-    return {
-      allowed: true
-    };
-  }
-
-  if (booking.status !== "completed") {
-    return {
-      allowed: false,
-      message: "Pay Later ride ka payment ride complete hone ke baad hoga"
+      message: "Final locked fare ke bina payment start nahi ho sakti"
     };
   }
 
@@ -316,6 +314,114 @@ async function verifyPayment(req, res) {
   }
 }
 
+/*
+|--------------------------------------------------------------------------
+| Customer Select Payment Method After Ride
+| POST /api/v2/payments/select-method
+|--------------------------------------------------------------------------
+|
+| Customer completed ride ke liye Online ya Cash choice select kar sakta hai.
+| Online order create route choice ko online set karta hai; yeh endpoint Cash
+| ko backend par persist karne ke liye bhi use hota hai. Cash select hone se
+| payment PAID nahi hoti. Assigned driver cash-confirm route se receive confirm
+| karega.
+|
+*/
+async function selectPaymentMethod(req, res) {
+  try {
+    const bookingId = String(req.body?.bookingId || "").trim();
+    const method = String(req.body?.method || "").trim().toLowerCase();
+
+    if (!bookingId) {
+      return res.status(400).json({
+        success: false,
+        message: "Booking ID required hai"
+      });
+    }
+
+    if (!["online", "cash"].includes(method)) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment method Online ya Cash hona chahiye"
+      });
+    }
+
+    const booking = await Booking.findById(bookingId)
+      .populate("customer", "name phone email")
+      .populate("driver", "name phone driverProfile");
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking nahi mili"
+      });
+    }
+
+    requireCustomerOwner(booking, req);
+
+    if (booking.paymentStatus === "paid") {
+      return res.status(409).json({
+        success: false,
+        message: "Is ride ka payment already complete hai"
+      });
+    }
+
+    const gate = canPayOnlineNow(booking);
+    if (!gate.allowed) {
+      return res.status(409).json({
+        success: false,
+        message: gate.message
+      });
+    }
+
+    const fare = finalFareOf(booking);
+
+    booking.paymentChoiceAfterRide = method;
+
+    /*
+    | Cash select karte hi sirf pending choice save hoti hai.
+    | Online ka real pending transaction create-order ke orderId ke saath set
+    | hota hai, isliye online selection par gateway transaction create nahi karte.
+    */
+    if (method === "cash") {
+      syncPaymentFields(booking, {
+        method: "cash",
+        status: "pending",
+        transactionId: "",
+        paidAt: null
+      });
+    }
+
+    await booking.save();
+
+    return res.status(200).json({
+      success: true,
+      message:
+        method === "cash"
+          ? "Cash payment selected. Driver receive confirm karega."
+          : "Online UPI payment selected.",
+      data: {
+        bookingId: booking._id,
+        method,
+        paymentChoiceAfterRide: booking.paymentChoiceAfterRide,
+        paymentStatus: booking.paymentStatus,
+        status: booking.status,
+        fare,
+        fareLocked: isFareLocked(booking),
+        paymentEnabled: booking.status === "completed" && fare > 0
+      }
+    });
+  } catch (error) {
+    console.error("Select customer payment method error:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message:
+        error.message ||
+        "Payment method select nahi ho saka"
+    });
+  }
+}
+
 async function confirmCashPayment(req, res) {
   try {
     const bookingId = String(req.body?.bookingId || "").trim();
@@ -348,12 +454,14 @@ async function confirmCashPayment(req, res) {
       });
     }
 
-    if (paymentTimingOf(booking) === "pay_now") {
-      return res.status(409).json({
-        success: false,
-        message: "Pay Now booking me cash payment allowed nahi hai"
-      });
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | Legacy paymentTiming does not block Cash after completion
+    |--------------------------------------------------------------------------
+    | Latest flow me completed ride ke baad customer Online ya Cash choose kar
+    | sakta hai. Isliye purani pay_now value ko data compatibility ke liye
+    | preserve karte hain, lekin completed ride par Cash ko reject nahi karte.
+    */
 
     if (booking.status !== "completed") {
       return res.status(409).json({
@@ -673,6 +781,7 @@ async function razorpayWebhook(req, res) {
 module.exports = {
   createPaymentOrder,
   verifyPayment,
+  selectPaymentMethod,
   confirmCashPayment,
   getPaymentStatus,
   getPaymentReceipt,
