@@ -1125,6 +1125,18 @@ function CustomerDashboard({
   | customer page/view hai jo top navbar se open hota hai.
   */
   const [customerPage, setCustomerPage] = useState("dashboard");
+
+  /*
+  |--------------------------------------------------------------------------
+  | Dashboard Wallet Visibility
+  |--------------------------------------------------------------------------
+  | Wallet sirf top navbar ke Wallet button se dedicated page me khulega.
+  | Main dashboard/hero me duplicate Wallet shortcut intentionally hidden hai.
+  | Existing shortcut code preserve kiya gaya hai taaki future me zarurat ho
+  | to bina functionality lose kiye enable kiya ja sake.
+  */
+  const showDashboardWalletShortcut = false;
+
   const [rideTab, setRideTab] = useState("active");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
@@ -1958,17 +1970,19 @@ function CustomerDashboard({
             >
               <button onClick={openBookRide}>🚕 &nbsp; Book New Ride</button>
 
-              <button
-                type="button"
-                onClick={openWalletPage}
-                style={{
-                  background: "#ffffff",
-                  color: "#111318",
-                  border: "1px solid #ffc400",
-                }}
-              >
-                💰 Wallet
-              </button>
+              {showDashboardWalletShortcut && (
+                <button
+                  type="button"
+                  onClick={openWalletPage}
+                  style={{
+                    background: "#ffffff",
+                    color: "#111318",
+                    border: "1px solid #ffc400",
+                  }}
+                >
+                  💰 Wallet
+                </button>
+              )}
             </div>
           </div>
           <div className="cvMountains" aria-hidden="true" />
