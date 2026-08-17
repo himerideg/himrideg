@@ -1101,6 +1101,75 @@ function CustomerWalletPage({
   );
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Mobile Customer Navigation Icon
+|--------------------------------------------------------------------------
+| Inline SVG icons intentionally local rakhe gaye hain taaki mobile navbar
+| kisi external icon library, CDN ya font par depend na kare.
+*/
+function MobileNavIcon({ type }) {
+  const commonProps = {
+    viewBox: "0 0 24 24",
+    width: 22,
+    height: 22,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": true,
+  };
+
+  if (type === "home") {
+    return (
+      <svg {...commonProps}>
+        <path d="M3 10.8 12 3l9 7.8" />
+        <path d="M5.5 9.5V21h13V9.5" />
+        <path d="M9.5 21v-6h5v6" />
+      </svg>
+    );
+  }
+
+  if (type === "rides") {
+    return (
+      <svg {...commonProps}>
+        <rect x="3" y="4" width="18" height="16" rx="3" />
+        <path d="M7 9h10" />
+        <path d="M7 13h7" />
+        <path d="M7 17h4" />
+      </svg>
+    );
+  }
+
+  if (type === "book") {
+    return (
+      <svg {...commonProps} width="28" height="28">
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+      </svg>
+    );
+  }
+
+  if (type === "wallet") {
+    return (
+      <svg {...commonProps}>
+        <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18a2 2 0 0 1 2 2v2H15a3 3 0 0 0 0 6h5v2a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 16.5z" />
+        <path d="M20 9v6h-5a3 3 0 0 1 0-6z" />
+        <circle cx="15.5" cy="12" r=".7" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...commonProps}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+    </svg>
+  );
+}
+
 function CustomerDashboard({
   user,
   booking,
@@ -2456,6 +2525,64 @@ function CustomerDashboard({
           </aside>
         </div>
       )}
+
+
+      {/*
+        Mobile Customer Bottom Navigation
+        Desktop/tablet top navigation 1250px se neeche hidden hoti hai, isliye
+        yeh dedicated mobile navigation uska functional replacement hai.
+      */}
+      <nav className="cvMobileBottomNav" aria-label="Customer mobile navigation">
+        <button
+          type="button"
+          className={customerPage === "dashboard" ? "active" : ""}
+          onClick={openDashboardPage}
+          aria-label="Dashboard"
+        >
+          <MobileNavIcon type="home" />
+          <span>Home</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => scrollToRides("active")}
+          aria-label="My Rides"
+        >
+          <MobileNavIcon type="rides" />
+          <span>My Rides</span>
+        </button>
+
+        <button
+          type="button"
+          className="cvMobileBookButton"
+          onClick={openBookingsFromNav}
+          aria-label="Book new ride"
+        >
+          <span className="cvMobileBookIcon">
+            <MobileNavIcon type="book" />
+          </span>
+          <span>Book</span>
+        </button>
+
+        <button
+          type="button"
+          className={customerPage === "wallet" ? "active" : ""}
+          onClick={openWalletPage}
+          aria-label="Wallet"
+        >
+          <MobileNavIcon type="wallet" />
+          <span>Wallet</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setProfileOpen(true)}
+          aria-label="Profile"
+        >
+          <MobileNavIcon type="profile" />
+          <span>Profile</span>
+        </button>
+      </nav>
 
       {/* Payment Modal */}
       {showPaymentModal && paymentBooking && (
