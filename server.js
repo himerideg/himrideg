@@ -48,21 +48,54 @@ app.set("io", io);
 
 /*
 |--------------------------------------------------------------------------
-| Shutdown State
+| Admin Bootstrap
 |--------------------------------------------------------------------------
 */
 
-let isShuttingDown = false;
+async function bootstrapAdmin() {
+  try {
+    const Admin = require("./src/models/Admin");
 
-/*
-|--------------------------------------------------------------------------
-| Start Server
-|--------------------------------------------------------------------------
-*/
+    const email = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+    const password = String(process.env.ADMIN_BOOTSTRAP_PASSWORD || "").trim();
+
+    if (!email || !password) {
+      console.log("⚠️ ADMIN_EMAIL ya ADMIN_BOOTSTRAP_PASSWORD set nahi hai — admin bootstrap skip.");
+      return;
+    }
+
+    if (password.length < 16) {
+      console.log("⚠️ ADMIN_BOOTSTRAP_PASSWORD 16 characters se kam hai — skip.");
+      return;
+    }
+
+    const existing = await Admin.findOne({ email });
+    if (existing) {
+      console.log("✅ Admin already exists:", email);
+      return;
+    }
+
+    await Admin.create({
+      name: "HimRideG Admin",
+      email,
+      password
+    });
+
+    console.log("==========================================");
+    console.log("✅ Admin Bootstrap Successful!");
+    console.log("📧 Email:", email);
+    console.log("==========================================");
+  } catch (err) {
+    console.error("❌ Admin bootstrap error:", err.message);
+  }
+}
 
 const startServer = async () => {
   try {
     await connectDatabase();
+
+    // Admin auto-bootstrap
+    await bootstrapAdmin();
 
     httpServer.listen(
       PORT,
