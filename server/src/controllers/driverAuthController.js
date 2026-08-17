@@ -36,6 +36,28 @@ const getRequestIp = (req) => {
   );
 };
 
+const normalizeSameSite = (
+  value,
+  isProduction
+) => {
+  const requested =
+    String(value || "")
+      .trim()
+      .toLowerCase();
+
+  if (
+    requested === "strict" ||
+    requested === "lax" ||
+    requested === "none"
+  ) {
+    return requested;
+  }
+
+  return isProduction
+    ? "none"
+    : "lax";
+};
+
 const setRefreshTokenCookie = (
   res,
   refreshToken
@@ -43,17 +65,25 @@ const setRefreshTokenCookie = (
   const isProduction =
     process.env.NODE_ENV === "production";
 
+  const secureCookie =
+    process.env.COOKIE_SECURE ===
+      "true" || isProduction;
+
+  const sameSite =
+    normalizeSameSite(
+      process.env.COOKIE_SAME_SITE,
+      isProduction
+    );
+
   res.cookie(
     "refreshToken",
     refreshToken,
     {
       httpOnly: true,
       secure:
-        process.env.COOKIE_SECURE ===
-          "true" || isProduction,
-      sameSite:
-        process.env.COOKIE_SAME_SITE ||
-        "lax",
+        secureCookie,
+      sameSite,
+      path: "/",
       maxAge:
         7 * 24 * 60 * 60 * 1000
     }
