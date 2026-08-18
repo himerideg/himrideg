@@ -21,13 +21,14 @@ const {
 } = require("./src/config/database");
 
 const {
-  syncAdminBootstrap
-} = require("./src/utils/adminBootstrap");
-
-const {
   createSocketServer,
   closeSocketServer
 } = require("./src/sockets/socketServer");
+
+const {
+  startPayoutScheduler,
+  stopPayoutScheduler
+} = require("./src/services/payoutScheduler");
 
 const PORT =
   Number(process.env.PORT) || 5001;
@@ -67,14 +68,7 @@ let isShuttingDown = false;
 const startServer = async () => {
   try {
     await connectDatabase();
-
-    /*
-    |--------------------------------------------------------------------------
-    | Admin Bootstrap / One-Time Password Reset
-    |--------------------------------------------------------------------------
-    */
-
-    await syncAdminBootstrap();
+    startPayoutScheduler();
 
     httpServer.listen(
       PORT,
@@ -127,6 +121,8 @@ const startServer = async () => {
     );
     console.error("");
 
+    stopPayoutScheduler();
+
     try {
       await closeSocketServer();
     } catch (socketError) {
@@ -177,6 +173,8 @@ const shutdown = async (signal) => {
     }, 10000);
 
   forceShutdownTimer.unref();
+
+  stopPayoutScheduler();
 
   try {
     await closeSocketServer();

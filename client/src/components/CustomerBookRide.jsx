@@ -6,12 +6,6 @@ import React, {
 
 import RideMap from "../RideMap";
 
-import {
-  searchLocations,
-  getHighAccuracyBrowserLocation,
-  reverseLocation
-} from "../locationService";
-
 import "../customer-book-ride.css";
 
 const money = (value) =>
@@ -28,9 +22,6 @@ function LocationSearchField({
   placeholder,
   onChange,
   onCoordinateSelect,
-  onMyLocation,
-  myLocationBusy = false,
-  locationMessage = "",
 }) {
   const [
     focused,
@@ -58,7 +49,7 @@ function LocationSearchField({
 
     if (
       !focused ||
-      query.length < 2
+      query.length < 1
     ) {
       setSuggestions([]);
       setLoading(false);
@@ -80,15 +71,41 @@ function LocationSearchField({
           setLoading(true);
 
           try {
-            const result =
-              await searchLocations(
-                query,
+            const url =
+              "https://nominatim.openstreetmap.org/search" +
+              "?format=jsonv2" +
+              "&addressdetails=1" +
+              "&limit=7" +
+              "&countrycodes=in" +
+              "&accept-language=en" +
+              `&q=${encodeURIComponent(
+                query
+              )}`;
+
+            const response =
+              await fetch(
+                url,
                 {
                   signal:
                     controller.signal,
-                  limit: 7,
+
+                  headers: {
+                    Accept:
+                      "application/json",
+                  },
                 }
               );
+
+            if (
+              !response.ok
+            ) {
+              throw new Error(
+                "Location search failed"
+              );
+            }
+
+            const result =
+              await response.json();
 
             setSuggestions(
               Array.isArray(
@@ -142,21 +159,17 @@ function LocationSearchField({
     item
   ) => {
     const address =
-      item?.address ||
       item?.display_name ||
       "";
 
     const latitude =
       Number(
-        item?.latitude ??
         item?.lat
       );
 
     const longitude =
       Number(
-        item?.longitude ??
-        item?.lon ??
-        item?.lng
+        item?.lon
       );
 
     onChange(address);
@@ -260,32 +273,11 @@ function LocationSearchField({
         />
       </div>
 
-      {type === "pickup" && onMyLocation && (
-        <>
-          <button
-            type="button"
-            className="cbrMyLocationButton"
-            onClick={onMyLocation}
-            disabled={myLocationBusy}
-          >
-            {myLocationBusy
-              ? "◎ Getting My Location…"
-              : "◎ My Location"}
-          </button>
-
-          {locationMessage && (
-            <small className="cbrLocationMessage">
-              {locationMessage}
-            </small>
-          )}
-        </>
-      )}
-
       {focused &&
         String(
           value || ""
-        ).trim().length >=
-          2 && (
+        ).trim().length >
+          0 && (
           <div className="cbrSuggestions">
             {loading && (
               <p>
@@ -301,8 +293,7 @@ function LocationSearchField({
                   <button
                     type="button"
                     key={
-                      item.id ||
-                      `${item.latitude}_${item.longitude}`
+                      item.place_id
                     }
                     onMouseDown={(
                       event
@@ -321,17 +312,14 @@ function LocationSearchField({
 
                     <span>
                       <strong>
-                        {item.shortName ||
-                          item.name ||
-                          item.address?.split(
+                        {item.name ||
+                          item.display_name.split(
                             ","
-                          )[0] ||
-                          "Location"}
+                          )[0]}
                       </strong>
 
                       <small>
                         {
-                          item.address ||
                           item.display_name
                         }
                       </small>
@@ -366,16 +354,6 @@ function CustomerBookRide({
   activeRide,
   driverLocation,
 }) {
-  const [
-    myLocationBusy,
-    setMyLocationBusy,
-  ] = useState(false);
-
-  const [
-    locationMessage,
-    setLocationMessage,
-  ] = useState("");
-
   if (!open) {
     return null;
   }
@@ -416,62 +394,6 @@ function CustomerBookRide({
       })
     );
   };
-
-  const useMyLocation =
-    async () => {
-      setMyLocationBusy(true);
-      setLocationMessage(
-        "High-accuracy GPS location li ja rahi hai…"
-      );
-
-      try {
-        const point =
-          await getHighAccuracyBrowserLocation({
-            targetAccuracy: 30,
-            maxWaitMs: 9000,
-          });
-
-        const location =
-          await reverseLocation(
-            point.latitude,
-            point.longitude
-          );
-
-        const address =
-          location?.address ||
-          `${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}`;
-
-        changeBooking({
-          pickup:
-            address,
-        });
-
-        setMapData(
-          (current) => ({
-            ...current,
-            pickup: [
-              point.latitude,
-              point.longitude,
-            ],
-            pickupAccuracy:
-              point.accuracy,
-          })
-        );
-
-        setLocationMessage(
-          `My Location set • GPS ±${Math.round(
-            point.accuracy
-          )}m`
-        );
-      } catch (error) {
-        setLocationMessage(
-          error.message ||
-          "My Location nahi mil saki"
-        );
-      } finally {
-        setMyLocationBusy(false);
-      }
-    };
 
   const handleSubmit = (
     event
@@ -548,16 +470,6 @@ function CustomerBookRide({
                 changeBooking({
                   pickup,
                 });
-
-                setMapData(
-                  (current) => ({
-                    ...current,
-                    pickup: null,
-                    distance: 0,
-                    duration: 0,
-                    routeCoordinates: [],
-                  })
-                );
               }}
               onCoordinateSelect={(
                 coordinates
@@ -570,15 +482,6 @@ function CustomerBookRide({
                   })
                 );
               }}
-              onMyLocation={
-                useMyLocation
-              }
-              myLocationBusy={
-                myLocationBusy
-              }
-              locationMessage={
-                locationMessage
-              }
             />
 
             <LocationSearchField
@@ -594,16 +497,6 @@ function CustomerBookRide({
                 changeBooking({
                   dropoff,
                 });
-
-                setMapData(
-                  (current) => ({
-                    ...current,
-                    drop: null,
-                    distance: 0,
-                    duration: 0,
-                    routeCoordinates: [],
-                  })
-                );
               }}
               onCoordinateSelect={(
                 coordinates
@@ -775,114 +668,6 @@ function CustomerBookRide({
               </label>
             </div>
 
-            <div className="cvPaymentTiming">
-              <span>
-                Payment Option
-              </span>
-
-              <div>
-                <button
-                  type="button"
-                  className={
-                    (booking.paymentTiming || "pay_later") ===
-                    "pay_later"
-                      ? "active"
-                      : ""
-                  }
-                  onClick={() => {
-                    changeBooking({
-                      paymentTiming:
-                        "pay_later",
-                    });
-                  }}
-                >
-                  Pay Later
-                  <small>
-                    Ride complete hone ke baad Online / Cash
-                  </small>
-                </button>
-
-                <button
-                  type="button"
-                  className={
-                    booking.paymentTiming ===
-                    "pay_now"
-                      ? "active"
-                      : ""
-                  }
-                  onClick={() => {
-                    /*
-                    | Legacy value pay_now ko data compatibility ke liye preserve
-                    | kiya gaya hai. Latest payment rule ke mutabik actual UPI
-                    | payment driver ke ride complete karne ke baad hi enable hogi.
-                    */
-                    changeBooking({
-                      paymentTiming:
-                        "pay_now",
-                    });
-                  }}
-                >
-                  Online Preferred
-                  <small>
-                    UPI payment ride complete hone ke baad
-                  </small>
-                </button>
-              </div>
-
-              <p
-                style={{
-                  margin: "8px 0 0",
-                  padding: "9px 11px",
-                  borderRadius: 8,
-                  background: "#fff8db",
-                  color: "#6b4b00",
-                  fontSize: 11,
-                  lineHeight: 1.5,
-                }}
-              >
-                🔒 Payment button driver ke ride complete karne ke baad hi
-                enable hoga. Final locked fare hi Online UPI / Cash payment
-                amount hoga.
-              </p>
-
-              <div
-                style={{
-                  marginTop: 8,
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 8,
-                }}
-              >
-                <small
-                  style={{
-                    padding: "8px 9px",
-                    border: "1px solid #dbeafe",
-                    borderRadius: 7,
-                    background: "#eff6ff",
-                    color: "#1e3a8a",
-                    lineHeight: 1.4,
-                  }}
-                >
-                  📱 Online: completed ride ke baad UPI App / QR Scanner se
-                  locked fare pay hoga.
-                </small>
-
-                <small
-                  style={{
-                    padding: "8px 9px",
-                    border: "1px solid #fde68a",
-                    borderRadius: 7,
-                    background: "#fffbeb",
-                    color: "#713f12",
-                    lineHeight: 1.4,
-                  }}
-                >
-                  💵 Cash: completed ride ke baad driver ko locked fare dein;
-                  driver receive confirm karega.
-                </small>
-              </div>
-            </div>
-
             <label>
               Note
 
@@ -917,25 +702,13 @@ function CustomerBookRide({
               </span>
 
               <span>
-                Est. Time
+                Estimated Fare
 
                 <strong>
-                  {mapData.duration
-                    ? `${Math.max(
-                        1,
-                        Math.round(
-                          mapData.duration
-                        )
-                      )} min`
-                    : "—"}
-                </strong>
-              </span>
-
-              <span>
-                Fare
-
-                <strong>
-                  Driver offer karega
+                  ₹
+                  {money(
+                    mapData.estimatedFare
+                  )}
                 </strong>
               </span>
             </div>

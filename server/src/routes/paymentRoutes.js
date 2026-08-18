@@ -1,27 +1,15 @@
 const express = require("express");
 const router = express.Router();
 
-/*
-|--------------------------------------------------------------------------
-| Legacy Payment Controller
-|--------------------------------------------------------------------------
-|
-| Purana controller code preserve hai. Launch routes neeche hardened
-| controller use karte hain.
-|
-*/
-const legacyPaymentController = require("../controllers/paymentController");
-
 const {
   createPaymentOrder,
   verifyPayment,
-  selectPaymentPlan,
-  selectPaymentMethod,
+  markPaymentFailed,
+  selectCashPayment,
   getPaymentStatus,
   confirmCashPayment,
-  getPaymentReceipt,
-  retrySettlement
-} = require("../controllers/launchPaymentController");
+  getPaymentReceipt
+} = require("../controllers/paymentController");
 
 const { protect } = require("../middlewares/auth");
 
@@ -43,23 +31,11 @@ router.post("/create-order", createPaymentOrder);
 */
 router.post("/verify", verifyPayment);
 
-/*
-|--------------------------------------------------------------------------
-| Customer Select Fare-Lock Payment Plan
-| POST /api/v2/payments/select-plan
-|--------------------------------------------------------------------------
-*/
-router.post("/select-plan", selectPaymentPlan);
+/* Payment failure audit */
+router.post("/failed", markPaymentFailed);
 
-/*
-|--------------------------------------------------------------------------
-| Customer Select Payment Method
-| POST /api/v2/payments/select-method
-|--------------------------------------------------------------------------
-| Ride completed + final fare locked hone ke baad customer Online/Cash
-| choice select kar sakta hai. Cash selection ko paid nahi maana jaata.
-*/
-router.post("/select-method", selectPaymentMethod);
+/* Customer selects cash; driver will confirm after receiving cash */
+router.post("/cash-select", selectCashPayment);
 
 /*
 |--------------------------------------------------------------------------
@@ -68,13 +44,6 @@ router.post("/select-method", selectPaymentMethod);
 |--------------------------------------------------------------------------
 */
 router.post("/cash-confirm", confirmCashPayment);
-
-/*
-|--------------------------------------------------------------------------
-| Retry Online Driver Settlement — Admin Only
-|--------------------------------------------------------------------------
-*/
-router.post("/:bookingId/retry-settlement", retrySettlement);
 
 /*
 |--------------------------------------------------------------------------

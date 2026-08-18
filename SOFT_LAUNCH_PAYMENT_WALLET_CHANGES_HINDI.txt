@@ -1,0 +1,19 @@
+HimRideG Soft Launch — Payment / Wallet Fix Summary
+===================================================
+
+1. Fare lock par payment popup nahi khulega. Payment ride COMPLETE hone ke baad hi open hoga.
+2. Razorpay payment failure backend me record hota hai aur customer retry kar sakta hai.
+3. PaymentModal filename case fix: Linux/Render build-safe PaymentModal.jsx.
+4. Cash select backend me save hota hai; driver cash receive karke Completed Ride details se confirm karta hai.
+5. Wallet ride complete hone par fake credit nahi hota; actual paid event par settle hota hai.
+6. Online: driver net earning internal wallet me credit.
+7. Cash: platform commission internal wallet balance se debit; insufficient balance par commission due track.
+8. Duplicate settlement protection: booking walletSettlementStatus.
+9. Wallet transaction ledger added.
+10. Instant UPI/Bank payout RazorpayX integration with idempotency and payout status reconciliation.
+11. Saved UPI/bank payout details.
+12. Automatic scheduled payout: daily / weekly / monthly + minimum amount.
+13. Driver Earnings modal: balance, pending, total, today, month, cash commission due.
+14. Live payouts environment-gated; disabled state wallet funds ko fake processing me lock nahi karta.
+
+Soft launch se pehle .env.example aur RAZORPAYX_LIVE_SETUP_HINDI.txt padho.

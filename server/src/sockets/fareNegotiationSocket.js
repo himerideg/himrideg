@@ -303,13 +303,7 @@ const handleFareNegotiation = (io, socket) => {
       io.to(`driver:${driverId}`).emit("fare:accepted", fareAcceptedData);
       io.to(`ride:${bookingId}`).emit("fare:status:updated", fareAcceptedData);
 
-      // Customer ko payment request bhejo
-      io.to(`user:${customerId}`).emit("payment:requested", {
-        bookingId,
-        finalFare,
-        message: "Ride complete hone par payment karna hoga",
-        paymentMethods: ["online", "cash"]
-      });
+      // Payment request ride complete hone ke baad customer dashboard kholega.
 
       sendSuccess(callback, `Fare ₹${finalFare} accept ho gaya`, { finalFare });
 

@@ -1,0 +1,33 @@
+HimRideG — RazorpayX LIVE Driver Payout Setup (Real Money)
+==========================================================
+
+Is build me REAL money payout code active configuration ke liye ready hai.
+render.yaml me:
+REAL_MONEY_MODE=true
+RAZORPAYX_PAYOUTS_ENABLED=true
+
+Actual payout tabhi hoga jab Render Environment me valid live credentials/account configuration ho.
+
+Required:
+RAZORPAY_KEY_ID=rzp_live_...
+RAZORPAY_KEY_SECRET=...
+RAZORPAY_WEBHOOK_SECRET=...
+RAZORPAYX_ACCOUNT_NUMBER=...
+RAZORPAYX_WEBHOOK_SECRET=...
+
+Optional separate X keys:
+RAZORPAYX_KEY_ID=...
+RAZORPAYX_KEY_SECRET=...
+Existing Razorpay merchant ho to blank chhodne par main live Razorpay key fallback hoti hai.
+
+Mandatory external setup:
+1) Razorpay/RazorpayX Live KYC/payout access active.
+2) Render server outgoing IP RazorpayX allowlist me.
+3) Payment webhook:
+   https://YOUR_API_DOMAIN/api/v2/webhooks/razorpay/payments
+4) Payout webhook:
+   https://YOUR_API_DOMAIN/api/v2/webhooks/razorpay/payouts
+5) Payment auto-capture recommended.
+6) Instant payout test se pehle RazorpayX payout source account me usable funds.
+
+Full test instructions: REAL_MONEY_TEST_HINDI.txt

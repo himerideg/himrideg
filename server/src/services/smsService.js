@@ -57,9 +57,11 @@ function sendFast2SMS(phone, otp) {
       );
     }
 
+    const message = `${otp} is your HimRideG OTP. Valid for 10 minutes. Do not share with anyone.`;
+
     const postData = JSON.stringify({
-      route: "q",
-      message: `${otp} is your HimRideG OTP. Valid for 10 minutes. Do not share. -HimRideG`,
+      route: "otp",
+      variables_values: String(otp),
       numbers: cleanPhone,
       flash: 0
     });

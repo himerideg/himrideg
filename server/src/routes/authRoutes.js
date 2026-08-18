@@ -13,21 +13,11 @@ const {
 } = require("../controllers/driverAuthController");
 
 const {
-  googleLogin,
-  completeGoogleBasicInfo
-} = require("../controllers/googleAuthController");
-
-const {
   protect,
   allowRoles
 } = require("../middlewares/auth");
 
 const User = require("../models/User");
-
-const {
-  otpLimiter,
-  loginLimiter
-} = require("../middlewares/rateLimits");
 
 const router = express.Router();
 
@@ -80,13 +70,11 @@ router.get("/stats", async (req, res) => {
 
 router.post(
   "/customer/send-otp",
-  otpLimiter,
   sendCustomerOtp
 );
 
 router.post(
   "/customer/verify-otp",
-  loginLimiter,
   verifyCustomerOtp
 );
 
@@ -128,55 +116,12 @@ router.patch(
 
 router.post(
   "/driver/send-otp",
-  otpLimiter,
   sendDriverOtp
 );
 
 router.post(
   "/driver/verify-otp",
-  loginLimiter,
   verifyDriverOtp
-);
-
-/*
-|--------------------------------------------------------------------------
-| Google Authentication — Customer + Driver
-|--------------------------------------------------------------------------
-|
-| POST /api/v2/auth/google
-| Body: { credential, role }
-|
-| Google account select hote hi direct login/session create hota hai.
-| First Google signup par mobile/password login screen par required nahi hai.
-| Basic Info next protected page par complete hoti hai.
-| Admin Google login intentionally allowed nahi hai.
-|
-*/
-
-router.post(
-  "/google",
-  loginLimiter,
-  googleLogin
-);
-
-/*
-|--------------------------------------------------------------------------
-| Google Basic Info Completion
-|--------------------------------------------------------------------------
-|
-| Google account select hote hi direct session milta hai. First-time user
-| yahan Name + Mobile save karta hai. Password required nahi hai.
-|
-*/
-
-router.patch(
-  "/google/basic-info",
-  protect,
-  allowRoles(
-    "customer",
-    "driver"
-  ),
-  completeGoogleBasicInfo
 );
 
 /*

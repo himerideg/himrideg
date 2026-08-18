@@ -19,13 +19,6 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./home-book-ride.css";
 
-import {
-  searchLocations,
-  getRoadRoute,
-  getHighAccuracyBrowserLocation,
-  reverseLocation
-} from "../locationService";
-
 /*
 |--------------------------------------------------------------------------
 | Default Map Location
@@ -109,32 +102,14 @@ function FitRoute({ points }) {
 
 function createLocation(item) {
   return {
-    ...item,
-
     address:
-      item.address ||
-      item.display_name ||
-      item.formatted ||
-      "",
-
-    shortName:
-      item.shortName ||
-      item.name ||
-      item.address?.split(",")?.[0] ||
-      "Location",
+      item.display_name,
 
     latitude:
-      Number(
-        item.latitude ??
-          item.lat
-      ),
+      Number(item.lat),
 
     longitude:
-      Number(
-        item.longitude ??
-          item.lon ??
-          item.lng
-      ),
+      Number(item.lon),
   };
 }
 
@@ -280,21 +255,6 @@ function HomeBookRide({
     setSearching,
   ] = useState(false);
 
-  const [
-    myLocationBusy,
-    setMyLocationBusy,
-  ] = useState(false);
-
-  const [
-    gpsAccuracy,
-    setGpsAccuracy,
-  ] = useState(null);
-
-  const [
-    locationMessage,
-    setLocationMessage,
-  ] = useState("");
-
   /*
   |--------------------------------------------------------------------------
   | Route State
@@ -385,24 +345,41 @@ function HomeBookRide({
           setSearching(true);
 
           try {
-            const data =
-              await searchLocations(
-                query,
+            const url =
+              "https://nominatim.openstreetmap.org/search" +
+              "?format=jsonv2" +
+              "&addressdetails=1" +
+              "&limit=6" +
+              "&countrycodes=in" +
+              "&accept-language=en" +
+              `&q=${encodeURIComponent(
+                query
+              )}`;
+
+            const response =
+              await fetch(
+                url,
                 {
                   signal:
                     controller.signal,
 
-                  latitude:
-                    form.pickup
-                      ?.latitude,
-
-                  longitude:
-                    form.pickup
-                      ?.longitude,
-
-                  limit: 7,
+                  headers: {
+                    Accept:
+                      "application/json",
+                  },
                 }
               );
+
+            if (
+              !response.ok
+            ) {
+              throw new Error(
+                "Location search failed"
+              );
+            }
+
+            const data =
+              await response.json();
 
             setSuggestions(
               Array.isArray(data)
@@ -477,34 +454,68 @@ function HomeBookRide({
           const dropoff =
             form.dropoff;
 
-          const foundRoute =
-            await getRoadRoute(
-              pickup,
-              dropoff,
+          const url =
+            "https://router.project-osrm.org/route/v1/driving/" +
+            `${pickup.longitude},${pickup.latitude};` +
+            `${dropoff.longitude},${dropoff.latitude}` +
+            "?overview=full" +
+            "&geometries=geojson";
+
+          const response =
+            await fetch(
+              url,
               {
                 signal:
                   controller.signal,
               }
             );
 
-          const distance =
-            Number(
-              foundRoute.distanceKm ||
-                0
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              "Route request failed"
             );
+          }
+
+          const data =
+            await response.json();
+
+          const foundRoute =
+            data.routes?.[0];
+
+          if (!foundRoute) {
+            throw new Error(
+              "Route not found"
+            );
+          }
+
+          const distance =
+            foundRoute.distance /
+            1000;
 
           const duration =
-            Number(
-              foundRoute.durationMinutes ||
-                0
+            foundRoute.duration /
+            60;
+
+          const fare =
+            Math.round(
+              80 +
+              distance * 18
             );
 
           const coordinates =
-            Array.isArray(
-              foundRoute.coordinates
-            )
-              ? foundRoute.coordinates
-              : [];
+            foundRoute.geometry
+              .coordinates
+              .map(
+                ([
+                  longitude,
+                  latitude,
+                ]) => [
+                  latitude,
+                  longitude,
+                ]
+              );
 
           setRoute(
             coordinates
@@ -513,7 +524,7 @@ function HomeBookRide({
           setTrip({
             distance,
             duration,
-            fare: 0,
+            fare,
           });
         } catch (error) {
           if (
@@ -537,108 +548,6 @@ function HomeBookRide({
     form.pickup,
     form.dropoff,
   ]);
-
-  /*
-  |--------------------------------------------------------------------------
-  | My Location — High Accuracy Pickup
-  |--------------------------------------------------------------------------
-  |
-  | Customer My Location tap kare:
-  | 1. high-accuracy GPS
-  | 2. reverse geocoding
-  | 3. pickup field auto fill
-  | 4. map pickup marker auto center
-  |
-  */
-
-  const useMyLocation =
-    async () => {
-      setMyLocationBusy(
-        true
-      );
-
-      setLocationMessage(
-        "High-accuracy GPS location li ja rahi hai…"
-      );
-
-      try {
-        const point =
-          await getHighAccuracyBrowserLocation({
-            targetAccuracy: 30,
-            maxWaitMs: 9000,
-          });
-
-        setGpsAccuracy(
-          point.accuracy
-        );
-
-        const location =
-          await reverseLocation(
-            point.latitude,
-            point.longitude
-          );
-
-        const pickup =
-          createLocation({
-            ...(location || {}),
-            latitude:
-              point.latitude,
-            longitude:
-              point.longitude,
-            address:
-              location?.address ||
-              `${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}`,
-            shortName:
-              location?.shortName ||
-              "My Location",
-          });
-
-        setForm(
-          (current) => ({
-            ...current,
-            pickup,
-          })
-        );
-
-        setLocationText(
-          (current) => ({
-            ...current,
-            pickup:
-              pickup.address,
-          })
-        );
-
-        setErrors(
-          (current) => ({
-            ...current,
-            pickup: "",
-          })
-        );
-
-        setFocusedField(
-          ""
-        );
-
-        setSuggestions(
-          []
-        );
-
-        setLocationMessage(
-          point.accuracy <= 30
-            ? `My Location set • GPS ±${Math.round(point.accuracy)}m`
-            : `My Location set • GPS accuracy ±${Math.round(point.accuracy)}m`
-        );
-      } catch (error) {
-        setLocationMessage(
-          error.message ||
-            "My Location nahi mil saki"
-        );
-      } finally {
-        setMyLocationBusy(
-          false
-        );
-      }
-    };
 
   /*
   |--------------------------------------------------------------------------
@@ -894,11 +803,7 @@ function HomeBookRide({
           trip.duration,
 
         estimatedFare:
-          0,
-
-        paymentTiming:
-          savedBooking.paymentTiming ||
-          "pay_later",
+          trip.fare,
       };
 
       localStorage.setItem(
@@ -1047,34 +952,6 @@ function HomeBookRide({
                   />
                 </div>
 
-                {field === "pickup" && (
-                  <>
-                    <button
-                      type="button"
-                      className="hbrMyLocationButton"
-                      onClick={
-                        useMyLocation
-                      }
-                      disabled={
-                        myLocationBusy
-                      }
-                    >
-                      {myLocationBusy
-                        ? "◎ Getting My Location…"
-                        : "◎ My Location"}
-                    </button>
-
-                    {locationMessage && (
-                      <small className="hbrLocationMessage">
-                        {locationMessage}
-                        {gpsAccuracy
-                          ? ``
-                          : ""}
-                      </small>
-                    )}
-                  </>
-                )}
-
                 {errors[field] && (
                   <em>
                     {
@@ -1106,8 +983,7 @@ function HomeBookRide({
                             <button
                               type="button"
                               key={
-                                item.id ||
-                                `${item.latitude}_${item.longitude}`
+                                item.place_id
                               }
                               onClick={() =>
                                 selectSuggestion(
@@ -1119,17 +995,14 @@ function HomeBookRide({
 
                               <span>
                                 <strong>
-                                  {item.shortName ||
-                                    item.name ||
-                                    item.address?.split(
+                                  {item.name ||
+                                    item.display_name.split(
                                       ","
-                                    )[0] ||
-                                    "Location"}
+                                    )[0]}
                                 </strong>
 
                                 <small>
                                   {
-                                    item.address ||
                                     item.display_name
                                   }
                                 </small>
@@ -1523,28 +1396,13 @@ function HomeBookRide({
 
             <p>
               <span>
-                Estimated time
+                Estimated fare
               </span>
 
               <strong>
-                {trip.duration
-                  ? `${Math.max(
-                      1,
-                      Math.round(
-                        trip.duration
-                      )
-                    )} min`
+                {trip.fare
+                  ? `₹${trip.fare}`
                   : "—"}
-              </strong>
-            </p>
-
-            <p>
-              <span>
-                Fare
-              </span>
-
-              <strong>
-                Driver offer karega
               </strong>
             </p>
           </div>

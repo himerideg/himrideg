@@ -1742,9 +1742,3 @@ a {
     display: none !important;
   }
 }
-/* Launch legal anchor sections */
-.footerLegalSummary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,.08)}
-.footerLegalSummary section{scroll-margin-top:90px}
-.footerLegalSummary h3{margin:0 0 6px;color:#f5c518;font-size:13px}
-.footerLegalSummary p{margin:0;color:#8d94a0;font-size:11px;line-height:1.65}
-@media(max-width:720px){.footerLegalSummary{grid-template-columns:1fr}}

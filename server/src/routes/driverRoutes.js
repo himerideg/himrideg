@@ -17,6 +17,11 @@ const driverController =
     "../controllers/driverController"
   );
 
+const walletController =
+  require(
+    "../controllers/walletController"
+  );
+
 const router =
   express.Router();
 
@@ -202,9 +207,34 @@ router.post(
 |--------------------------------------------------------------------------
 */
 
+router.get(
+  "/wallet",
+  walletController
+    .getWallet
+);
+
+router.patch(
+  "/wallet/payout-settings",
+  walletController
+    .savePayoutSettings
+);
+
+router.post(
+  "/wallet/withdraw",
+  walletController
+    .requestWithdrawal
+);
+
+router.post(
+  "/wallet/reconcile",
+  walletController
+    .reconcilePayouts
+);
+
+// Backward compatibility: purana frontend endpoint bhi same secure payout flow use kare.
 router.post(
   "/withdrawal",
-  driverController
+  walletController
     .requestWithdrawal
 );
 

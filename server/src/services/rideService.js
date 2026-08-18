@@ -595,7 +595,6 @@ async function createRide({
   fare = null,
   estimatedFare = null,
   paymentMethod = "cash",
-  paymentTiming = "pay_later",
   note = ""
 }) {
   const customerObjectId = objectId(
@@ -784,7 +783,7 @@ async function createRide({
   const BASE_FARE = 50;
   const PER_KM_RATE = 18;
 
-  const legacyFareEstimate =
+  const fareEstimate =
     clientFare > 0
       ? clientFare
       : Math.round(
@@ -793,35 +792,9 @@ async function createRide({
               PER_KM_RATE
         );
 
-  /*
-  |--------------------------------------------------------------------------
-  | Driver Negotiated Fare Only
-  |--------------------------------------------------------------------------
-  |
-  | HimRideG launch rule: distance/time customer ko dikh sakte hain, lekin
-  | fare automatic calculate/show/lock nahi hoga. Driver offer karega.
-  | Legacy calculator code preserve hai aur env se explicitly enable kiya
-  | ja sakta hai.
-  |
-  */
-  const driverNegotiatedFareOnly =
-    String(
-      process.env.DRIVER_NEGOTIATED_FARE_ONLY ??
-        "true"
-    ).toLowerCase() !==
-    "false";
-
-  const fareEstimate =
-    driverNegotiatedFareOnly
-      ? 0
-      : legacyFareEstimate;
-
-  if (
-    !driverNegotiatedFareOnly &&
-    clientFare <= 0
-  ) {
+  if (clientFare <= 0) {
     console.log(
-      `[createRide] Legacy fare estimate: Rs.${fareEstimate}`
+      `[createRide] Fare estimate client se nahi aaya - distance se calculate kiya: Rs.${fareEstimate}`
     );
   }
 
@@ -846,38 +819,6 @@ async function createRide({
       "INVALID_PAYMENT_METHOD"
     );
   }
-
-  const normalizedPaymentTiming =
-    text(
-      paymentTiming,
-      "pay_later"
-    ).toLowerCase();
-
-  if (
-    ![
-      "pay_now",
-      "pay_later",
-      "scheduled"
-    ].includes(
-      normalizedPaymentTiming
-    )
-  ) {
-    throw new RideServiceError(
-      "Payment timing is invalid",
-      400,
-      "INVALID_PAYMENT_TIMING"
-    );
-  }
-
-  const finalInitialPaymentMethod =
-    ["pay_now", "scheduled"].includes(
-      normalizedPaymentTiming
-    )
-      ? "online"
-      : normalizedPaymentMethod ===
-        "online"
-        ? "online"
-        : "cash";
 
   const booking =
     await Booking.create({
@@ -928,19 +869,10 @@ async function createRide({
 
       payment: {
         method:
-          finalInitialPaymentMethod,
+          normalizedPaymentMethod,
 
         status: "pending"
       },
-
-      paymentMethod:
-        finalInitialPaymentMethod,
-
-      paymentStatus:
-        "pending",
-
-      paymentTiming:
-        normalizedPaymentTiming,
 
       status: "pending",
 
@@ -1869,27 +1801,13 @@ async function markDriverArriving({
   );
 
   if (
-    booking.fareStatus !==
-      "fare_accepted" ||
     !Number.isFinite(finalFare) ||
     finalFare <= 0
   ) {
     throw new RideServiceError(
-      "Customer final fare accept kare tabhi pickup ke liye ja sakte ho",
+      "Final fare accept hone ke baad hi pickup ke liye ja sakte ho",
       409,
       "FINAL_FARE_NOT_ACCEPTED"
-    );
-  }
-
-  if (
-    (booking.paymentPlan === "advance" ||
-      booking.paymentTiming === "pay_now") &&
-    booking.paymentStatus !== "paid"
-  ) {
-    throw new RideServiceError(
-      "Advance payment select hai. Customer payment complete kare tabhi pickup ke liye ja sakte ho",
-      409,
-      "ADVANCE_PAYMENT_REQUIRED"
     );
   }
 
@@ -1946,29 +1864,50 @@ async function markDriverArrived({
   bookingId,
   driverId
 }) {
-  const bookingObjectId = objectId(
-    bookingId,
-    "Booking ID"
-  );
+  const booking =
+    await Booking.findOneAndUpdate(
+      {
+        _id: objectId(
+          bookingId,
+          "Booking ID"
+        ),
 
-  const driverObjectId = objectId(
-    driverId,
-    "Driver ID"
-  );
+        driver: objectId(
+          driverId,
+          "Driver ID"
+        ),
 
-  const booking = await Booking.findOne({
-    _id: bookingObjectId,
-    driver: driverObjectId,
-    status: {
-      $in: [
-        "accepted",
-        "fare_offered",
-        "negotiating",
-        "fare_accepted",
-        "driver_arriving"
-      ]
-    }
-  });
+        status: {
+          $in: [
+            "accepted",
+            "driver_arriving"
+          ]
+        }
+      },
+
+      {
+        $set: {
+          status:
+            "driver_arrived",
+
+          driverArrivedAt:
+            new Date()
+        }
+      },
+
+      {
+        new: true,
+        runValidators: true
+      }
+    )
+      .populate(
+        "customer",
+        "name phone profileImage"
+      )
+      .populate(
+        "driver",
+        "name phone profileImage driverProfile currentLocation"
+      );
 
   if (!booking) {
     throw new RideServiceError(
@@ -1978,59 +1917,19 @@ async function markDriverArrived({
     );
   }
 
-  const lockedFare = Number(
-    booking.finalFare ||
-      booking.fare?.finalFare ||
-      0
-  );
-
-  if (
-    booking.fareStatus !== "fare_accepted" ||
-    !Number.isFinite(lockedFare) ||
-    lockedFare <= 0
-  ) {
-    throw new RideServiceError(
-      "Final fare lock hone ke baad hi driver arrived mark kar sakta hai",
-      409,
-      "FINAL_FARE_NOT_ACCEPTED"
-    );
-  }
-
-  if (
-    (booking.paymentPlan === "advance" ||
-      booking.paymentTiming === "pay_now") &&
-    booking.paymentStatus !== "paid"
-  ) {
-    throw new RideServiceError(
-      "Advance payment pending hai",
-      409,
-      "ADVANCE_PAYMENT_REQUIRED"
-    );
-  }
-
-  booking.status = "driver_arrived";
-  booking.driverArrivedAt = new Date();
-  await booking.save();
-
-  await booking.populate(
-    "customer",
-    "name phone profileImage"
-  );
-  await booking.populate(
-    "driver",
-    "name phone profileImage driverProfile currentLocation"
-  );
-
   safeEmit(
     emitDriverArrived,
-    { booking }
+    {
+      booking
+    }
   );
 
   safeEmit(
     emitRideStatusUpdated,
     {
       booking,
-      status: booking.status
+      status:
+        booking.status
     }
   );
 
@@ -2350,34 +2249,6 @@ async function startRide({
       "Ride cannot be started",
       409,
       "RIDE_START_NOT_ALLOWED"
-    );
-  }
-
-  if (
-    booking.fareStatus !==
-      "fare_accepted" ||
-    Number(
-      booking.finalFare ||
-        booking.fare?.finalFare ||
-        0
-    ) <= 0
-  ) {
-    throw new RideServiceError(
-      "Customer final fare accept kare tabhi ride start hogi",
-      409,
-      "FINAL_FARE_NOT_ACCEPTED"
-    );
-  }
-
-  if (
-    (booking.paymentPlan === "advance" ||
-      booking.paymentTiming === "pay_now") &&
-    booking.paymentStatus !== "paid"
-  ) {
-    throw new RideServiceError(
-      "Advance payment abhi pending hai",
-      409,
-      "ADVANCE_PAYMENT_REQUIRED"
     );
   }
 
@@ -2745,91 +2616,12 @@ async function completeRide({
 
   /*
   |--------------------------------------------------------------------------
-  | Driver Wallet Earnings Update
+  | Wallet Settlement
   |--------------------------------------------------------------------------
-  |
-  | Ride complete hone par driver ki wallet update karo:
-  | - driverPayableAmount booking pe fare accept ke time save hota hai
-  | - agar fare_accepted nahi tha (edge case) toh finalFare use karo
-  | - totalEarned aur balance dono increment karo
-  |
+  | Ride completion sirf ride status complete karta hai. Wallet tabhi settle
+  | hoga jab online payment verify ho ya driver cash receive karke confirm kare.
+  | Isse failed/unpaid payment par fake earning/duplicate balance nahi banta.
   */
-
-  try {
-    const legacyWalletCreditEnabled =
-      String(
-        process.env
-          .LEGACY_WALLET_CREDIT_ON_COMPLETE ||
-          "false"
-      ).toLowerCase() ===
-      "true";
-
-    const driverEarning =
-      legacyWalletCreditEnabled
-        ? (
-            Number(booking.driverPayableAmount) ||
-            Number(booking.fare?.finalFare) ||
-            Number(booking.finalFare) ||
-            0
-          )
-        : 0;
-
-    if (driverEarning > 0) {
-      const paymentMethod =
-        booking.paymentMethod ||
-        booking.payment?.method ||
-        "cash";
-
-      /*
-      | Cash ride mein driver ko paise seedha milte hain customer se,
-      | isliye balance immediately add hoga lekin cashDue track karo
-      | taaki platform commission collect ho sake.
-      |
-      | Online ride mein balance tabhi add hoga jab payment verify ho.
-      | Abhi hum dono cases mein totalEarned update karte hain.
-      */
-
-      const walletIncrement = {
-        "wallet.totalEarned": driverEarning
-      };
-
-      if (paymentMethod === "cash") {
-        /*
-        | Cash ride: driver ne customer se full fare liya.
-        | Platform commission (commissionAmount) driver pe due hai.
-        | Balance mein sirf driverPayable add karo.
-        */
-        walletIncrement["wallet.balance"] =
-          driverEarning;
-      }
-
-      await User.findOneAndUpdate(
-        {
-          _id: driverObjectId,
-          role: "driver"
-        },
-        {
-          $inc: walletIncrement
-        },
-        {
-          new: true
-        }
-      );
-
-      console.log(
-        `[RideService] Driver wallet updated: driverId=${driverObjectId}, earning=₹${driverEarning}, method=${paymentMethod}`
-      );
-    }
-  } catch (walletError) {
-    /*
-    | Wallet update fail hone par ride complete ko block mat karo.
-    | Error log karo aur aage badho.
-    */
-    console.error(
-      "[RideService] Driver wallet update failed (non-blocking):",
-      walletError.message
-    );
-  }
 
   safeEmit(
     emitRideCompleted,
@@ -3313,625 +3105,6 @@ async function rateCustomer({
   return booking;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Launch V3 — Atomic Driver Accept
-|--------------------------------------------------------------------------
-|
-| Purana acceptRide function compatibility ke liye preserve hai.
-| Website launch routes ye atomic version use karte hain, jisse do drivers
-| ek hi ride ko same time claim nahi kar sakte.
-|
-*/
-async function acceptRideAtomic({
-  bookingId,
-  driverId
-}) {
-  const bookingObjectId =
-    objectId(
-      bookingId,
-      "Booking ID"
-    );
-
-  const driverObjectId =
-    objectId(
-      driverId,
-      "Driver ID"
-    );
-
-  await getDriverOrThrow(
-    driverObjectId
-  );
-
-  const busyDriver =
-    await markDriverBusy(
-      driverObjectId,
-      bookingObjectId
-    );
-
-  if (!busyDriver) {
-    throw new RideServiceError(
-      "Driver is no longer available",
-      409,
-      "DRIVER_NOT_AVAILABLE"
-    );
-  }
-
-  try {
-    const otp =
-      generateOtp(4);
-
-    const otpHash =
-      await bcrypt.hash(
-        otp,
-        10
-      );
-
-    const now =
-      new Date();
-
-    const otpExpiresAt =
-      addMinutes(
-        now,
-        DEFAULT_OTP_EXPIRY_MINUTES
-      );
-
-    const booking =
-      await Booking.findOneAndUpdate(
-        {
-          _id:
-            bookingObjectId,
-
-          driver:
-            null,
-
-          status: {
-            $in: [
-              "pending",
-              "searching_driver"
-            ]
-          },
-
-          rejectedDrivers: {
-            $ne:
-              driverObjectId
-          },
-
-          $or: [
-            {
-              dispatchQueue: {
-                $elemMatch: {
-                  driver:
-                    driverObjectId,
-
-                  status:
-                    "pending",
-
-                  expiresAt: {
-                    $gt:
-                      now
-                  }
-                }
-              }
-            },
-
-            {
-              dispatchQueue: {
-                $size: 0
-              }
-            }
-          ]
-        },
-
-        {
-          $set: {
-            driver:
-              driverObjectId,
-
-            status:
-              "accepted",
-
-            acceptedAt:
-              now,
-
-            fareStatus:
-              "not_offered",
-
-            fareOfferedBy:
-              null,
-
-            driverOfferedFare:
-              null,
-
-            customerCounterFare:
-              null,
-
-            driverFinalFareProposal:
-              null,
-
-            finalFare:
-              null,
-
-            fareAcceptedAt:
-              null,
-
-            rideStartOtp: {
-              otpHash,
-
-              expiresAt:
-                otpExpiresAt,
-
-              attempts: 0,
-
-              maxAttempts:
-                MAX_OTP_ATTEMPTS,
-
-              verified:
-                false,
-
-              verifiedAt:
-                null
-            }
-          }
-        },
-
-        {
-          new: true,
-          runValidators: true
-        }
-      ).select(
-        "+rideStartOtp.otpHash"
-      );
-
-    if (!booking) {
-      await releaseDriver(
-        driverObjectId,
-        bookingObjectId
-      );
-
-      throw new RideServiceError(
-        "Ride request ab kisi aur driver ne accept kar li ya expire ho gayi",
-        409,
-        "RIDE_REQUEST_UNAVAILABLE"
-      );
-    }
-
-    booking.dispatchQueue.forEach(
-      (request) => {
-        if (
-          String(
-            request.driver
-          ) ===
-          String(
-            driverObjectId
-          )
-        ) {
-          request.status =
-            "accepted";
-        } else if (
-          request.status ===
-          "pending"
-        ) {
-          request.status =
-            "ignored";
-        }
-      }
-    );
-
-    await booking.save();
-
-    const populated =
-      await getBookingOrThrow(
-        booking._id,
-        {
-          populate: true
-        }
-      );
-
-    safeEmit(
-      emitRideAccepted,
-      {
-        booking:
-          populated,
-
-        driverId:
-          driverObjectId
-      }
-    );
-
-    safeEmit(
-      emitRideOtpGenerated,
-      {
-        booking:
-          populated,
-
-        rideStartOtp:
-          otp,
-
-        otpExpiresAt
-      }
-    );
-
-    safeEmit(
-      emitRideStatusUpdated,
-      {
-        booking:
-          populated,
-
-        status:
-          populated.status
-      }
-    );
-
-    return {
-      booking:
-        populated,
-
-      rideStartOtp:
-        otp,
-
-      otpExpiresAt
-    };
-  } catch (error) {
-    await releaseDriver(
-      driverObjectId,
-      bookingObjectId
-    );
-
-    throw error;
-  }
-}
-
-/*
-|--------------------------------------------------------------------------
-| Launch V3 — Driver Release Unconfirmed Ride
-|--------------------------------------------------------------------------
-|
-| Driver ne request accept kar li lekin customer response nahi de raha,
-| final fare lock nahi hui, ya ride confirm nahi hui. Is endpoint se poori
-| customer booking cancel nahi hoti. Current driver release hota hai aur
-| booking dobara nearest available drivers ko dispatch hoti hai.
-|
-*/
-async function driverReleaseRide({
-  bookingId,
-  driverId,
-  reason = ""
-}) {
-  const bookingObjectId =
-    objectId(
-      bookingId,
-      "Booking ID"
-    );
-
-  const driverObjectId =
-    objectId(
-      driverId,
-      "Driver ID"
-    );
-
-  const booking =
-    await Booking.findOne({
-      _id:
-        bookingObjectId,
-
-      driver:
-        driverObjectId,
-
-      status: {
-        $in: [
-          "driver_assigned",
-          "accepted",
-          "fare_offered",
-          "negotiating"
-        ]
-      }
-    }).select(
-      "+rideStartOtp.otpHash"
-    );
-
-  if (!booking) {
-    throw new RideServiceError(
-      "Sirf unconfirmed accepted ride ko release kar sakte ho",
-      409,
-      "DRIVER_RELEASE_NOT_ALLOWED"
-    );
-  }
-
-  const cleanReason =
-    text(
-      reason,
-      "Customer not responding"
-    );
-
-  booking.driverReleaseHistory.push({
-    driver:
-      driverObjectId,
-
-    reason:
-      cleanReason,
-
-    releasedAt:
-      new Date()
-  });
-
-  booking.addRejectedDriver(
-    driverObjectId
-  );
-
-  booking.driver =
-    null;
-
-  booking.status =
-    "searching_driver";
-
-  booking.acceptedAt =
-    null;
-
-  booking.driverArrivingAt =
-    null;
-
-  booking.driverArrivedAt =
-    null;
-
-  booking.rideStartOtp = {
-    otpHash:
-      null,
-
-    expiresAt:
-      null,
-
-    attempts:
-      0,
-
-    maxAttempts:
-      MAX_OTP_ATTEMPTS,
-
-    verified:
-      false,
-
-    verifiedAt:
-      null
-  };
-
-  /*
-  |--------------------------------------------------------------------------
-  | Active fare proposal reset
-  |--------------------------------------------------------------------------
-  |
-  | History fields object me rahe sakte hain, lekin next driver ke saath
-  | current negotiation zero se start hogi.
-  |
-  */
-
-  booking.driverOfferedFare =
-    null;
-
-  booking.customerCounterFare =
-    null;
-
-  booking.driverFinalFareProposal =
-    null;
-
-  booking.finalFare =
-    null;
-
-  booking.fareStatus =
-    "not_offered";
-
-  booking.fareOfferedBy =
-    null;
-
-  booking.fareOfferCount =
-    0;
-
-  booking.fareOfferedAt =
-    null;
-
-  booking.fareAcceptedAt =
-    null;
-
-  if (booking.fare) {
-    booking.fare.finalFare =
-      0;
-
-    booking.fare.platformFee =
-      0;
-  }
-
-  booking.platformCommissionAmount =
-    0;
-
-  booking.driverPayableAmount =
-    0;
-
-  booking.dispatchQueue.forEach(
-    (request) => {
-      if (
-        String(
-          request.driver
-        ) ===
-        String(
-          driverObjectId
-        )
-      ) {
-        request.status =
-          "rejected";
-      }
-    }
-  );
-
-  booking.expiresAt =
-    addMinutes(
-      new Date(),
-      DEFAULT_RIDE_EXPIRY_MINUTES
-    );
-
-  await booking.save();
-
-  await releaseDriver(
-    driverObjectId,
-    bookingObjectId
-  );
-
-  await User.updateOne(
-    {
-      _id:
-        driverObjectId,
-
-      role:
-        "driver"
-    },
-
-    {
-      $inc: {
-        "driverProfile.cancelledRides":
-          1
-      }
-    }
-  );
-
-  socketEvents.emitBookingEvent({
-    booking,
-
-    eventName:
-      "ride:driver-released",
-
-    message:
-      "Driver ne unconfirmed ride release ki. Naya driver search ho raha hai.",
-
-    status:
-      booking.status,
-
-    metadata: {
-      previousDriverId:
-        driverObjectId,
-
-      reason:
-        cleanReason
-    },
-
-    sendToDriver:
-      true,
-
-    sendToCustomer:
-      true,
-
-    sendToAdmins:
-      true
-  });
-
-  safeEmit(
-    emitRideStatusUpdated,
-    {
-      booking,
-
-      status:
-        booking.status
-    }
-  );
-
-  let dispatchResult =
-    null;
-
-  try {
-    dispatchResult =
-      await dispatchRide({
-        bookingId:
-          booking._id
-      });
-  } catch (dispatchError) {
-    console.error(
-      "[driverReleaseRide re-dispatch]",
-      dispatchError.message
-    );
-  }
-
-  const populated =
-    await getBookingOrThrow(
-      booking._id,
-      {
-        populate: true
-      }
-    );
-
-  return {
-    booking:
-      populated,
-
-    dispatch:
-      dispatchResult
-  };
-}
-
-/*
-|--------------------------------------------------------------------------
-| Launch V3 — Driver Availability After Wallet Due
-|--------------------------------------------------------------------------
-|
-| Cash commission due ho to driver ko online rehne dete hain, lekin nayi
-| ride accept karne se pehle due clear hona chahiye.
-|
-*/
-async function driverCanAcceptNewRide(
-  driverId
-) {
-  const driver =
-    await User.findOne({
-      _id:
-        objectId(
-          driverId,
-          "Driver ID"
-        ),
-
-      role:
-        "driver"
-    }).select(
-      "wallet.commissionDue wallet.balance isOnline isAvailable currentRide"
-    );
-
-  if (!driver) {
-    return {
-      allowed:
-        false,
-
-      reason:
-        "Driver not found"
-    };
-  }
-
-  const commissionDue =
-    Number(
-      driver.wallet
-        ?.commissionDue ||
-        0
-    );
-
-  if (commissionDue > 0) {
-    return {
-      allowed:
-        false,
-
-      reason:
-        `₹${commissionDue} platform commission due hai`,
-
-      commissionDue
-    };
-  }
-
-  return {
-    allowed:
-      Boolean(
-        driver.isOnline &&
-          driver.isAvailable &&
-          !driver.currentRide
-      ),
-
-    commissionDue:
-      0
-  };
-}
-
 module.exports = {
   RideServiceError,
 
@@ -3945,10 +3118,7 @@ module.exports = {
   findNearestDrivers,
   dispatchRide,
   acceptRide,
-  acceptRideAtomic,
   rejectRide,
-  driverReleaseRide,
-  driverCanAcceptNewRide,
 
   expireDriverRequests,
   expireBooking,

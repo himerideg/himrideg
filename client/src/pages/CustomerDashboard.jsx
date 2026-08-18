@@ -10,7 +10,7 @@ import api from "../api";
 import socket from "../socket";
 import RideMap from "../RideMap";
 import CustomerBookRide from "../components/CustomerBookRide";
-import PaymentModal from "../components/paymentmodal";
+import PaymentModal from "../components/PaymentModal";
 
 import "../dashboard.css";
 import "../customer-dashboard-v2.css";
@@ -56,80 +56,6 @@ const fareOf = (ride) =>
       ride?.driverOfferedFare ??
       0
   ) || 0;
-
-/*
-|--------------------------------------------------------------------------
-| Locked Fare Helper — Payment ke liye ONLY final locked fare
-|--------------------------------------------------------------------------
-| Display ke kuch purane sections driver offered fare dikha sakte hain,
-| lekin actual payment amount kabhi estimated/offer se nahi banega.
-| Customer payment ke liye sirf finalFare / fare.finalFare valid hai.
-*/
-const lockedFareOf = (ride) =>
-  Number(
-    ride?.finalFare ??
-      ride?.fare?.finalFare ??
-      0
-  ) || 0;
-
-const isRidePaid = (ride, paidBookingIds = new Set()) =>
-  ride?.paymentStatus === "paid" ||
-  ride?.payment?.status === "paid" ||
-  paidBookingIds.has(idOf(ride));
-
-const paymentPlanOf = (ride) => {
-  const explicit = String(ride?.paymentPlan || "").trim();
-
-  if (["online_after_ride", "advance", "scheduled"].includes(explicit)) {
-    return explicit;
-  }
-
-  if (ride?.paymentTiming === "pay_now") {
-    return "advance";
-  }
-
-  return null;
-};
-
-const isFinalFareLocked = (ride) =>
-  Boolean(
-    ride &&
-      ride.fareStatus === "fare_accepted" &&
-      lockedFareOf(ride) > 0
-  );
-
-/*
-|--------------------------------------------------------------------------
-| Customer Payment Page Gate
-|--------------------------------------------------------------------------
-| Fare lock hote hi plan page khul sakta hai. Online-after-ride plan me real
-| payment ride complete ke baad; Advance/Scheduled me Pay Now pehle bhi.
-|--------------------------------------------------------------------------
-*/
-const canCustomerPayRide = (ride, paidBookingIds = new Set()) => {
-  if (
-    !ride ||
-    !isFinalFareLocked(ride) ||
-    isRidePaid(ride, paidBookingIds)
-  ) {
-    return false;
-  }
-
-  const plan = paymentPlanOf(ride);
-
-  if (!plan) {
-    return true;
-  }
-
-  if (["advance", "scheduled"].includes(plan)) {
-    return true;
-  }
-
-  return (
-    plan === "online_after_ride" &&
-    ride.status === "completed"
-  );
-};
 
 const distanceOf = (ride) =>
   Number(
@@ -214,279 +140,141 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
 
   const bookingId = ride?._id || ride?.id;
   const fareStatus = ride?.fareStatus;
-  const driverOffer = Number(ride?.driverOfferedFare || 0);
-  const customerCounter = Number(ride?.customerCounterFare || 0);
-  const driverFinalFare = Number(ride?.driverFinalFareProposal || 0);
-  const finalFare = Number(ride?.finalFare || ride?.fare?.finalFare || 0);
-  const offerCount = Number(ride?.fareOfferCount || 0);
+  const driverOffer = ride?.driverOfferedFare;
+  const customerCounter = ride?.customerCounterFare;
+  const finalFare = ride?.finalFare;
+  const offerCount = ride?.fareOfferCount || 0;
 
-  if (!bookingId) {
-    return null;
-  }
+  if (!bookingId) return null;
 
-  /*
-  |--------------------------------------------------------------------------
-  | Locked Fare
-  |--------------------------------------------------------------------------
-  |
-  | Fare sirf customer ke final driver fare accept karne ke baad lock hota hai.
-  |
-  */
-
-  if (fareStatus === "fare_accepted" || ride?.status === "fare_accepted") {
+  // Fare lock ho gayi
+  if (fareStatus === "fare_accepted" || finalFare) {
     return (
       <div className="fareLockedBox">
         <div className="fareLockedIcon">🔒</div>
-
         <div>
           <small>Final Fare Locked</small>
-
-          <strong>
-            ₹{money(finalFare || driverFinalFare || driverOffer)}
-          </strong>
-
-          <p>
-            Customer ne driver ka final fare accept kar diya hai.
-          </p>
+          <strong>₹{money(finalFare || driverOffer)}</strong>
         </div>
       </div>
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Driver FINAL Fare — Customer ke paas EXACTLY Accept / Reject
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    fareStatus === "driver_final" &&
-    driverFinalFare > 0
-  ) {
-    return (
-      <div className="fareNegotiateBox fareFinalDecisionBox">
-        <div className="fareOfferHeader">
-          <span>🔐 Driver Final Fare</span>
-
-          <strong>
-            ₹{money(driverFinalFare)}
-          </strong>
-        </div>
-
-        <p
-          style={{
-            fontSize: "13px",
-            color: "#aaa",
-            margin: "8px 0"
-          }}
-        >
-          Driver ne final fare bhej diya hai. Accept karne par fare lock ho
-          jayega. Reject karne par current driver release hoga aur ride dobara
-          driver search me jayegi.
-        </p>
-
-        <div className="fareActions">
-          <button
-            className="fareBtn fareAccept"
-            onClick={() =>
-              onAccept(
-                bookingId,
-                driverFinalFare
-              )
-            }
-          >
-            ✅ Accept ₹{money(driverFinalFare)}
-          </button>
-
-          <button
-            className="fareBtn fareReject"
-            onClick={() =>
-              onReject(
-                bookingId
-              )
-            }
-          >
-            ❌ Reject
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | Customer Counter Sent — Driver Final Fare ka wait
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    fareStatus === "customer_countered" ||
-    counterSent
-  ) {
+  // Customer ne counter kiya — driver ka jawab wait karo (no repeat)
+  if (fareStatus === "customer_countered" || counterSent) {
     return (
       <div className="fareWaitBox">
         <div className="fareWaitIcon">⏳</div>
-
         <div>
-          <small>Your Negotiation Fare</small>
-
-          <strong>
-            ₹{money(customerCounter || counterInput)}
-          </strong>
-
-          <p>
-            Waiting for driver final fare...
-          </p>
+          <small>Your counter offer</small>
+          <strong>₹{money(customerCounter || counterInput)}</strong>
+          <p>Waiting for driver response...</p>
         </div>
       </div>
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Driver Initial Fare — Customer Negotiation Only
-  |--------------------------------------------------------------------------
-  |
-  | Latest HimRideG rule:
-  |
-  | Driver initial fare
-  |      ↓
-  | Customer negotiation/counter
-  |      ↓
-  | Driver FINAL fare
-  |      ↓
-  | Customer Accept / Reject
-  |
-  | Is stage par initial fare direct lock nahi hota.
-  |
-  */
-
-  if (
-    fareStatus === "driver_offered" &&
-    driverOffer > 0
-  ) {
+  // Driver ne offer kiya — customer ke paas options
+  if (fareStatus === "driver_offered" && driverOffer) {
     return (
       <div className="fareNegotiateBox">
         <div className="fareOfferHeader">
-          <span>🚖 Driver Initial Fare</span>
-
-          <strong>
-            ₹{money(driverOffer)}
-          </strong>
+          <span>🚖 Driver Offer</span>
+          <strong>₹{money(driverOffer)}</strong>
         </div>
 
         {showCounterInput ? (
           <div className="fareCounterInput">
             <input
               type="number"
-              placeholder="Aapka negotiation fare (₹)"
+              placeholder="Counter amount (₹)"
               value={counterInput}
-              onChange={(event) =>
-                setCounterInput(
-                  event.target.value
-                )
-              }
+              onChange={(e) => setCounterInput(e.target.value)}
               min={50}
               max={10000}
               autoFocus
             />
-
             <div className="fareCounterActions">
               <button
                 className="fareBtn fareCounterSend"
                 onClick={() => {
-                  const amount =
-                    Number(counterInput);
-
-                  if (
-                    !Number.isFinite(amount) ||
-                    amount <= 0
-                  ) {
-                    return;
-                  }
-
-                  onCounter(
-                    bookingId,
-                    amount
-                  );
-
+                  if (!counterInput || Number(counterInput) <= 0) return;
+                  onCounter(bookingId, counterInput);
                   setCounterSent(true);
-
                   setShowCounterInput(false);
                 }}
               >
                 Send ₹{counterInput || "?"}
               </button>
-
               <button
                 className="fareBtn fareBtnCancel"
-                onClick={() => {
-                  setShowCounterInput(false);
-                  setCounterInput("");
-                }}
+                onClick={() => { setShowCounterInput(false); setCounterInput(""); }}
               >
-                Back
+                Cancel
               </button>
             </div>
           </div>
         ) : (
           <div className="fareActions">
             <button
-              className="fareBtn fareCounter"
-              onClick={() =>
-                setShowCounterInput(true)
-              }
+              className="fareBtn fareAccept"
+              onClick={() => onAccept(bookingId, driverOffer)}
             >
-              💬 Negotiate Fare
+              ✅ Accept ₹{money(driverOffer)}
+            </button>
+            {offerCount < 6 && (
+              <button
+                className="fareBtn fareCounter"
+                onClick={() => setShowCounterInput(true)}
+              >
+                💬 Counter Offer
+              </button>
+            )}
+            <button
+              className="fareBtn fareReject"
+              onClick={() => onReject(bookingId)}
+            >
+              ❌ Reject
             </button>
           </div>
         )}
 
-        <small className="fareWarning">
-          Initial fare direct lock nahi hoga. Aap negotiation fare bhejenge,
-          phir driver final fare bhejega.
-        </small>
+        {offerCount >= 5 && (
+          <small className="fareWarning">
+            ⚠️ Last chance — only 1 offer remaining
+          </small>
+        )}
       </div>
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Legacy Rejected State Fallback
-  |--------------------------------------------------------------------------
-  */
-
+  // Driver ne reject kiya aur final fare aaya — customer accept/cancel
   if (fareStatus === "fare_rejected") {
     return (
-      <div className="fareWaitBox">
-        <div className="fareWaitIcon">↻</div>
-
-        <div>
-          <small>Fare negotiation updated</small>
-
-          <p>
-            Driver response / new dispatch ka wait karein.
-          </p>
+      <div className="fareNegotiateBox">
+        <div className="fareOfferHeader" style={{borderColor:"#f87171"}}>
+          <span>❌ Counter Rejected</span>
+          <strong style={{color:"#f87171"}}>Driver ne reject kiya</strong>
         </div>
-      </div>
-    );
-  }
-
-  if (
-    ride?.status === "accepted" ||
-    ride?.status === "driver_assigned"
-  ) {
-    return (
-      <div className="fareWaitBox">
-        <div className="fareWaitIcon">₹</div>
-
-        <div>
-          <small>Waiting for Driver Fare</small>
-
-          <p>
-            Driver initial fare bhejne ke baad negotiation yahin start hogi.
-          </p>
-        </div>
+        <p style={{fontSize:"13px",color:"#aaa",margin:"8px 0"}}>
+          Driver ka final offer lock ho gaya hai. Accept karo ya cancel karo.
+        </p>
+        {driverOffer && (
+          <div className="fareActions">
+            <button
+              className="fareBtn fareAccept"
+              onClick={() => onAccept(bookingId, driverOffer)}
+            >
+              ✅ Accept ₹{money(driverOffer)}
+            </button>
+            <button
+              className="fareBtn fareReject"
+              onClick={() => onReject(bookingId)}
+            >
+              🚫 Cancel Ride
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -613,609 +401,6 @@ function RatingModal({ ride, onSubmit, onSkip }) {
   );
 }
 
-
-/* ==========================================================================
-   Customer Wallet — Separate Page
-   ==========================================================================
-
-   Wallet ko dashboard card ki tarah render nahi kiya jaata. Navbar ke Wallet
-   button se yeh dedicated page open hota hai. Wallet balance/add-money feature
-   abhi launch nahi hua hai, isliye clearly "Available Soon" dikhaya gaya hai.
-
-   Ride payment isi page se ki ja sakti hai, lekin sirf tab jab:
-   1) driver ride ko completed kare,
-   2) final fare locked ho, aur
-   3) payment already paid na ho.
-*/
-function CustomerWalletPage({
-  rides = [],
-  activeRide,
-  paidBookingIds,
-  onPay,
-  onBack,
-  onBookRide,
-  onShowCompleted,
-  onRefresh,
-}) {
-  const completedUnpaid = useMemo(
-    () =>
-      rides.filter((ride) =>
-        canCustomerPayRide(ride, paidBookingIds)
-      ),
-    [rides, paidBookingIds]
-  );
-
-  const completedPaid = useMemo(
-    () =>
-      rides
-        .filter(
-          (ride) =>
-            ride?.status === "completed" &&
-            isRidePaid(ride, paidBookingIds)
-        )
-        .slice(0, 5),
-    [rides, paidBookingIds]
-  );
-
-  const pendingPaymentRide = useMemo(() => {
-    if (completedUnpaid.length) {
-      return completedUnpaid[0];
-    }
-
-    if (activeRide && !isRidePaid(activeRide, paidBookingIds)) {
-      return activeRide;
-    }
-
-    return null;
-  }, [completedUnpaid, activeRide, paidBookingIds]);
-
-  const paymentEnabled = canCustomerPayRide(
-    pendingPaymentRide,
-    paidBookingIds
-  );
-
-  const paymentFare = lockedFareOf(pendingPaymentRide);
-
-  return (
-    <section
-      aria-label="Customer Wallet"
-      style={{
-        display: "grid",
-        gap: 20,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 14,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <button
-            type="button"
-            onClick={onBack}
-            style={{
-              border: 0,
-              background: "transparent",
-              color: "#ffc400",
-              cursor: "pointer",
-              fontWeight: 800,
-              padding: 0,
-              marginBottom: 8,
-            }}
-          >
-            ← Back to Dashboard
-          </button>
-
-          <h1
-            style={{
-              margin: 0,
-              color: "#ffffff",
-              fontSize: "clamp(30px, 4vw, 46px)",
-            }}
-          >
-            HimRideG Wallet
-          </h1>
-
-          <p
-            style={{
-              margin: "8px 0 0",
-              color: "#c7cbd1",
-              maxWidth: 760,
-              lineHeight: 1.6,
-            }}
-          >
-            Wallet balance, add money aur wallet credits feature abhi launch
-            ke liye prepare ho raha hai. Ride payment section abhi se available
-            hai aur completed ride ka locked fare hi use karega.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onRefresh}
-          style={{
-            minHeight: 44,
-            padding: "0 18px",
-            border: "1px solid #4b5563",
-            borderRadius: 10,
-            background: "#111318",
-            color: "#fff",
-            cursor: "pointer",
-            fontWeight: 800,
-          }}
-        >
-          ↻ Refresh Payments
-        </button>
-      </div>
-
-      <div
-        style={{
-          padding: "28px",
-          borderRadius: 18,
-          border: "1px solid rgba(255,196,0,.85)",
-          background:
-            "linear-gradient(135deg, rgba(255,196,0,.15), rgba(255,196,0,.04)), #0a0c10",
-          boxShadow: "0 18px 50px rgba(0,0,0,.35)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 18,
-            flexWrap: "wrap",
-          }}
-        >
-          <div
-            style={{
-              width: 72,
-              height: 72,
-              display: "grid",
-              placeItems: "center",
-              borderRadius: 18,
-              background: "#ffc400",
-              color: "#050608",
-              fontSize: 34,
-            }}
-          >
-            👛
-          </div>
-
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <small
-              style={{
-                color: "#ffc400",
-                fontWeight: 900,
-                letterSpacing: ".7px",
-              }}
-            >
-              CUSTOMER WALLET
-            </small>
-
-            <h2
-              style={{
-                margin: "5px 0 2px",
-                color: "#ffffff",
-                fontSize: 30,
-              }}
-            >
-              Available Soon
-            </h2>
-
-            <p style={{ margin: 0, color: "#aeb4bd", lineHeight: 1.55 }}>
-              Wallet balance, add money aur wallet transaction features jaldi
-              available honge. Abhi customer ride payment Online UPI ya Cash se
-              kar sakta hai.
-            </p>
-          </div>
-
-          <span
-            style={{
-              padding: "10px 15px",
-              borderRadius: 999,
-              background: "rgba(255,196,0,.12)",
-              border: "1px solid rgba(255,196,0,.5)",
-              color: "#ffc400",
-              fontWeight: 900,
-              whiteSpace: "nowrap",
-            }}
-          >
-            COMING SOON
-          </span>
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-          gap: 16,
-        }}
-      >
-        <article
-          style={{
-            padding: 20,
-            borderRadius: 14,
-            background: "#ffffff",
-            color: "#111318",
-            border: "1px solid #e4e7eb",
-          }}
-        >
-          <div style={{ fontSize: 30 }}>📱</div>
-          <h3 style={{ margin: "10px 0 6px" }}>Online — UPI</h3>
-          <p style={{ margin: 0, color: "#6b7280", lineHeight: 1.55 }}>
-            Mobile par UPI app open hogi. Desktop par UPI QR scan karke payment
-            ki ja sakti hai. Amount customer type nahi karega — locked fare
-            automatically payment order me jayega.
-          </p>
-        </article>
-
-        <article
-          style={{
-            padding: 20,
-            borderRadius: 14,
-            background: "#ffffff",
-            color: "#111318",
-            border: "1px solid #e4e7eb",
-          }}
-        >
-          <div style={{ fontSize: 30 }}>💵</div>
-          <h3 style={{ margin: "10px 0 6px" }}>Cash</h3>
-          <p style={{ margin: 0, color: "#6b7280", lineHeight: 1.55 }}>
-            Ride complete hone ke baad customer Cash select kar sakta hai.
-            Driver ko locked fare cash dene ke baad assigned driver payment
-            receive confirm karega.
-          </p>
-        </article>
-      </div>
-
-      <article
-        style={{
-          padding: 24,
-          borderRadius: 16,
-          background: "#ffffff",
-          color: "#111318",
-          border: "1px solid #dfe3e8",
-          boxShadow: "0 14px 35px rgba(0,0,0,.22)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 14,
-            flexWrap: "wrap",
-            marginBottom: 18,
-          }}
-        >
-          <div>
-            <small style={{ color: "#6b7280", fontWeight: 800 }}>
-              RIDE PAYMENT
-            </small>
-            <h2 style={{ margin: "5px 0 0" }}>Pay completed ride</h2>
-          </div>
-
-          <button
-            type="button"
-            onClick={onShowCompleted}
-            style={{
-              border: 0,
-              background: "transparent",
-              color: "#d89600",
-              cursor: "pointer",
-              fontWeight: 850,
-            }}
-          >
-            View completed rides →
-          </button>
-        </div>
-
-        {pendingPaymentRide ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) auto",
-              gap: 18,
-              alignItems: "center",
-              padding: 18,
-              border: "1px solid #f4d47b",
-              borderRadius: 12,
-              background: "#fffbeb",
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  flexWrap: "wrap",
-                  marginBottom: 9,
-                }}
-              >
-                <span
-                  style={{
-                    padding: "5px 9px",
-                    borderRadius: 999,
-                    background:
-                      pendingPaymentRide.status === "completed"
-                        ? "#dcfce7"
-                        : "#f3f4f6",
-                    color:
-                      pendingPaymentRide.status === "completed"
-                        ? "#166534"
-                        : "#4b5563",
-                    fontSize: 11,
-                    fontWeight: 900,
-                  }}
-                >
-                  {statusText(pendingPaymentRide.status)}
-                </span>
-
-                {paymentFare > 0 && (
-                  <span
-                    style={{
-                      padding: "5px 9px",
-                      borderRadius: 999,
-                      background: "#111318",
-                      color: "#ffc400",
-                      fontSize: 11,
-                      fontWeight: 900,
-                    }}
-                  >
-                    🔒 Locked Fare ₹{money(paymentFare)}
-                  </span>
-                )}
-              </div>
-
-              <strong style={{ display: "block", fontSize: 16 }}>
-                {pickupOf(pendingPaymentRide)}
-              </strong>
-              <span style={{ color: "#ef233c", fontWeight: 900 }}>↓</span>
-              <strong style={{ display: "block", fontSize: 16 }}>
-                {dropOf(pendingPaymentRide)}
-              </strong>
-
-              {!paymentEnabled && (
-                <p
-                  style={{
-                    margin: "10px 0 0",
-                    color: "#6b7280",
-                    fontSize: 13,
-                  }}
-                >
-                  Payment button driver ke ride complete karne ke baad hi
-                  enable hoga. Final locked fare ke bina payment start nahi hogi.
-                </p>
-              )}
-            </div>
-
-            <button
-              type="button"
-              disabled={!paymentEnabled}
-              onClick={() => paymentEnabled && onPay(pendingPaymentRide)}
-              style={{
-                minWidth: 190,
-                minHeight: 50,
-                padding: "0 18px",
-                border: 0,
-                borderRadius: 10,
-                background: paymentEnabled ? "#ffc400" : "#e5e7eb",
-                color: paymentEnabled ? "#111318" : "#9ca3af",
-                cursor: paymentEnabled ? "pointer" : "not-allowed",
-                fontWeight: 950,
-              }}
-            >
-              {paymentEnabled
-                ? `Pay ₹${money(paymentFare)}`
-                : "Payment Locked"}
-            </button>
-          </div>
-        ) : (
-          <div
-            style={{
-              padding: 26,
-              textAlign: "center",
-              border: "1px dashed #d1d5db",
-              borderRadius: 12,
-              color: "#6b7280",
-            }}
-          >
-            <div style={{ fontSize: 34, marginBottom: 7 }}>✅</div>
-            <strong style={{ color: "#111318" }}>No pending payment</strong>
-            <p style={{ margin: "5px 0 14px" }}>
-              Completed unpaid ride aayegi to payment yahin enable ho jayega.
-            </p>
-            <button
-              type="button"
-              onClick={onBookRide}
-              style={{
-                minHeight: 42,
-                padding: "0 17px",
-                border: 0,
-                borderRadius: 8,
-                background: "#ffc400",
-                color: "#111318",
-                fontWeight: 900,
-                cursor: "pointer",
-              }}
-            >
-              Book a Ride
-            </button>
-          </div>
-        )}
-      </article>
-
-      {completedUnpaid.length > 1 && (
-        <article
-          style={{
-            padding: 22,
-            borderRadius: 16,
-            background: "#ffffff",
-            color: "#111318",
-            border: "1px solid #dfe3e8",
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>Other pending ride payments</h2>
-          <div style={{ display: "grid", gap: 10 }}>
-            {completedUnpaid.slice(1, 6).map((ride) => (
-              <div
-                key={idOf(ride)}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto",
-                  gap: 12,
-                  alignItems: "center",
-                  padding: 13,
-                  border: "1px solid #eceff3",
-                  borderRadius: 10,
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <strong>{pickupOf(ride)}</strong>
-                  <small
-                    style={{
-                      display: "block",
-                      color: "#6b7280",
-                      marginTop: 3,
-                    }}
-                  >
-                    to {dropOf(ride)} · Locked ₹{money(lockedFareOf(ride))}
-                  </small>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onPay(ride)}
-                  style={{
-                    minHeight: 38,
-                    padding: "0 13px",
-                    border: 0,
-                    borderRadius: 8,
-                    background: "#ffc400",
-                    color: "#111318",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  Pay
-                </button>
-              </div>
-            ))}
-          </div>
-        </article>
-      )}
-
-      {completedPaid.length > 0 && (
-        <article
-          style={{
-            padding: 22,
-            borderRadius: 16,
-            background: "#ffffff",
-            color: "#111318",
-            border: "1px solid #dfe3e8",
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>Recent paid rides</h2>
-          <div style={{ display: "grid", gap: 9 }}>
-            {completedPaid.map((ride) => (
-              <div
-                key={idOf(ride)}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  padding: "11px 0",
-                  borderBottom: "1px solid #f0f1f3",
-                }}
-              >
-                <span>
-                  {pickupOf(ride)} → {dropOf(ride)}
-                </span>
-                <strong style={{ color: "#16a34a", whiteSpace: "nowrap" }}>
-                  ✅ Paid ₹{money(lockedFareOf(ride))}
-                </strong>
-              </div>
-            ))}
-          </div>
-        </article>
-      )}
-    </section>
-  );
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Mobile Customer Navigation Icon
-|--------------------------------------------------------------------------
-| Inline SVG icons intentionally local rakhe gaye hain taaki mobile navbar
-| kisi external icon library, CDN ya font par depend na kare.
-*/
-function MobileNavIcon({ type }) {
-  const commonProps = {
-    viewBox: "0 0 24 24",
-    width: 22,
-    height: 22,
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 2,
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    "aria-hidden": true,
-  };
-
-  if (type === "home") {
-    return (
-      <svg {...commonProps}>
-        <path d="M3 10.8 12 3l9 7.8" />
-        <path d="M5.5 9.5V21h13V9.5" />
-        <path d="M9.5 21v-6h5v6" />
-      </svg>
-    );
-  }
-
-  if (type === "rides") {
-    return (
-      <svg {...commonProps}>
-        <rect x="3" y="4" width="18" height="16" rx="3" />
-        <path d="M7 9h10" />
-        <path d="M7 13h7" />
-        <path d="M7 17h4" />
-      </svg>
-    );
-  }
-
-  if (type === "book") {
-    return (
-      <svg {...commonProps} width="28" height="28">
-        <path d="M12 5v14" />
-        <path d="M5 12h14" />
-      </svg>
-    );
-  }
-
-  if (type === "wallet") {
-    return (
-      <svg {...commonProps}>
-        <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18a2 2 0 0 1 2 2v2H15a3 3 0 0 0 0 6h5v2a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 16.5z" />
-        <path d="M20 9v6h-5a3 3 0 0 1 0-6z" />
-        <circle cx="15.5" cy="12" r=".7" fill="currentColor" stroke="none" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg {...commonProps}>
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
-    </svg>
-  );
-}
-
 function CustomerDashboard({
   user,
   booking,
@@ -1231,42 +416,9 @@ function CustomerDashboard({
 }) {
   const [bookOpen, setBookOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-
-  /*
-  |--------------------------------------------------------------------------
-  | Customer Page State
-  |--------------------------------------------------------------------------
-  | Wallet ab dashboard ke andar scroll section nahi hai. Yeh dedicated
-  | customer page/view hai jo top navbar se open hota hai.
-  */
-  const [customerPage, setCustomerPage] = useState("dashboard");
-
-  /*
-  |--------------------------------------------------------------------------
-  | Dashboard Wallet Visibility
-  |--------------------------------------------------------------------------
-  | Wallet sirf top navbar ke Wallet button se dedicated page me khulega.
-  | Main dashboard/hero me duplicate Wallet shortcut intentionally hidden hai.
-  | Existing shortcut code preserve kiya gaya hai taaki future me zarurat ho
-  | to bina functionality lose kiye enable kiya ja sake.
-  */
-  const showDashboardWalletShortcut = false;
-
   const [rideTab, setRideTab] = useState("active");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
-
-  /*
-  |--------------------------------------------------------------------------
-  | Customer Wallet
-  |--------------------------------------------------------------------------
-  | User model me wallet already available hai. Customer dashboard par sirf
-  | customer-useful balance dikhaya ja raha hai; driver commission fields ko
-  | intentionally expose nahi kiya gaya.
-  */
-  const customerWalletBalance = Number(user?.wallet?.balance || 0);
-  // Balance intentionally dashboard/wallet UI me expose nahi ho raha jab tak feature launch na ho.
-  void customerWalletBalance;
 
   // Payment states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -1334,6 +486,18 @@ function CustomerDashboard({
     [localBookings]
   );
 
+  const latestUnpaidCompletedRide = useMemo(() => {
+    const now = Date.now();
+    return [...completedRides]
+      .filter((ride) => {
+        if (fareOf(ride) <= 0) return false;
+        if (ride.paymentStatus === "paid" || ride.payment?.status === "paid") return false;
+        const completedAt = new Date(ride.completedAt || ride.updatedAt || 0).getTime();
+        return completedAt && now - completedAt <= 2 * 60 * 60 * 1000;
+      })
+      .sort((a, b) => new Date(b.completedAt || b.updatedAt || 0) - new Date(a.completedAt || a.updatedAt || 0))[0] || null;
+  }, [completedRides]);
+
   const scheduledRides = useMemo(
     () =>
       localBookings.filter(
@@ -1399,70 +563,15 @@ function CustomerDashboard({
       );
     };
 
-    // Driver final fare — customer Accept / Reject decision
-    const handleFinalFareOffered = (data) => {
+    // Fare accepted (by either side)
+    const handleFareAccepted = (data) => {
       setLocalBookings((prev) =>
         prev.map((b) =>
           idOf(b) === String(data.bookingId)
-            ? {
-                ...b,
-                fareStatus: "driver_final",
-                driverFinalFareProposal: Number(
-                  data.driverFinalFareProposal || 0
-                ),
-                customerCounterFare: Number(
-                  data.customerCounterFare ||
-                  b.customerCounterFare ||
-                  0
-                ),
-                status: data.status || "negotiating"
-              }
+            ? { ...b, fareStatus: "fare_accepted", finalFare: data.finalFare, status: "fare_accepted" }
             : b
         )
       );
-    };
-
-    // Fare accepted (final customer confirmation)
-    const handleFareAccepted = (data) => {
-      const bid = String(data?.bookingId || "");
-      let mergedRide = null;
-
-      setLocalBookings((prev) =>
-        prev.map((b) => {
-          if (idOf(b) !== bid) {
-            return b;
-          }
-
-          mergedRide = {
-            ...b,
-            ...data,
-            fareStatus: "fare_accepted",
-            finalFare: Number(data?.finalFare || lockedFareOf(b) || 0),
-            status: "fare_accepted",
-          };
-
-          return mergedRide;
-        })
-      );
-
-      if (bid) {
-        const currentRide = localBookings.find((ride) => idOf(ride) === bid);
-        const paymentRide = {
-          ...(currentRide || {}),
-          ...(data || {}),
-          _id: currentRide?._id || data?._id || bid,
-          fareStatus: "fare_accepted",
-          finalFare: Number(data?.finalFare || lockedFareOf(currentRide) || 0),
-          status: "fare_accepted",
-        };
-
-        const stageKey = `${bid}:fare-plan`;
-        if (!paymentShownRef.current.has(stageKey)) {
-          paymentShownRef.current.add(stageKey);
-          setPaymentBooking(paymentRide);
-          setShowPaymentModal(true);
-        }
-      }
     };
 
     // Fare rejected
@@ -1478,136 +587,47 @@ function CustomerDashboard({
 
     // Payment requested
     const handlePaymentRequested = (data) => {
+      // Backward-compatible guard: purana server fare lock par event bheje toh modal mat kholo.
+      if (data?.rideStatus && data.rideStatus !== "completed") return;
+      const matchingRide = localBookings.find((ride) => idOf(ride) === String(data?.bookingId));
+      if (matchingRide && matchingRide.status !== "completed") return;
       const bid = String(data?.bookingId || "");
-
-      if (!bid) {
-        return;
-      }
-
-      /*
-      |--------------------------------------------------------------------
-      | HARD RULE: payment only after driver completes ride
-      |--------------------------------------------------------------------
-      | Fare lock/pay-now socket event payment modal ko early open nahi karega.
-      | Existing local ride ka status completed hona compulsory hai.
-      */
-      const currentRide = localBookings.find(
-        (ride) => idOf(ride) === bid
-      );
-
-      const mergedRide = {
-        ...(currentRide || {}),
-        ...(data || {}),
-        _id: currentRide?._id || data?._id || bid,
-      };
-
-      if (!canCustomerPayRide(mergedRide, paidBookingIds)) {
-        return;
-      }
-
-      const stageKey = `${bid}:requested:${mergedRide.status || "unknown"}:${paymentPlanOf(mergedRide) || "choose"}`;
-
-      if (!paymentShownRef.current.has(stageKey)) {
-        paymentShownRef.current.add(stageKey);
-        setPaymentBooking(mergedRide);
-        setShowPaymentModal(true);
-      }
-    };
-
-    const handlePaymentPlanUpdated = (data = {}) => {
-      const bid = String(data?.bookingId || "");
-      if (!bid) return;
-
-      setLocalBookings((prev) =>
-        prev.map((ride) =>
-          idOf(ride) === bid
-            ? { ...ride, ...data }
-            : ride
-        )
-      );
-
-      setPaymentBooking((current) =>
-        current && idOf(current) === bid
-          ? { ...current, ...data }
-          : current
-      );
-    };
-
-    const handlePaymentCompleted = (data = {}) => {
-      const bid = String(data?.bookingId || "");
-      if (!bid) return;
-
-      setLocalBookings((prev) =>
-        prev.map((ride) =>
-          idOf(ride) === bid
-            ? { ...ride, ...data, paymentStatus: "paid" }
-            : ride
-        )
-      );
-
-      setPaidBookingIds((prev) => new Set([...prev, bid]));
+      if (!bid || paymentShownRef.current.has(bid)) return;
+      paymentShownRef.current.add(bid);
+      setPaymentBooking(matchingRide || data);
+      setShowPaymentModal(true);
     };
 
     socket.on("fare:offered", handleFareOffered);
-    socket.on("fare:final-offered", handleFinalFareOffered);
     socket.on("fare:accepted", handleFareAccepted);
     socket.on("fare:rejected", handleFareRejected);
     socket.on("payment:requested", handlePaymentRequested);
-    socket.on("payment:plan-updated", handlePaymentPlanUpdated);
-    socket.on("payment:method-updated", handlePaymentPlanUpdated);
-    socket.on("payment:completed", handlePaymentCompleted);
 
     return () => {
       socket.off("fare:offered", handleFareOffered);
-      socket.off("fare:final-offered", handleFinalFareOffered);
       socket.off("fare:accepted", handleFareAccepted);
       socket.off("fare:rejected", handleFareRejected);
       socket.off("payment:requested", handlePaymentRequested);
-      socket.off("payment:plan-updated", handlePaymentPlanUpdated);
-      socket.off("payment:method-updated", handlePaymentPlanUpdated);
-      socket.off("payment:completed", handlePaymentCompleted);
     };
-  }, [localBookings, paidBookingIds]);
+  }, [localBookings]);
 
   /* ──────────────────────────────────────────────────────────────────
-     Auto Payment Modal — Fare Lock + Waiting Payment
+     Auto Payment Modal — Ride Complete hone pe
   ────────────────────────────────────────────────────────────────── */
   useEffect(() => {
-    const paymentFlowRide = localBookings.find((ride) =>
-      canCustomerPayRide(ride, paidBookingIds)
-    );
+    if (!latestUnpaidCompletedRide) return;
 
-    if (!paymentFlowRide) {
-      return undefined;
-    }
-
-    const bid = idOf(paymentFlowRide);
-    const plan = paymentPlanOf(paymentFlowRide);
-
-    const stage =
-      !plan
-        ? "fare-plan"
-        : paymentFlowRide.status === "completed"
-          ? `complete-${plan}`
-          : `${plan}-pay-now`;
-
-    const stageKey = `${bid}:${stage}`;
-
-    if (paymentShownRef.current.has(stageKey)) {
-      return undefined;
-    }
+    const bid = idOf(latestUnpaidCompletedRide);
+    if (paidBookingIds.has(bid) || paymentShownRef.current.has(bid)) return;
 
     const timer = setTimeout(() => {
-      paymentShownRef.current.add(stageKey);
-      setPaymentBooking(paymentFlowRide);
+      paymentShownRef.current.add(bid);
+      setPaymentBooking(latestUnpaidCompletedRide);
       setShowPaymentModal(true);
-    }, paymentFlowRide.status === "completed" ? 900 : 350);
+    }, 1500);
 
     return () => clearTimeout(timer);
-  }, [
-    localBookings,
-    paidBookingIds,
-  ]);
+  }, [latestUnpaidCompletedRide, paidBookingIds]);
 
   /* ──────────────────────────────────────────────────────────────────
      Auto Rating Modal — Ride Complete + Payment Done ke baad
@@ -1647,15 +667,6 @@ function CustomerDashboard({
     const isPaid =
       unratedCompleted.paymentStatus === "paid" ||
       unratedCompleted.payment?.status === "paid" ||
-      /*
-      |--------------------------------------------------------------------------
-      | Cash payment driver confirmation ke baad hi PAID
-      |--------------------------------------------------------------------------
-      |
-      | Legacy flow me paymentMethod === "cash" ko turant paid maana ja raha tha.
-      | Launch flow me cash tabhi paid hoga jab assigned driver cash-confirm kare.
-      |
-      */
       fare === 0;
 
     if (!isPaid) return;
@@ -1711,126 +722,21 @@ function CustomerDashboard({
   /* ──────────────────────────────────────────────────────────────────
      Fare Negotiation Handlers
   ────────────────────────────────────────────────────────────────── */
-  const handleFareAccept = useCallback(
-    async (bookingId, amount) => {
-      try {
-        const { data } =
-          await api.post(
-            `/fares/${bookingId}/customer-accept-final`,
-            {}
-          );
-
-        const result =
-          data?.data ||
-          data ||
-          {};
-
-        const acceptedFare =
-          Number(
-            result.finalFare ||
-            amount ||
-            0
-          );
-
-        setLocalBookings(
-          (
-            previous
-          ) =>
-            previous.map(
-              (
-                booking
-              ) =>
-                idOf(
-                  booking
-                ) ===
-                String(
-                  bookingId
-                )
-                  ? {
-                      ...booking,
-                      fareStatus:
-                        "fare_accepted",
-                      status:
-                        "fare_accepted",
-                      finalFare:
-                        acceptedFare,
-                      driverFinalFareProposal:
-                        acceptedFare
-                    }
-                  : booking
-            )
-        );
-
-        const paymentRide = {
-          ...(localBookings.find((ride) => idOf(ride) === String(bookingId)) || {}),
-          bookingId,
-          fareStatus: "fare_accepted",
-          status: "fare_accepted",
-          finalFare: acceptedFare,
-          driverFinalFareProposal: acceptedFare,
-          paymentPlan: result.paymentPlan || null,
-          paymentTiming: result.paymentTiming || "pay_later",
-          paymentStatus: result.paymentStatus || "pending",
-        };
-
-        paymentShownRef.current.add(`${bookingId}:fare-plan`);
-        setPaymentBooking(paymentRide);
-        setShowPaymentModal(true);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Fare Lock -> Payment Plan Popup
-        |--------------------------------------------------------------------------
-        | Final fare accept hote hi customer ko payment-plan popup milta hai.
-        | Legacy pay_now booking ko Advance plan ki tarah treat karte hain.
-        | Nayi booking me customer popup se Online / Advance / Scheduled choose
-        | karta hai. Scheduled option me Pay Now hamesha available rehta hai.
-        */
-
-        if (result.paymentRequiredNow) {
-          setLocalBookings((previous) =>
-            previous.map((ride) =>
-              idOf(ride) === String(bookingId)
-                ? {
-                    ...ride,
-                    paymentTiming: "pay_now",
-                    paymentPlan:
-                      ride.paymentPlan ||
-                      result.paymentPlan ||
-                      "advance",
-                    paymentStatus:
-                      ride.paymentStatus === "paid"
-                        ? "paid"
-                        : result.paymentStatus ||
-                          ride.paymentStatus ||
-                          "pending",
-                  }
-                : ride
-            )
-          );
-        }
-
-        await loadBookings?.();
-      } catch (error) {
-        alert(
-          error?.response?.data?.message ||
-            error?.message ||
-            "Final fare accept nahi ho saka"
-        );
+  const handleFareAccept = useCallback((bookingId, amount) => {
+    socket.emit("fare:accept", { bookingId }, (res) => {
+      if (res?.success) {
+        loadBookings?.();
+      } else {
+        alert(res?.message || "Fare accept nahi ho saka");
       }
-    },
-    [
-      loadBookings,
-      localBookings
-    ]
-  );
+    });
+  }, [loadBookings]);
 
   const handleFareCounter = useCallback((bookingId, counterAmount) => {
     if (!counterAmount || Number(counterAmount) <= 0) {
       alert("Valid amount enter karo");
       return;
     }
-
     socket.emit(
       "fare:counter",
       { bookingId, amount: Number(counterAmount) },
@@ -1839,12 +745,7 @@ function CustomerDashboard({
           setLocalBookings((prev) =>
             prev.map((b) =>
               idOf(b) === String(bookingId)
-                ? {
-                    ...b,
-                    fareStatus: "customer_countered",
-                    customerCounterFare: Number(counterAmount),
-                    status: "negotiating"
-                  }
+                ? { ...b, fareStatus: "customer_countered", customerCounterFare: Number(counterAmount) }
                 : b
             )
           );
@@ -1855,116 +756,35 @@ function CustomerDashboard({
     );
   }, []);
 
-  const handleFareReject = useCallback(
-    async (bookingId) => {
-      try {
-        await api.post(
-          `/fares/${bookingId}/customer-reject-final`,
-          {}
-        );
-
-        setLocalBookings(
-          (
-            previous
-          ) =>
-            previous.map(
-              (
-                booking
-              ) =>
-                idOf(
-                  booking
-                ) ===
-                String(
-                  bookingId
-                )
-                  ? {
-                      ...booking,
-                      fareStatus:
-                        "fare_rejected",
-                      driver:
-                        null,
-                      status:
-                        "searching_driver"
-                    }
-                  : booking
-            )
-        );
-
-        await loadBookings?.();
-      } catch (error) {
-        alert(
-          error?.response?.data?.message ||
-            error?.message ||
-            "Final fare reject nahi hua"
-        );
-      }
-    },
-    [
-      loadBookings
-    ]
-  );
-
-  const handlePaymentBookingUpdate = useCallback((update = {}) => {
-    const bid = String(update?.bookingId || idOf(paymentBooking) || "");
-    if (!bid) return;
-
-    setLocalBookings((previous) =>
-      previous.map((ride) =>
-        idOf(ride) === bid
-          ? { ...ride, ...update }
-          : ride
-      )
-    );
-
-    setPaymentBooking((current) =>
-      current && idOf(current) === bid
-        ? { ...current, ...update }
-        : current
-    );
-  }, [paymentBooking]);
+  const handleFareReject = useCallback((bookingId) => {
+    socket.emit("fare:reject", { bookingId }, (res) => {
+      if (!res?.success) alert(res?.message || "Kuch error hua");
+      loadBookings?.();
+    });
+  }, [loadBookings]);
 
   /* ──────────────────────────────────────────────────────────────────
      Payment Success Handler
   ────────────────────────────────────────────────────────────────── */
   const handlePaymentSuccess = useCallback((paymentData) => {
     const bid = idOf(paymentBooking);
-    const method = String(paymentData?.paymentMethod || "").toLowerCase();
-
-    /*
-    |--------------------------------------------------------------------------
-    | Cash is NOT paid until assigned driver confirms receipt
-    |--------------------------------------------------------------------------
-    |
-    | PaymentModal uses onSuccess when the customer selects Cash so that the
-    | UI can close gracefully. Do not add a cash booking to paidBookingIds here.
-    | The backend /payments/cash-confirm endpoint is the only authority that can
-    | mark a cash ride paid, and it is restricted to the assigned driver.
-    |
-    */
-
-    if (bid && method === "online") {
+    if (bid && paymentData?.paymentStatus === "paid") {
       setPaidBookingIds((prev) => new Set([...prev, bid]));
     }
-
+    if (bid) {
+      setLocalBookings((prev) => prev.map((ride) =>
+        idOf(ride) === bid
+          ? { ...ride, paymentMethod: paymentData?.paymentMethod, paymentStatus: paymentData?.paymentStatus || ride.paymentStatus, cashSelectedAt: paymentData?.cashSelectedAt || ride.cashSelectedAt }
+          : ride
+      ));
+    }
     loadBookings?.();
 
-    if (method === "online") {
+    if (paymentData?.paymentMethod === "online") {
       setTimeout(() => {
         setShowPaymentModal(false);
         setPaymentBooking(null);
       }, 3000);
-      return;
-    }
-
-    if (method === "cash") {
-      /*
-      | Cash select karne ke baad success instructions thodi der visible rahein.
-      | Cash ko paidBookingIds me add nahi karna; driver confirmation required hai.
-      */
-      setTimeout(() => {
-        setShowPaymentModal(false);
-        setPaymentBooking(null);
-      }, 2500);
     }
   }, [paymentBooking, loadBookings]);
 
@@ -1995,7 +815,6 @@ function CustomerDashboard({
       const updatedUser = data?.data?.user || data?.user || data?.data;
       if (updatedUser?._id) {
         localStorage.setItem("himrideg_user", JSON.stringify(updatedUser));
-        sessionStorage.setItem("himrideg_user", JSON.stringify(updatedUser));
         setProfile({
           name: updatedUser.name || "Customer",
           phone: updatedUser.phone || "",
@@ -2037,81 +856,11 @@ function CustomerDashboard({
     updateBooking(idOf(activeRide), "cancelled");
   };
 
-  const openDashboardPage = useCallback(() => {
-    setCustomerPage("dashboard");
-
-    window.requestAnimationFrame(() => {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    });
-  }, []);
-
-  const openWalletPage = useCallback(() => {
-    setCustomerPage("wallet");
-
-    window.requestAnimationFrame(() => {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    });
-  }, []);
-
   const scrollToRides = (tab) => {
-    setCustomerPage("dashboard");
     setRideTab(tab);
-
-    window.setTimeout(() => {
-      document
-        .getElementById("customer-rides")
-        ?.scrollIntoView({ behavior: "smooth" });
-    }, 0);
-  };
-
-  const openBookingsFromNav = () => {
-    setCustomerPage("dashboard");
-    openBookRide();
-  };
-
-  const openPaymentForRide = useCallback(
-    (ride) => {
-      if (!canCustomerPayRide(ride, paidBookingIds)) {
-        window.alert(
-          "Payment driver ke ride complete karne aur final fare lock hone ke baad hi enable hoga."
-        );
-        return;
-      }
-
-      setPaymentBooking(ride);
-      setShowPaymentModal(true);
-    },
-    [paidBookingIds]
-  );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Book Ride -> Back To Main Dashboard
-  |--------------------------------------------------------------------------
-  | Parent createBooking success par ride object/true return karta hai. Sirf
-  | successful booking par modal close hota hai; validation/API error par form
-  | wahi khula rehta hai taaki customer details correct kar sake.
-  */
-  const createBookingAndReturnToDashboard = async (event) => {
-    const result = await createBooking(event);
-
-    if (!result) {
-      return;
-    }
-
-    setBookOpen(false);
-    setCustomerPage("dashboard");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    document
+      .getElementById("customer-rides")
+      ?.scrollIntoView({ behavior: "smooth" });
   };
 
   /* ──────────────────────────────────────────────────────────────────
@@ -2123,7 +872,7 @@ function CustomerDashboard({
         <button
           className="cvBrand"
           type="button"
-          onClick={openDashboardPage}
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         >
           <span>HG</span>
           <strong>
@@ -2132,20 +881,11 @@ function CustomerDashboard({
         </button>
 
         <nav>
-          <button
-            className={customerPage === "dashboard" ? "active" : ""}
-            onClick={openDashboardPage}
-          >
+          <button className="active" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
             Dashboard
           </button>
           <button onClick={() => scrollToRides("active")}>My Rides</button>
-          <button onClick={openBookingsFromNav}>Bookings</button>
-          <button
-            className={customerPage === "wallet" ? "active" : ""}
-            onClick={openWalletPage}
-          >
-            Wallet
-          </button>
+          <button onClick={openBookRide}>Bookings</button>
           <button onClick={() => setProfileOpen(true)}>Profile</button>
           <button onClick={() => window.alert("Support: HimRideG team se contact karein")}>
             Support
@@ -2180,50 +920,13 @@ function CustomerDashboard({
       </header>
 
       <main className="cvMain">
-        {customerPage === "wallet" ? (
-          <CustomerWalletPage
-            rides={localBookings}
-            activeRide={activeRide}
-            paidBookingIds={paidBookingIds}
-            onPay={openPaymentForRide}
-            onBack={openDashboardPage}
-            onBookRide={openBookingsFromNav}
-            onShowCompleted={() => scrollToRides("completed")}
-            onRefresh={loadBookings}
-          />
-        ) : (
-          <>
         <section className="cvHero">
           <div>
             <h1>
               Namaste, <span>{profile.name}</span>
             </h1>
             <p>Aapki ride, aapke apne pahadon mein.</p>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 12,
-                flexWrap: "wrap",
-                alignItems: "center",
-              }}
-            >
-              <button onClick={openBookRide}>🚕 &nbsp; Book New Ride</button>
-
-              {showDashboardWalletShortcut && (
-                <button
-                  type="button"
-                  onClick={openWalletPage}
-                  style={{
-                    background: "#ffffff",
-                    color: "#111318",
-                    border: "1px solid #ffc400",
-                  }}
-                >
-                  💰 Wallet
-                </button>
-              )}
-            </div>
+            <button onClick={openBookRide}>🚕 &nbsp; Book New Ride</button>
           </div>
           <div className="cvMountains" aria-hidden="true" />
         </section>
@@ -2336,24 +1039,15 @@ function CustomerDashboard({
                     ☎ Call Driver
                   </button>
 
-                  <button
-                    disabled={!driverPhone}
-                    onClick={() => {
-                      if (!driverPhone) return;
-
-                      const message = encodeURIComponent(
-                        `Namaste, main HimRideG booking ${activeRide?.bookingNumber || idOf(activeRide) || ""} ke baare mein message kar raha/rahi hoon.`
-                      );
-
-                      window.location.href = `sms:${driverPhone}?body=${message}`;
-                    }}
-                    title={driverPhone ? "Message driver" : "Driver number abhi available nahi hai"}
-                  >
+                  <button onClick={() => window.alert("Chat agle step me connect hoga")}>
                     ▤ Message
                   </button>
 
                   {/* Manual Payment Button — ride complete hone pe */}
-                  {canCustomerPayRide(activeRide, paidBookingIds) && (
+                  {activeRide.status === "completed" &&
+                    fareOf(activeRide) > 0 &&
+                    activeRide.paymentStatus !== "paid" &&
+                    !paidBookingIds.has(idOf(activeRide)) && (
                       <button
                         className="payNowBtn"
                         style={{
@@ -2365,9 +1059,12 @@ function CustomerDashboard({
                           padding: "10px 16px",
                           cursor: "pointer",
                         }}
-                        onClick={() => openPaymentForRide(activeRide)}
+                        onClick={() => {
+                          setPaymentBooking(activeRide);
+                          setShowPaymentModal(true);
+                        }}
                       >
-                        💳 Pay ₹{money(lockedFareOf(activeRide))}
+                        💳 Pay Now ₹{money(fareOf(activeRide))}
                       </button>
                     )}
 
@@ -2550,7 +1247,11 @@ function CustomerDashboard({
                   </span>
 
                   {/* Pay button in ride list */}
-                  {canCustomerPayRide(ride, paidBookingIds) && (
+                  {ride.status === "completed" &&
+                    fareOf(ride) > 0 &&
+                    ride.paymentStatus !== "paid" &&
+                    !ride.cashSelectedAt &&
+                    !paidBookingIds.has(idOf(ride)) && (
                       <button
                         style={{
                           background: "#fbbf24",
@@ -2562,9 +1263,12 @@ function CustomerDashboard({
                           cursor: "pointer",
                           color: "#000",
                         }}
-                        onClick={() => openPaymentForRide(ride)}
+                        onClick={() => {
+                          setPaymentBooking(ride);
+                          setShowPaymentModal(true);
+                        }}
                       >
-                        💳 Pay ₹{money(lockedFareOf(ride))}
+                        💳 Pay
                       </button>
                     )}
 
@@ -2573,13 +1277,17 @@ function CustomerDashboard({
                       ✅ Paid
                     </span>
                   )}
+
+                  {ride.status === "completed" && ride.cashSelectedAt && ride.paymentMethod === "cash" && ride.paymentStatus !== "paid" && (
+                    <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 600 }}>
+                      💵 Waiting driver cash confirm
+                    </span>
+                  )}
                 </article>
               ))
             )}
           </div>
         </section>
-          </>
-        )}
       </main>
 
       <CustomerBookRide
@@ -2589,7 +1297,7 @@ function CustomerDashboard({
         setBooking={setBooking}
         mapData={mapData}
         setMapData={setMapData}
-        createBooking={createBookingAndReturnToDashboard}
+        createBooking={createBooking}
         activeRide={activeRide}
         driverLocation={driverLocation}
       />
@@ -2697,70 +1405,11 @@ function CustomerDashboard({
         </div>
       )}
 
-
-      {/*
-        Mobile Customer Bottom Navigation
-        Desktop/tablet top navigation 1250px se neeche hidden hoti hai, isliye
-        yeh dedicated mobile navigation uska functional replacement hai.
-      */}
-      <nav className="cvMobileBottomNav" aria-label="Customer mobile navigation">
-        <button
-          type="button"
-          className={customerPage === "dashboard" ? "active" : ""}
-          onClick={openDashboardPage}
-          aria-label="Dashboard"
-        >
-          <MobileNavIcon type="home" />
-          <span>Home</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollToRides("active")}
-          aria-label="My Rides"
-        >
-          <MobileNavIcon type="rides" />
-          <span>My Rides</span>
-        </button>
-
-        <button
-          type="button"
-          className="cvMobileBookButton"
-          onClick={openBookingsFromNav}
-          aria-label="Book new ride"
-        >
-          <span className="cvMobileBookIcon">
-            <MobileNavIcon type="book" />
-          </span>
-          <span>Book</span>
-        </button>
-
-        <button
-          type="button"
-          className={customerPage === "wallet" ? "active" : ""}
-          onClick={openWalletPage}
-          aria-label="Wallet"
-        >
-          <MobileNavIcon type="wallet" />
-          <span>Wallet</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setProfileOpen(true)}
-          aria-label="Profile"
-        >
-          <MobileNavIcon type="profile" />
-          <span>Profile</span>
-        </button>
-      </nav>
-
       {/* Payment Modal */}
       {showPaymentModal && paymentBooking && (
         <PaymentModal
           booking={paymentBooking}
           onSuccess={handlePaymentSuccess}
-          onBookingUpdate={handlePaymentBookingUpdate}
           onClose={() => {
             setShowPaymentModal(false);
             setPaymentBooking(null);

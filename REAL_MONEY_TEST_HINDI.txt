@@ -1,0 +1,138 @@
+HimRideG — REAL MONEY PAYMENT + DRIVER INSTANT WITHDRAW TEST
+Date: 19 August 2026
+============================================================
+
+IS ZIP ME CODE REAL-MONEY MODE KE LIYE SET HAI:
+- REAL_MONEY_MODE=true
+- RAZORPAYX_PAYOUTS_ENABLED=true
+- Test key (rzp_test_) real-money mode me reject hogi.
+- Customer online payment server Razorpay se fetch/capture verify karta hai.
+- payment.captured webhook fallback add hai.
+- Driver UPI payout = RazorpayX UPI payout.
+- Driver bank payout = RazorpayX IMPS payout.
+- Payout idempotency key mandatory flow implemented hai.
+- Network timeout/5xx par wallet turant refund nahi hota; SAME idempotency key se safe retry hota hai.
+- payout.processed / failed / reversed webhook handling add hai.
+- Processed payout baad me reversed ho to driver internal wallet restore hota hai.
+
+IMPORTANT: ZIP KE ANDAR KOI REAL SECRET KEY NAHI RAKHI GAYI HAI.
+Secret ko source code/ZIP/GitHub me kabhi mat daalna. Render Environment me hi save karo.
+
+============================================================
+A) RENDER ENVIRONMENT — REQUIRED
+============================================================
+
+REAL_MONEY_MODE=true
+RAZORPAY_KEY_ID=rzp_live_xxxxxxxxx
+RAZORPAY_KEY_SECRET=xxxxxxxxx
+RAZORPAY_WEBHOOK_SECRET=<your own long random payment webhook secret>
+
+RAZORPAYX_PAYOUTS_ENABLED=true
+RAZORPAYX_KEY_ID=
+RAZORPAYX_KEY_SECRET=
+RAZORPAYX_ACCOUNT_NUMBER=<RazorpayX live Current Account / Customer Identifier>
+RAZORPAYX_WEBHOOK_SECRET=<different long random payout webhook secret>
+RAZORPAYX_API_BASE=https://api.razorpay.com/v1
+PAYOUT_SCHEDULER_INTERVAL_MS=300000
+
+NOTE:
+Existing Razorpay merchant ke liye RazorpayX docs existing Razorpay live API key use karne ki permission deti hain.
+Isliye RAZORPAYX_KEY_ID/SECRET blank hon to code RAZORPAY_KEY_ID/SECRET fallback use karega.
+Agar RazorpayX ne separate live keys di hain to unhe RAZORPAYX_KEY_ID/SECRET me lagao.
+
+============================================================
+B) RAZORPAY PAYMENT WEBHOOK
+============================================================
+
+Live Razorpay Dashboard me webhook banao:
+https://YOUR_API_DOMAIN/api/v2/webhooks/razorpay/payments
+
+Secret = exactly RAZORPAY_WEBHOOK_SECRET wala value
+Events minimum:
+- payment.captured
+- payment.failed
+
+Payment capture Dashboard me Automatic Capture enabled rakhna recommended hai.
+Server bhi authorized payment ko capture karne ki koshish karta hai aur captured status ke bina driver wallet credit nahi karta.
+
+============================================================
+C) RAZORPAYX PAYOUT WEBHOOK
+============================================================
+
+RazorpayX Live Dashboard me payout webhook banao:
+https://YOUR_API_DOMAIN/api/v2/webhooks/razorpay/payouts
+
+Secret = exactly RAZORPAYX_WEBHOOK_SECRET wala value
+Payout events enable karo (available payout status events), especially:
+- payout.pending
+- payout.queued
+- payout.initiated / processing related updates
+- payout.processed
+- payout.failed
+- payout.reversed
+- payout.rejected / payout.cancelled (if dashboard offers them)
+
+============================================================
+D) RAZORPAYX LIVE ACCOUNT + IP ALLOWLIST
+============================================================
+
+1. RazorpayX Live account/KYC/payout access active hona chahiye.
+2. RAZORPAYX_ACCOUNT_NUMBER live mode ka hona chahiye; test identifier alag hota hai.
+3. RazorpayX payout APIs ke liye outgoing server IP allowlist mandatory hai.
+4. Render Dashboard -> service -> Connect -> Outbound me outgoing IP details dekho.
+5. RazorpayX -> My Account & Settings -> Developer Controls -> Share IP Addresses me valid static outgoing IP allowlist karo.
+6. Agar Render shared/dynamic range ko RazorpayX direct accept na kare, static/dedicated outbound IP ya Razorpay support-approved setup chahiye.
+
+Driver Earnings modal kholne par backend harmless RazorpayX GET live-access check karta hai.
+UI me "Live RazorpayX API verified" tabhi dikhega jab credentials/account/API access check pass ho.
+
+============================================================
+E) REAL MONEY SELF TEST — CUSTOMER BHI AAP, DRIVER BHI AAP
+============================================================
+
+Recommended smallest clear test:
+1. Apne customer account se ride create karo.
+2. Apne driver account se accept + complete karo.
+3. Fare example ₹200 lock karo.
+4. Customer side Online Payment select karo.
+5. Apne real UPI/bank app se ₹200 Razorpay Checkout me pay karo.
+6. Payment captured hone ke baad app me PAID hona chahiye.
+7. 10% platform commission example me driver internal wallet credit ≈ ₹180 hoga.
+8. Driver -> Earnings -> UPI details me APNI UPI ID save karo.
+9. ₹100 Instant Withdraw test karo.
+10. Successful payout par Withdrawal status processed + UTR show hona chahiye aur real ₹100 driver destination account me aana chahiye.
+
+IMPORTANT:
+Payment Gateway me customer ka ₹200 pay hona aur RazorpayX payout source account me immediately ₹200 available hona SAME cheez nahi hai.
+RazorpayX payout business/current account balance se hota hai. Instant payout test ke liye payout source account me enough usable balance hona chahiye.
+Is code me INSTANT withdrawal ke liye queue_if_low_balance=false rakha gaya hai: balance insufficient hua to payout clearly fail hoga aur internal wallet amount restore hoga, fake pending nahi rahega.
+Scheduled payout ke liye queue allowed hai.
+
+============================================================
+F) REAL-MONEY SAFETY CHANGES
+============================================================
+
+- Browser callback alone par PAID nahi hota.
+- Server signature verify + Razorpay payment fetch + amount/order/currency match karta hai.
+- Authorized payment ko capture karta hai; captured ke bina driver wallet settle nahi hota.
+- payment.captured webhook browser-close fallback hai.
+- Payout request has mandatory X-Payout-Idempotency UUID.
+- Timeout/5xx = outcome uncertain; internal wallet refund nahi hota until safely resolved.
+- Scheduler SAME idempotency key se retry karta hai, duplicate payout se bachne ke liye.
+- Payout webhook + scheduler dono state reconcile karte hain.
+- payout reversed hua to wallet restore hota hai.
+- Instant payout me RazorpayX low balance hua to direct failure + wallet restore.
+
+============================================================
+G) AGAR "LIVE API VERIFIED" NA AAYE
+============================================================
+
+Driver Earnings popup me shown error dekho. Common causes:
+- rzp_live_ key nahi lagi
+- wrong key secret
+- RazorpayX account activate nahi
+- wrong RAZORPAYX_ACCOUNT_NUMBER
+- Render outgoing IP RazorpayX allowlist me nahi
+- RazorpayX API/payout permission account par enabled nahi
+
+Secrets mujhe chat me paste mat karna. Unhe Render Environment me hi save karna.

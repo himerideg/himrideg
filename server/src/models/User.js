@@ -254,6 +254,24 @@ const bankDetailsSchema =
       verified: {
         type: Boolean,
         default: false
+      },
+
+      razorpayContactId: {
+        type: String,
+        trim: true,
+        default: ""
+      },
+
+      razorpayBankFundAccountId: {
+        type: String,
+        trim: true,
+        default: ""
+      },
+
+      razorpayUpiFundAccountId: {
+        type: String,
+        trim: true,
+        default: ""
       }
     },
     {
@@ -294,17 +312,7 @@ const walletSchema =
         default: 0
       },
 
-      /*
-      |--------------------------------------------------------------------------
-      | Launch V3 Cash Commission
-      |--------------------------------------------------------------------------
-      |
-      | Cash ride me customer full fare driver ko deta hai.
-      | Company commission wallet balance se deduct hota hai.
-      | Agar balance kam ho to shortfall commissionDue me track hota hai.
-      |
-      */
-      commissionDue: {
+      cashCommissionDue: {
         type: Number,
         min: 0,
         default: 0
@@ -316,15 +324,60 @@ const walletSchema =
         default: 0
       },
 
-      totalOnlineTransferred: {
-        type: Number,
-        min: 0,
-        default: 0
+      lastSettledAt: {
+        type: Date,
+        default: null
       }
     },
     {
       _id: false
     }
+  );
+
+/*
+|--------------------------------------------------------------------------
+| Driver Payout Settings
+|--------------------------------------------------------------------------
+*/
+
+const payoutSettingsSchema =
+  new mongoose.Schema(
+    {
+      preferredMethod: {
+        type: String,
+        enum: ["upi", "bank"],
+        default: "upi"
+      },
+
+      autoPayoutEnabled: {
+        type: Boolean,
+        default: false
+      },
+
+      autoPayoutFrequency: {
+        type: String,
+        enum: ["daily", "weekly", "monthly"],
+        default: "weekly"
+      },
+
+      autoPayoutMinimum: {
+        type: Number,
+        min: 100,
+        default: 500
+      },
+
+      nextScheduledPayoutAt: {
+        type: Date,
+        default: null,
+        index: true
+      },
+
+      lastScheduledPayoutAt: {
+        type: Date,
+        default: null
+      }
+    },
+    { _id: false }
   );
 
 /*
@@ -497,45 +550,6 @@ const driverProfileSchema =
         default: () => ({})
       },
 
-      /*
-      |--------------------------------------------------------------------------
-      | Razorpay Route Linked Account
-      |--------------------------------------------------------------------------
-      |
-      | Online ride payment ka driver share automatically linked account
-      | ko transfer karne ke liye.
-      |
-      */
-      razorpayLinkedAccountId: {
-        type: String,
-        trim: true,
-        default: "",
-        index: true
-      },
-
-      razorpayRouteStatus: {
-        type: String,
-        enum: [
-          "not_created",
-          "pending",
-          "active",
-          "failed"
-        ],
-        default: "not_created"
-      },
-
-      razorpayRouteLastError: {
-        type: String,
-        trim: true,
-        maxlength: 1000,
-        default: ""
-      },
-
-      razorpayRouteUpdatedAt: {
-        type: Date,
-        default: null
-      },
-
       approvalStatus: {
         type: String,
         enum: [
@@ -546,13 +560,13 @@ const driverProfileSchema =
           "suspended"
         ],
         default: "not_submitted",
-        index: false
+        index: true
       },
 
       isApproved: {
         type: Boolean,
         default: false,
-        index: false
+        index: true
       },
 
       rejectionReason: {
@@ -805,43 +819,6 @@ const userSchema =
         default: undefined
       },
 
-      /*
-      |------------------------------------------------------------------
-      | Google Identity Link
-      |------------------------------------------------------------------
-      | `sub` Google account ka stable unique identifier hai. Email ko
-      | primary Google identifier nahi banaya gaya. Role ke saath link
-      | hota hai taaki Customer aur Driver flows separate rahen.
-      */
-      googleId: {
-        type: String,
-        trim: true,
-        maxlength: 255,
-        default: undefined
-      },
-
-      googleEmail: {
-        type: String,
-        trim: true,
-        lowercase: true,
-        maxlength: 150,
-        default: undefined
-      },
-
-      googleLinkedAt: {
-        type: Date,
-        default: null
-      },
-
-      /*
-      | Google direct login ke baad first-time Basic Info completion flag.
-      | Password Google accounts ke liye required nahi hai.
-      */
-      googleBasicInfoCompleted: {
-        type: Boolean,
-        default: false
-      },
-
       password: {
         type: String,
         select: false,
@@ -935,6 +912,11 @@ const userSchema =
 
       wallet: {
         type: walletSchema,
+        default: () => ({})
+      },
+
+      payoutSettings: {
+        type: payoutSettingsSchema,
         default: () => ({})
       },
 
@@ -1141,7 +1123,6 @@ userSchema.methods
       });
 
     delete userObject.password;
-    delete userObject.googleId;
     delete userObject.__v;
     delete userObject.socketId;
     delete userObject.fcmTokens;
@@ -1373,21 +1354,6 @@ userSchema.methods
 | Indexes
 |--------------------------------------------------------------------------
 */
-
-userSchema.index(
-  {
-    googleId: 1,
-    role: 1
-  },
-  {
-    unique: true,
-    partialFilterExpression: {
-      googleId: {
-        $type: "string"
-      }
-    }
-  }
-);
 
 userSchema.index({
   role: 1,

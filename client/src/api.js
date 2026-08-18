@@ -268,39 +268,6 @@ let refreshWaitQueue = [];
 
 /*
 |--------------------------------------------------------------------------
-| Auth Failure Classification
-|--------------------------------------------------------------------------
-|
-| Payment button par temporary refresh/network/CORS failure ki wajah se
-| customer ko turant global logout nahi karna chahiye. Backend phir bhi
-| protected rahega; payment request unauthorized hi fail hogi.
-|
-*/
-
-function isPaymentApiRequest(requestUrl) {
-  return String(requestUrl || "").includes("/payments/");
-}
-
-function isHardRefreshFailure(refreshError) {
-  const refreshStatus =
-    refreshError?.response?.status;
-
-  return (
-    refreshStatus === 401 ||
-    refreshStatus === 403
-  );
-}
-
-function dispatchUnauthorized(reason = "session_expired") {
-  window.dispatchEvent(
-    new CustomEvent("himrideg:unauthorized", {
-      detail: { reason }
-    })
-  );
-}
-
-/*
-|--------------------------------------------------------------------------
 | Resolve Refresh Queue
 |--------------------------------------------------------------------------
 */
@@ -677,67 +644,23 @@ api.interceptors.response.use(
 
         /*
         |--------------------------------------------------------------------------
-        | Hard Session Failure vs Temporary Failure
+        | Remove Expired Login Data
         |--------------------------------------------------------------------------
-        |
-        | 401/403 from /auth/refresh = session really invalid/expired.
-        | Network / timeout / CORS / 5xx = temporary backend problem; login data
-        | ko delete nahi karna.
-        |
-        | IMPORTANT PAYMENT RULE:
-        | Online Payment click par refresh fail hone se customer ko dashboard se
-        | force-logout nahi karenge. Payment backend request unauthorized hi rahegi
-        | aur modal error show karega, but customer ka dashboard state preserve hoga.
-        |
         */
 
-        const hardSessionFailure =
-          isHardRefreshFailure(
-            refreshError
-          );
+        clearLoginData();
 
-        const paymentRequest =
-          isPaymentApiRequest(
-            requestUrl
-          );
+        /*
+        |--------------------------------------------------------------------------
+        | Tell App User Must Login Again
+        |--------------------------------------------------------------------------
+        */
 
-        if (
-          hardSessionFailure &&
-          !paymentRequest
-        ) {
-          clearLoginData();
-
-          dispatchUnauthorized(
-            "refresh_session_invalid"
-          );
-        } else if (paymentRequest) {
-          console.warn(
-            "Payment request auth refresh fail hui; false auto-logout suppress kiya gaya."
-          );
-
-          window.dispatchEvent(
-            new CustomEvent(
-              "himrideg:payment-auth-error",
-              {
-                detail: {
-                  status:
-                    refreshError
-                      ?.response
-                      ?.status ||
-                    0,
-                  message:
-                    refreshError
-                      ?.response
-                      ?.data
-                      ?.message ||
-                    refreshError
-                      ?.message ||
-                    "Payment session refresh failed"
-                }
-              }
-            )
-          );
-        }
+        window.dispatchEvent(
+          new CustomEvent(
+            "himrideg:unauthorized"
+          )
+        );
 
         return Promise.reject(
           refreshError
@@ -755,28 +678,13 @@ api.interceptors.response.use(
       status === 401 &&
       !isAuthRequest
     ) {
-      const paymentRequest =
-        isPaymentApiRequest(
-          requestUrl
-        );
+      clearLoginData();
 
-      /*
-      |--------------------------------------------------------------------------
-      | Never False-Logout From Payment Button
-      |--------------------------------------------------------------------------
-      |
-      | Payment endpoint ki 401 ko global logout signal me convert nahi karna.
-      | Payment modal error handle karega. Backend authorization bypass nahi hota.
-      |
-      */
-
-      if (!paymentRequest) {
-        clearLoginData();
-
-        dispatchUnauthorized(
-          "protected_request_unauthorized"
-        );
-      }
+      window.dispatchEvent(
+        new CustomEvent(
+          "himrideg:unauthorized"
+        )
+      );
     }
 
     return Promise.reject(

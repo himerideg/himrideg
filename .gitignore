@@ -1,15 +1,36 @@
-# HimRideG secrets and local dependencies
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment secrets
 .env
 .env.*
 !.env.example
 !.env.production.example
-node_modules/
-client/node_modules/
-server/node_modules/
-dist/
+client/.env
+server/.env
+
+# Builds
 client/dist/
-*.log
+server/dist/
+dist/
+build/
+
+# Runtime uploads (private user data)
+server/uploads/**
+!server/uploads/.gitkeep
+!server/uploads/drivers/
+!server/uploads/drivers/.gitkeep
+!server/uploads/drivers/profile/
+!server/uploads/drivers/profile/.gitkeep
+!server/uploads/drivers/documents/
+!server/uploads/drivers/documents/.gitkeep
+
+# Backups / local tooling
+*.bak
+npm-debug.log*
 .DS_Store
 Thumbs.db
-server/uploads/*
-!server/uploads/.gitkeep
+.vscode/
+.idea/

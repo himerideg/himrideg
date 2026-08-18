@@ -17,8 +17,7 @@ const {
   updateCustomer,
   getDriverDocument,
   verifyDriverDocument,
-  updateDriverLegalName,  // NEW
-  setDriverRouteAccount
+  updateDriverLegalName  // NEW
 } = require(
   "../controllers/adminController"
 );
@@ -28,17 +27,6 @@ const {
 } = require(
   "../controllers/adminBookingController"
 );
-
-const {
-  listWithdrawals,
-  updateWithdrawal
-} = require(
-  "../controllers/adminWithdrawalController"
-);
-
-const {
-  adminLoginLimiter
-} = require("../middlewares/rateLimits");
 
 const router =
   express.Router();
@@ -51,7 +39,6 @@ const router =
 
 router.post(
   "/login",
-  adminLoginLimiter,
   loginAdmin
 );
 
@@ -83,33 +70,6 @@ router.get(
 router.get(
   "/dashboard",
   getAdminDashboard
-);
-
-/*
-|--------------------------------------------------------------------------
-| Wallet Withdrawal Management
-|--------------------------------------------------------------------------
-*/
-
-router.get(
-  "/withdrawals",
-  listWithdrawals
-);
-
-router.patch(
-  "/withdrawals/:id/:action",
-  updateWithdrawal
-);
-
-/*
-|--------------------------------------------------------------------------
-| Razorpay Route Linked Account Mapping
-|--------------------------------------------------------------------------
-*/
-
-router.patch(
-  "/drivers/:driverId/route-account",
-  setDriverRouteAccount
 );
 
 /*

@@ -436,77 +436,19 @@ async function getDriverRideFeed(
     |--------------------------------------------------------------------------
     */
 
-    const commissionDue =
-      Number(
-        driver.wallet
-          ?.commissionDue ||
-          0
-      );
+    const availableRideFilter = {
+      driver: null,
 
-    const driverCanReceiveRequests =
-      Boolean(
-        driver.isOnline &&
-          driver.isAvailable &&
-          !driver.currentRide &&
-          commissionDue <= 0
-      );
+      status: {
+        $in:
+          AVAILABLE_RIDE_STATUSES
+      },
 
-    const availableRideFilter =
-      driverCanReceiveRequests
-        ? {
-            driver: null,
-
-            status: {
-              $in:
-                AVAILABLE_RIDE_STATUSES
-            },
-
-            rejectedDrivers: {
-              $ne:
-                driver._id
-            },
-
-            /*
-            |--------------------------------------------------------------------------
-            | Nearest / Targeted Driver Feed
-            |--------------------------------------------------------------------------
-            |
-            | Dispatch queue me jis driver ko request bheji gayi hai sirf wahi
-            | request dekhe. Queue empty ho to later-online driver fallback se
-            | request dikh sakti hai.
-            |
-            */
-            $or: [
-              {
-                dispatchQueue: {
-                  $elemMatch: {
-                    driver:
-                      driver._id,
-
-                    status:
-                      "pending",
-
-                    expiresAt: {
-                      $gt:
-                        new Date()
-                    }
-                  }
-                }
-              },
-
-              {
-                dispatchQueue: {
-                  $size: 0
-                }
-              }
-            ]
-          }
-        : {
-            _id: {
-              $exists:
-                false
-            }
-          };
+      rejectedDrivers: {
+        $ne:
+          driver._id
+      }
+    };
 
     const filter = {
       $or: [
@@ -605,17 +547,7 @@ async function getDriverRideFeed(
               null,
 
             approved:
-              true,
-
-            commissionDue:
-              Number(
-                driver.wallet
-                  ?.commissionDue ||
-                  0
-              ),
-
-            canReceiveRequests:
-              driverCanReceiveRequests
+              true
           },
 
           pagination: {
@@ -665,29 +597,13 @@ async function acceptAvailableRide(
       driver
     });
 
-    const availability =
-      await rideService
-        .driverCanAcceptNewRide(
-          driver._id
-        );
-
-    if (!availability.allowed) {
-      throw createError(
-        availability.reason ||
-          "Driver abhi new ride accept nahi kar sakta",
-        409,
-        "DRIVER_NOT_AVAILABLE"
-      );
-    }
-
     const result =
-      await rideService
-        .acceptRideAtomic({
-          bookingId,
+      await rideService.acceptRide({
+        bookingId,
 
-          driverId:
-            driver._id
-        });
+        driverId:
+          driver._id
+      });
 
     return res
       .status(200)
@@ -766,73 +682,6 @@ async function rejectAvailableRide(
 
 /*
 |--------------------------------------------------------------------------
-| Driver Release Accepted / Unconfirmed Ride
-|--------------------------------------------------------------------------
-|
-| Customer response na de ya final fare lock na ho to driver ride release
-| kar sakta hai. Customer booking cancel nahi hoti.
-|
-*/
-async function releaseAcceptedRide(
-  req,
-  res,
-  next
-) {
-  try {
-    const driver =
-      await getApprovedDriver(
-        req
-      );
-
-    const bookingId =
-      getBookingId(
-        req
-      );
-
-    const reason =
-      String(
-        req.body?.reason ||
-          "Customer not responding"
-      )
-        .trim()
-        .slice(
-          0,
-          500
-        );
-
-    const result =
-      await rideService
-        .driverReleaseRide({
-          bookingId,
-
-          driverId:
-            driver._id,
-
-          reason
-        });
-
-    return res
-      .status(200)
-      .json({
-        success: true,
-
-        message:
-          "Ride release ho gayi. Driver ab next ride le sakta hai.",
-
-        booking:
-          result?.booking ||
-          null,
-
-        data:
-          result
-      });
-  } catch (error) {
-    return next(error);
-  }
-}
-
-/*
-|--------------------------------------------------------------------------
 | Export
 |--------------------------------------------------------------------------
 */
@@ -840,6 +689,5 @@ async function releaseAcceptedRide(
 module.exports = {
   getDriverRideFeed,
   acceptAvailableRide,
-  rejectAvailableRide,
-  releaseAcceptedRide
+  rejectAvailableRide
 };

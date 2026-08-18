@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useState}from"react";
+import React,{useMemo,useState}from"react";
 import api from"../api";
 import"../admin-dashboard.css";
 
@@ -77,71 +77,6 @@ function AdminDashboard({
   const[docLoading,setDocLoading]=useState(false);
   const[docBusyId,setDocBusyId]=useState("");
 
-  // Launch: wallet withdrawal management
-  const[withdrawals,setWithdrawals]=useState([]);
-  const[withdrawalFilter,setWithdrawalFilter]=useState("all");
-  const[withdrawalLoading,setWithdrawalLoading]=useState(false);
-  const[withdrawalBusyId,setWithdrawalBusyId]=useState("");
-
-  const loadWithdrawals=async(filter=withdrawalFilter)=>{
-    try{
-      setWithdrawalLoading(true);
-      const query=filter&&filter!=="all"
-        ?`?status=${encodeURIComponent(filter)}`
-        :"";
-      const{data}=await api.get(`/admin/withdrawals${query}`);
-      setWithdrawals(data?.data?.withdrawals||data?.withdrawals||[]);
-    }catch(error){
-      notify?.(error?.response?.data?.message||"Withdrawal list load nahi hui");
-    }finally{
-      setWithdrawalLoading(false);
-    }
-  };
-
-  const updateWithdrawal=async(withdrawal,action)=>{
-    if(!withdrawal?._id)return;
-
-    let note="";
-    let payoutReference="";
-
-    if(action==="reject"){
-      note=window.prompt("Reject reason / admin note:")||"";
-      if(!note.trim())return;
-    }
-
-    if(action==="paid"){
-      payoutReference=window.prompt("Bank/UPI transfer reference / UTR enter karo:")||"";
-      if(!payoutReference.trim()){
-        notify?.("Paid mark karne ke liye payout reference required hai");
-        return;
-      }
-    }
-
-    try{
-      setWithdrawalBusyId(withdrawal._id);
-      const{data}=await api.patch(
-        `/admin/withdrawals/${withdrawal._id}/${action}`,
-        {
-          note:note.trim(),
-          payoutReference:payoutReference.trim()
-        }
-      );
-      notify?.(data?.message||`Withdrawal ${action} successful`);
-      await loadWithdrawals(withdrawalFilter);
-      await loadAdminData?.();
-    }catch(error){
-      notify?.(error?.response?.data?.message||"Withdrawal update nahi hui");
-    }finally{
-      setWithdrawalBusyId("");
-    }
-  };
-
-  useEffect(()=>{
-    if(activeSection==="withdrawals"){
-      loadWithdrawals(withdrawalFilter);
-    }
-  },[activeSection,withdrawalFilter]);
-
   // NEW: Admin legal name verify states
   const[nameEditValue,setNameEditValue]=useState("");
   const[nameEditMode,setNameEditMode]=useState(false);
@@ -185,52 +120,6 @@ function AdminDashboard({
       notify?.(error.response?.data?.message||"Document action failed");
     }finally{
       setDocBusyId("");
-    }
-  };
-
-  // Razorpay Route Linked Account mapping
-  const configureRouteAccount=async(driver)=>{
-    if(!driver?._id)return;
-
-    const current=
-      driver?.driverProfile?.razorpayLinkedAccountId||
-      "";
-
-    const linkedAccountId=
-      window.prompt(
-        "Razorpay Route Linked Account ID (acc_...) enter karo:",
-        current
-      );
-
-    if(linkedAccountId===null)return;
-
-    try{
-      const{data}=await api.patch(
-        `/admin/drivers/${driver._id}/route-account`,
-        {
-          razorpayLinkedAccountId:linkedAccountId.trim(),
-          routeStatus:linkedAccountId.trim()?"active":"not_created"
-        }
-      );
-
-      notify?.(data?.message||"Route account save ho gaya");
-
-      setDocDriver(prev=>{
-        if(!prev||String(prev._id)!==String(driver._id))return prev;
-
-        return{
-          ...prev,
-          driverProfile:{
-            ...prev.driverProfile,
-            razorpayLinkedAccountId:data?.data?.razorpayLinkedAccountId||linkedAccountId.trim(),
-            razorpayRouteStatus:data?.data?.razorpayRouteStatus||"active"
-          }
-        };
-      });
-
-      await loadAdminData?.();
-    }catch(error){
-      notify?.(error?.response?.data?.message||"Route account save nahi hua");
     }
   };
 
@@ -565,11 +454,6 @@ function AdminDashboard({
       label:"Bookings"
     },
     {
-      id:"withdrawals",
-      icon:"₹",
-      label:"Withdrawals"
-    },
-    {
       id:"warnings",
       icon:"⚠",
       label:"Warnings",
@@ -778,42 +662,6 @@ function AdminDashboard({
               ))}
             </div>
 
-            {/* Razorpay Route settlement account */}
-            <div style={{
-              marginTop:"20px",
-              padding:"14px",
-              border:"1px solid rgba(245,197,24,0.22)",
-              borderRadius:"10px",
-              background:"rgba(245,197,24,0.05)"
-            }}>
-              <div style={{color:"#f5c518",fontWeight:"800",fontSize:"12px"}}>
-                Razorpay Route — Driver Bank Settlement
-              </div>
-
-              <div style={{color:"#aaa",fontSize:"11px",marginTop:"5px"}}>
-                Linked Account: {docDriver?.driverProfile?.razorpayLinkedAccountId||"Not configured"}
-              </div>
-
-              <button
-                type="button"
-                onClick={()=>configureRouteAccount(docDriver)}
-                style={{
-                  marginTop:"10px",
-                  background:"#172033",
-                  color:"#f5c518",
-                  border:"1px solid rgba(245,197,24,0.35)",
-                  borderRadius:"7px",
-                  padding:"7px 12px",
-                  cursor:"pointer",
-                  fontWeight:"700"
-                }}
-              >
-                {docDriver?.driverProfile?.razorpayLinkedAccountId
-                  ?"Update Route Account"
-                  :"Set Route Account ID"}
-              </button>
-            </div>
-
             {/* Approve/Reject from modal */}
             <div style={{display:"flex",gap:"12px",marginTop:"24px",justifyContent:"flex-end"}}>
               {!docDriver?.driverProfile?.isApproved&&!isDriverBlocked(docDriver)&&(
@@ -969,7 +817,6 @@ function AdminDashboard({
               {activeSection==="dashboard"&&"Admin Dashboard"}
               {activeSection==="drivers"&&"Driver Management"}
               {activeSection==="bookings"&&"Ride Management"}
-              {activeSection==="withdrawals"&&"Wallet Withdrawals"}
             </h1>
           </div>
 
@@ -1186,129 +1033,6 @@ function AdminDashboard({
                 </div>
               </section>
             </>
-          )}
-
-          {activeSection==="withdrawals"&&(
-            <section className="adminPanel adminFullPanel">
-              <div className="adminPanelHeading driverHeading">
-                <div>
-                  <span>DRIVER WALLET</span>
-                  <h3>Withdrawal Requests</h3>
-                  <p>
-                    Approve, reject aur bank/UPI transfer complete hone ke baad
-                    Paid mark karo.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={()=>loadWithdrawals(withdrawalFilter)}
-                  disabled={withdrawalLoading}
-                >
-                  {withdrawalLoading?"Loading...":"↻ Refresh"}
-                </button>
-              </div>
-
-              <div className="adminFilterTabs">
-                {["all","pending","approved","paid","rejected"].map(status=>(
-                  <button
-                    type="button"
-                    key={status}
-                    className={withdrawalFilter===status?"active":""}
-                    onClick={()=>setWithdrawalFilter(status)}
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-
-              <div className="adminCompactList">
-                {withdrawals.length?withdrawals.map(item=>{
-                  const payout=item?.payoutSnapshot||{};
-                  const busy=withdrawalBusyId===item._id;
-
-                  return(
-                    <div className="adminCompactRow booking adminWithdrawalRow" key={item._id}>
-                      <div className="adminDriverAvatar">₹</div>
-
-                      <div style={{flex:1}}>
-                        <strong>
-                          {item?.driver?.name||"Driver"} — ₹{Number(item.amount||0).toFixed(0)}
-                        </strong>
-
-                        <span>
-                          {item.payoutMethod==="upi"
-                            ?`UPI: ${payout.upiId||"Not available"}`
-                            :`Bank: ${payout.bankName||""} ${payout.accountNumberMasked||""} • ${payout.ifscCode||""}`}
-                        </span>
-
-                        <span>
-                          Requested: {item.requestedAt?new Date(item.requestedAt).toLocaleString("en-IN"):"—"}
-                        </span>
-
-                        {item.payoutReference&&(
-                          <span>
-                            Ref: {item.payoutReference}
-                          </span>
-                        )}
-                      </div>
-
-                      <em className={`adminRideBadge ${item.status||"pending"}`}>
-                        {item.status||"pending"}
-                      </em>
-
-                      <div className="adminWithdrawalActions">
-                        {item.status==="pending"&&(
-                          <>
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={()=>updateWithdrawal(item,"approve")}
-                            >
-                              Approve
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={()=>updateWithdrawal(item,"reject")}
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
-
-                        {item.status==="approved"&&(
-                          <>
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={()=>updateWithdrawal(item,"paid")}
-                            >
-                              Mark Transferred
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={()=>updateWithdrawal(item,"reject")}
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }):(
-                  <p className="adminEmptyText">
-                    {withdrawalLoading
-                      ?"Withdrawal requests load ho rahi hain..."
-                      :"Is filter me koi withdrawal request nahi hai."}
-                  </p>
-                )}
-              </div>
-            </section>
           )}
 
           {activeSection==="drivers"&&(

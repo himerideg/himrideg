@@ -271,28 +271,10 @@ async function setDriverOnline(driverId) {
   const currentRide =
     await getCurrentRide(driverId);
 
-  const commissionDue =
-    Number(
-      driver.wallet
-        ?.commissionDue ||
-        0
-    );
-
   driver.isOnline = true;
 
-  /*
-  |--------------------------------------------------------------------------
-  | Cash Commission Due Gate
-  |--------------------------------------------------------------------------
-  |
-  | Driver online reh sakta hai, lekin platform commission due hone par
-  | new ride ke liye available nahi hoga.
-  |
-  */
-
   driver.isAvailable =
-    !currentRide &&
-    commissionDue <= 0;
+    !currentRide;
 
   driver.lastSeenAt =
     new Date();
@@ -359,20 +341,6 @@ async function setDriverAvailable(
     throw new ApiError(
       403,
       "Driver account is not approved"
-    );
-  }
-
-  const commissionDue =
-    Number(
-      driver.wallet
-        ?.commissionDue ||
-        0
-    );
-
-  if (commissionDue > 0) {
-    throw new ApiError(
-      409,
-      `₹${commissionDue} platform commission due hai. Wallet top-up karke due clear karo.`
     );
   }
 
