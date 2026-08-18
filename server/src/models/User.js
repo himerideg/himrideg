@@ -833,6 +833,15 @@ const userSchema =
         default: null
       },
 
+      /*
+      | Google direct login ke baad first-time Basic Info completion flag.
+      | Password Google accounts ke liye required nahi hai.
+      */
+      googleBasicInfoCompleted: {
+        type: Boolean,
+        default: false
+      },
+
       password: {
         type: String,
         select: false,

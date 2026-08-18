@@ -139,6 +139,22 @@ function AuthPage({
   const [phone, setPhone] =
     useState("");
 
+  /*
+  |--------------------------------------------------------------------------
+  | Customer / Driver Google Email Login
+  |--------------------------------------------------------------------------
+  |
+  | Mobile + OTP ko frontend login se replace karke verified Google email
+  | flow use hota hai. Mobile number Basic Info page par collect hota hai.
+  |
+  */
+
+  const [loginEmail, setLoginEmail] =
+    useState("");
+
+  const [googleEmailArmed, setGoogleEmailArmed] =
+    useState(false);
+
   const [otp, setOtp] =
     useState("");
 
@@ -200,6 +216,9 @@ function AuthPage({
   const googleCallbackRef =
     useRef(null);
 
+  const googleExpectedEmailRef =
+    useRef("");
+
   const phoneInputRef =
     useRef(null);
 
@@ -245,6 +264,19 @@ function AuthPage({
     return String(value || "")
       .replace(/\D/g, "")
       .slice(0, 10);
+  };
+
+  const cleanEmail = (value) => {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .slice(0, 180);
+  };
+
+  const isValidEmail = (value) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+      cleanEmail(value)
+    );
   };
 
   const cleanOtp = (value) => {
@@ -357,6 +389,9 @@ function AuthPage({
     );
 
     setPhone("");
+    setLoginEmail("");
+    setGoogleEmailArmed(false);
+    googleExpectedEmailRef.current = "";
     setOtp("");
     setName("");
     setAdminEmail("");
@@ -398,6 +433,9 @@ function AuthPage({
     }
 
     setPhone("");
+    setLoginEmail("");
+    setGoogleEmailArmed(false);
+    googleExpectedEmailRef.current = "";
     setOtp("");
     setName("");
     setAdminEmail("");
@@ -840,14 +878,19 @@ function AuthPage({
 
   /*
   |--------------------------------------------------------------------------
-  | Google Login
+  | Google Login — Verified Email First
   |--------------------------------------------------------------------------
+  |
+  | Customer/Driver email pehle enter karta hai. Google Identity Services
+  | us email ko login_hint ke roop me use karta hai aur backend selected
+  | Google credential ki verified email ko entered email se exact match
+  | karta hai. Checkbox Google login ko block nahi karta.
+  |
   */
 
   const finishGoogleLogin =
     async (
-      credential,
-      phoneOverride = phone
+      credential
     ) => {
       const cleanCredential =
         String(
@@ -875,15 +918,20 @@ function AuthPage({
         return;
       }
 
-      if (!termsAccepted) {
-        setTermsError(true);
-
-        setGooglePendingCredential(
-          cleanCredential
+      const expectedEmail =
+        cleanEmail(
+          googleExpectedEmailRef
+            .current ||
+          loginEmail
         );
 
+      if (
+        !isValidEmail(
+          expectedEmail
+        )
+      ) {
         notify(
-          "Google login continue karne ke liye Terms & Conditions accept karo.",
+          "Pehle valid email enter karo.",
           "error"
         );
 
@@ -893,6 +941,9 @@ function AuthPage({
       try {
         setLoading(true);
         setGoogleError("");
+        setGooglePendingCredential(
+          ""
+        );
 
         const response =
           await api.post(
@@ -902,10 +953,7 @@ function AuthPage({
                 cleanCredential,
               role:
                 accountType,
-              phone:
-                cleanPhone(
-                  phoneOverride
-                )
+              expectedEmail
             }
           );
 
@@ -943,14 +991,12 @@ function AuthPage({
           );
         }
 
-        setGooglePendingCredential(
-          ""
-        );
-
         saveLoginData(
           accessToken,
           authenticatedUser
         );
+
+        setGoogleEmailArmed(false);
 
         notify(
           response?.data
@@ -969,6 +1015,13 @@ function AuthPage({
               authenticatedUser.role,
             provider:
               "google",
+            requiresBasicInfo:
+              Boolean(
+                responseData
+                  ?.requiresBasicInfo ||
+                authenticatedUser
+                  ?.needsBasicInfo
+              ),
             message:
               response?.data
                 ?.message ||
@@ -979,32 +1032,6 @@ function AuthPage({
         const responseData =
           error?.response?.data ||
           {};
-
-        if (
-          responseData?.code ===
-          "GOOGLE_PHONE_REQUIRED"
-        ) {
-          setGooglePendingCredential(
-            cleanCredential
-          );
-
-          notify(
-            responseData?.message ||
-              "First Google signup ke liye mobile number enter karo. OTP nahi lagega.",
-            "info"
-          );
-
-          window.setTimeout(
-            () => {
-              phoneInputRef
-                .current
-                ?.focus?.();
-            },
-            100
-          );
-
-          return;
-        }
 
         notify(
           responseData?.message ||
@@ -1021,6 +1048,149 @@ function AuthPage({
     (credential) => {
       finishGoogleLogin(
         credential
+      );
+    };
+
+  const configureGoogleIdentity =
+    (loginHint = "") => {
+      if (
+        !GOOGLE_CLIENT_ID ||
+        !window.google
+          ?.accounts
+          ?.id
+      ) {
+        return false;
+      }
+
+      const configuration = {
+        client_id:
+          GOOGLE_CLIENT_ID,
+        callback:
+          (response) => {
+            const credential =
+              response?.credential;
+
+            if (
+              credential &&
+              googleCallbackRef
+                .current
+            ) {
+              googleCallbackRef
+                .current(
+                  credential
+                );
+            }
+          },
+        auto_select:
+          false,
+        cancel_on_tap_outside:
+          true,
+        ux_mode:
+          "popup"
+      };
+
+      const cleanLoginHint =
+        cleanEmail(loginHint);
+
+      if (
+        isValidEmail(
+          cleanLoginHint
+        )
+      ) {
+        configuration.login_hint =
+          cleanLoginHint;
+      }
+
+      window.google.accounts.id.initialize(
+        configuration
+      );
+
+      googleInitializedRef.current =
+        true;
+
+      return true;
+    };
+
+  const handleEmailGoogleVerify =
+    (event) => {
+      event?.preventDefault?.();
+
+      if (loading) {
+        return;
+      }
+
+      if (
+        accountType ===
+        "admin"
+      ) {
+        return;
+      }
+
+      const email =
+        cleanEmail(
+          loginEmail
+        );
+
+      if (
+        !isValidEmail(
+          email
+        )
+      ) {
+        notify(
+          "Valid Google account email enter karo.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        !googleReady ||
+        !window.google
+          ?.accounts
+          ?.id
+      ) {
+        notify(
+          googleError ||
+            "Google login abhi ready nahi hai.",
+          "error"
+        );
+
+        return;
+      }
+
+      googleExpectedEmailRef.current =
+        email;
+
+      setGoogleEmailArmed(true);
+      setGoogleError("");
+
+      configureGoogleIdentity(
+        email
+      );
+
+      /*
+      | Google login_hint entered email ko account selection ke liye hint
+      | karta hai. Backend exact email match bhi enforce karta hai.
+      */
+      window.google.accounts.id.prompt(
+        (notification) => {
+          try {
+            if (
+              notification
+                ?.isNotDisplayed?.() ||
+              notification
+                ?.isSkippedMoment?.()
+            ) {
+              notify(
+                "Google popup automatic nahi khula. Neeche 'Continue with Google' button se isi email ko verify karo.",
+                "info"
+              );
+            }
+          } catch {
+            /* FedCM browsers me moment details limited ho sakti hain. */
+          }
+        }
       );
     };
 
@@ -1057,35 +1227,7 @@ function AuthPage({
           !googleInitializedRef
             .current
         ) {
-          window.google.accounts.id.initialize({
-            client_id:
-              GOOGLE_CLIENT_ID,
-            callback:
-              (response) => {
-                const credential =
-                  response?.credential;
-
-                if (
-                  credential &&
-                  googleCallbackRef
-                    .current
-                ) {
-                  googleCallbackRef
-                    .current(
-                      credential
-                    );
-                }
-              },
-            auto_select:
-              false,
-            cancel_on_tap_outside:
-              true,
-            ux_mode:
-              "popup"
-          });
-
-          googleInitializedRef.current =
-            true;
+          configureGoogleIdentity();
         }
 
         setGoogleReady(true);
@@ -1123,13 +1265,36 @@ function AuthPage({
       accountType ===
         "admin" ||
       !googleReady ||
+      !googleEmailArmed ||
+      !isValidEmail(
+        loginEmail
+      ) ||
       !googleButtonRef.current ||
       !window.google
         ?.accounts
         ?.id
     ) {
+      if (
+        googleButtonRef.current
+      ) {
+        googleButtonRef.current.innerHTML =
+          "";
+      }
+
       return;
     }
+
+    const email =
+      cleanEmail(
+        loginEmail
+      );
+
+    googleExpectedEmailRef.current =
+      email;
+
+    configureGoogleIdentity(
+      email
+    );
 
     const buttonHost =
       googleButtonRef.current;
@@ -1173,6 +1338,8 @@ function AuthPage({
   }, [
     accountType,
     googleReady,
+    googleEmailArmed,
+    loginEmail,
     mode
   ]);
 
@@ -1794,252 +1961,130 @@ function AuthPage({
                   hai.
                 </p>
               </form>
-            ) : step === 1 ? (
-              /*
-              |--------------------------------------------------------------------------
-              | Send OTP Form
-              |--------------------------------------------------------------------------
-              */
-
-              <form
-                onSubmit={
-                  handleSendOtp
-                }
-              >
-                <label
-                  className="authLabel"
-                >
-                  Phone Number
-                </label>
-
-                <div
-                  className="authPhoneField"
-                >
-                  <span>+91</span>
-
-                  <input
-                    ref={phoneInputRef}
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    placeholder="Enter phone number"
-                    value={phone}
-                    onChange={(
-                      event
-                    ) =>
-                      setPhone(
-                        cleanPhone(
-                          event.target
-                            .value
-                        )
-                      )
-                    }
-                    maxLength={10}
-                    disabled={loading}
-                  />
-                </div>
-
-                <p className="authGooglePhoneHint">
-                  Google se returning login me mobile dobara verify nahi hoga. First Google signup par mobile number account contact ke liye required hai; OTP nahi lagega.
-                </p>
-
-                {accountType !== "admin" && (
-                  <div style={{marginBottom:"14px"}}>
-                    <label style={{display:"flex",alignItems:"flex-start",gap:"10px",cursor:"pointer",fontSize:"13px",color:"#344054",lineHeight:1.5}}>
-                      <input
-                        type="checkbox"
-                        checked={termsAccepted}
-                        onChange={e=>{setTermsAccepted(e.target.checked);setTermsError(false);}}
-                        style={{marginTop:"2px",width:"16px",height:"16px",accentColor:"#f2bd16",flexShrink:0,
-                          outline: termsError ? "2px solid #b42318" : "none",
-                          borderRadius:"3px"}}
-                      />
-                      <span>
-                        I have read and agree to HimRideG&apos;s{" "}
-                        <button type="button" onClick={()=>setShowTermsModal(true)} style={{background:"none",border:"none",color:"#f2bd16",fontWeight:"700",cursor:"pointer",padding:0,textDecoration:"underline",fontSize:"13px"}}>Terms & Conditions</button>
-                        {" "}and acknowledge the{" "}
-                        <button type="button" onClick={()=>setShowPrivacyModal(true)} style={{background:"none",border:"none",color:"#f2bd16",fontWeight:"700",cursor:"pointer",padding:0,textDecoration:"underline",fontSize:"13px"}}>Privacy Policy</button>.
-                      </span>
-                    </label>
-                    {termsError && <p style={{color:"#b42318",fontSize:"12px",margin:"6px 0 0"}}>Please accept Terms & Conditions to continue.</p>}
-                  </div>
-                )}
-
-                <button
-                  className="authPrimaryButton"
-                  type="submit"
-                  disabled={loading || (accountType !== "admin" && !termsAccepted)}
-                  onClick={e => {
-                    if (accountType !== "admin" && !termsAccepted) {
-                      e.preventDefault();
-                      setTermsError(true);
-                    }
-                  }}
-                  style={{opacity: (accountType !== "admin" && !termsAccepted) ? 0.6 : 1}}
-                >
-                  {loading
-                    ? "Sending OTP..."
-                    : `Send ${getRoleLabel()} OTP`}
-
-                  <span>→</span>
-                </button>
-              </form>
             ) : (
               /*
               |--------------------------------------------------------------------------
-              | Verify OTP Form
+              | Customer / Driver — Email Verified By Google
               |--------------------------------------------------------------------------
+              |
+              | Mobile number, OTP aur password login page se hata diye gaye hain.
+              | Entered email ko Google account se verify karke direct session milta hai.
+              | First-time Google user Basic Info page par mobile number save karega.
+              |
               */
 
-              <form
-                onSubmit={
-                  handleVerifyOtp
-                }
-              >
-                <div
-                  className="authField"
+              <>
+                <form
+                  className="authEmailGoogleForm"
+                  onSubmit={
+                    handleEmailGoogleVerify
+                  }
                 >
-                  <span>
-                    Phone Number
-                  </span>
-
-                  <input
-                    type="text"
-                    value={`+91 ${phone}`}
-                    readOnly
-                  />
-                </div>
-
-                {mode ===
-                  "register" && (
                   <label
                     className="authField"
                   >
                     <span>
-                      Full Name
+                      Google Account Email
                     </span>
 
                     <input
-                      type="text"
-                      autoComplete="name"
-                      placeholder={
-                        accountType ===
-                        "driver"
-                          ? "Enter driver full name"
-                          : "Enter your full name"
-                      }
-                      value={name}
-                      onChange={(
-                        event
-                      ) =>
-                        setName(
-                          event.target
-                            .value
-                        )
-                      }
-                      disabled={
-                        loading
-                      }
+                      type="email"
+                      autoComplete="email"
+                      inputMode="email"
+                      placeholder="Enter your Google email"
+                      value={loginEmail}
+                      onChange={(event) => {
+                        const value =
+                          event.target.value;
+
+                        setLoginEmail(value);
+                        setGoogleEmailArmed(false);
+                        googleExpectedEmailRef.current =
+                          "";
+                      }}
+                      disabled={loading}
                       required
                     />
                   </label>
-                )}
 
-                <label
-                  className="authField"
-                >
-                  <span>
-                    Enter OTP
-                  </span>
+                  <p className="authGoogleEmailHint">
+                    Is email ko Google account se verify kiya jayega. OTP ya password nahi chahiye. First login par Basic Info page khulega.
+                  </p>
 
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    placeholder="Enter 6 digit OTP"
-                    value={otp}
-                    onChange={(
-                      event
-                    ) =>
-                      setOtp(
-                        cleanOtp(
-                          event.target
-                            .value
-                        )
-                      )
+                  <div className="authOptionalTerms">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(event) => {
+                          setTermsAccepted(
+                            event.target.checked
+                          );
+                          setTermsError(false);
+                        }}
+                      />
+
+                      <span>
+                        I have read HimRideG&apos;s{" "}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowTermsModal(true)
+                          }
+                        >
+                          Terms & Conditions
+                        </button>
+                        {" "}and{" "}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowPrivacyModal(true)
+                          }
+                        >
+                          Privacy Policy
+                        </button>
+                        .
+                        <small>
+                          Google login ke liye checkbox optional hai.
+                        </small>
+                      </span>
+                    </label>
+                  </div>
+
+                  <button
+                    className="authPrimaryButton authGoogleVerifyPrimary"
+                    type="submit"
+                    disabled={
+                      loading ||
+                      !googleReady
                     }
-                    maxLength={6}
-                    disabled={loading}
-                    required
-                    autoFocus
-                  />
-                </label>
-
-                {developmentOtp && (
-                  <p
-                    className="authTerms"
                   >
-                    Development OTP:{" "}
-                    <strong>
-                      {developmentOtp}
-                    </strong>
+                    {loading
+                      ? "Verifying Google Account..."
+                      : mode === "register"
+                        ? `Verify Email & Create ${getRoleLabel()} Account`
+                        : `Verify Email & Login as ${getRoleLabel()}`}
+
+                    <span>G</span>
+                  </button>
+                </form>
+
+                {googleError && (
+                  <p
+                    className="authGoogleStatus error"
+                  >
+                    {googleError}
                   </p>
                 )}
 
-                <button
-                  className="authPrimaryButton"
-                  type="submit"
-                  disabled={loading}
-                >
-                  {loading
-                    ? "Verifying..."
-                    : mode ===
-                        "register"
-                      ? `Create ${getRoleLabel()} Account`
-                      : `Login as ${getRoleLabel()}`}
+                {googleEmailArmed && (
+                  <div
+                    className="authGoogleLoginArea authGoogleFallback"
+                  >
+                    <p className="authGoogleStatus">
+                      Agar Google popup automatic open na ho, neeche button se <strong>{cleanEmail(loginEmail)}</strong> verify karo.
+                    </p>
 
-                  <span>→</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="authEditPhone"
-                  onClick={
-                    handleChangePhone
-                  }
-                  disabled={loading}
-                >
-                  Change phone number
-                </button>
-
-                <button
-                  type="button"
-                  className="authEditPhone"
-                  onClick={
-                    handleResendOtp
-                  }
-                  disabled={loading}
-                >
-                  Resend OTP
-                </button>
-              </form>
-            )}
-
-            {accountType !==
-              "admin" && (
-              <>
-                <div
-                  className="authDivider"
-                >
-                  <span />
-                  <p>or</p>
-                  <span />
-                </div>
-
-                <div
-                  className="authGoogleLoginArea"
-                >
-                  {googleReady ? (
                     <div
                       ref={
                         googleButtonRef
@@ -2047,66 +2092,12 @@ function AuthPage({
                       className="authGoogleButtonHost"
                       aria-label="Continue with Google"
                     />
-                  ) : (
-                    <button
-                      type="button"
-                      className="authSocialButton"
-                      disabled
-                    >
-                      <b>G</b>
-                      {googleError
-                        ? "Google Login Setup Required"
-                        : "Loading Google Login..."}
-                    </button>
-                  )}
+                  </div>
+                )}
 
-                  {googleError && (
-                    <p
-                      className="authGoogleStatus error"
-                    >
-                      {googleError}
-                    </p>
-                  )}
-
-                  {googlePendingCredential && (
-                    <button
-                      type="button"
-                      className="authGoogleCompleteButton"
-                      disabled={loading}
-                      onClick={() => {
-                        if (!termsAccepted) {
-                          setTermsError(true);
-                          notify(
-                            "Terms & Conditions accept karo.",
-                            "error"
-                          );
-                          return;
-                        }
-
-                        if (
-                          !/^[6-9]\d{9}$/.test(
-                            phone.trim()
-                          )
-                        ) {
-                          notify(
-                            "First Google signup complete karne ke liye valid 10 digit mobile number enter karo.",
-                            "error"
-                          );
-                          phoneInputRef.current?.focus?.();
-                          return;
-                        }
-
-                        finishGoogleLogin(
-                          googlePendingCredential,
-                          phone
-                        );
-                      }}
-                    >
-                      {loading
-                        ? "Completing Google Login..."
-                        : "Complete Google Login — No OTP"}
-                    </button>
-                  )}
+                <div className="authGoogleSecurityNote">
+                  <strong>✓ Google verified email</strong>
+                  <span>Mobile login, SMS OTP aur password customer/driver login ke liye required nahi hain.</span>
                 </div>
 
                 <button

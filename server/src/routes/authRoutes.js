@@ -13,7 +13,8 @@ const {
 } = require("../controllers/driverAuthController");
 
 const {
-  googleLogin
+  googleLogin,
+  completeGoogleBasicInfo
 } = require("../controllers/googleAuthController");
 
 const {
@@ -143,10 +144,11 @@ router.post(
 |--------------------------------------------------------------------------
 |
 | POST /api/v2/auth/google
-| Body: { credential, role, phone? }
+| Body: { credential, role }
 |
-| Returning linked Google user: phone optional.
-| First Google signup: backend phone maangta hai, OTP nahi.
+| Google account select hote hi direct login/session create hota hai.
+| First Google signup par mobile/password login screen par required nahi hai.
+| Basic Info next protected page par complete hoti hai.
 | Admin Google login intentionally allowed nahi hai.
 |
 */
@@ -155,6 +157,26 @@ router.post(
   "/google",
   loginLimiter,
   googleLogin
+);
+
+/*
+|--------------------------------------------------------------------------
+| Google Basic Info Completion
+|--------------------------------------------------------------------------
+|
+| Google account select hote hi direct session milta hai. First-time user
+| yahan Name + Mobile save karta hai. Password required nahi hai.
+|
+*/
+
+router.patch(
+  "/google/basic-info",
+  protect,
+  allowRoles(
+    "customer",
+    "driver"
+  ),
+  completeGoogleBasicInfo
 );
 
 /*

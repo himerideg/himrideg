@@ -10,6 +10,7 @@ import socket from "./socket";
 
 import Home from "./pages/Home";
 import AuthPage from "./pages/AuthPage";
+import GoogleBasicInfo from "./pages/GoogleBasicInfo";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import DriverDashboard from "./pages/DriverDashboard";
 import DriverOnboarding from "./pages/DriverOnboarding";
@@ -169,9 +170,23 @@ function App() {
           "himrideg_user"
         );
 
-      return savedUser
-        ? "dashboard"
-        : "home";
+      if (!savedUser) {
+        return "home";
+      }
+
+      try {
+        const parsedUser =
+          JSON.parse(
+            savedUser
+          );
+
+        return parsedUser
+          ?.needsBasicInfo
+          ? "basicInfo"
+          : "dashboard";
+      } catch {
+        return "home";
+      }
     });
 
   const [
@@ -652,6 +667,29 @@ function App() {
         authenticatedUser
       );
 
+      const requiresBasicInfo =
+        Boolean(
+          data?.requiresBasicInfo ||
+          data?.data
+            ?.requiresBasicInfo ||
+          authenticatedUser
+            ?.needsBasicInfo
+        );
+
+      if (
+        requiresBasicInfo
+      ) {
+        setPage(
+          "basicInfo"
+        );
+
+        localStorage.removeItem(
+          "himrideg_auth_account_type"
+        );
+
+        return;
+      }
+
       setPage(
         "dashboard"
       );
@@ -1038,6 +1076,57 @@ function App() {
           )
         );
       }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Google Basic Info Completed
+  |--------------------------------------------------------------------------
+  |
+  | Basic Info page ke baad same authenticated session continue hota hai.
+  | handleAuthSuccess dobara use karne se saved booking resume logic aur
+  | role-based dashboard navigation existing behavior me hi rehti hai.
+  |
+  */
+
+  const handleGoogleBasicInfoComplete =
+    async (
+      updatedUser
+    ) => {
+      const accessToken =
+        sessionStorage.getItem(
+          "himrideg_token"
+        ) ||
+        sessionStorage.getItem(
+          "accessToken"
+        ) ||
+        sessionStorage.getItem(
+          "token"
+        ) ||
+        "";
+
+      if (
+        !accessToken ||
+        !updatedUser
+      ) {
+        notify(
+          "Basic info save hui, lekin session continue nahi ho paya. Dobara login karo."
+        );
+
+        setUser(null);
+        setPage("auth");
+        return;
+      }
+
+      await handleAuthSuccess({
+        accessToken,
+        user: {
+          ...updatedUser,
+          needsBasicInfo: false
+        },
+        provider: "google",
+        requiresBasicInfo: false
+      });
     };
 
   /*
@@ -2622,6 +2711,39 @@ function App() {
           onSuccess={
             handleAuthSuccess
           }
+        />
+      </>
+    );
+  }
+
+  if (
+    page ===
+      "basicInfo" &&
+    user &&
+    (
+      user.role ===
+        "customer" ||
+      user.role ===
+        "driver"
+    )
+  ) {
+    return (
+      <>
+        {
+          message &&
+          (
+            <div className="toast">
+              {message}
+            </div>
+          )
+        }
+
+        <GoogleBasicInfo
+          user={user}
+          onComplete={
+            handleGoogleBasicInfoComplete
+          }
+          logout={logout}
         />
       </>
     );
