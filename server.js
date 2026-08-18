@@ -1,301 +1,192 @@
-require("dotenv").config();
+const Admin = require("../models/Admin");
 
-const dns = require("node:dns");
+/*
+|--------------------------------------------------------------------------
+| Environment Helpers
+|--------------------------------------------------------------------------
+*/
 
-// Local Windows/ISP DNS environments ke liye Atlas SRV fallback.
-// Production hosting par platform DNS ko override nahi karte.
-if (process.env.NODE_ENV !== "production") {
-  dns.setServers([
-    "8.8.8.8",
-    "1.1.1.1"
-  ]);
+function cleanEnv(name) {
+  return String(process.env[name] || "").trim();
 }
 
-const http = require("http");
+function envFlag(name) {
+  const value = cleanEnv(name).toLowerCase();
 
-const app = require("./src/app");
+  return [
+    "1",
+    "true",
+    "yes",
+    "on"
+  ].includes(value);
+}
 
-const {
-  connectDatabase,
-  disconnectDatabase
-} = require("./src/config/database");
+function validateBootstrapPassword(password) {
+  if (!password) {
+    throw new Error(
+      "ADMIN_BOOTSTRAP_PASSWORD environment variable required hai"
+    );
+  }
 
-const {
-  createSocketServer,
-  closeSocketServer
-} = require("./src/sockets/socketServer");
+  if (password.length < 16) {
+    throw new Error(
+      "ADMIN_BOOTSTRAP_PASSWORD minimum 16 characters ka hona chahiye"
+    );
+  }
 
-const PORT =
-  Number(process.env.PORT) || 5001;
-
-// Mobile aur doosre local devices ke liye
-const HOST = "0.0.0.0";
-
-const httpServer =
-  http.createServer(app);
-
-/*
-|--------------------------------------------------------------------------
-| Socket.IO
-|--------------------------------------------------------------------------
-*/
-
-const io =
-  createSocketServer(httpServer);
-
-// Express controllers ko Socket.IO instance dena
-app.set("io", io);
-
-/*
-|--------------------------------------------------------------------------
-| Admin Bootstrap
-|--------------------------------------------------------------------------
-*/
-
-async function bootstrapAdmin() {
-  try {
-    const Admin = require("./src/models/Admin");
-
-    const email = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
-    const password = String(process.env.ADMIN_BOOTSTRAP_PASSWORD || "").trim();
-
-    if (!email || !password) {
-      console.log("⚠️ ADMIN_EMAIL ya ADMIN_BOOTSTRAP_PASSWORD set nahi hai — admin bootstrap skip.");
-      return;
-    }
-
-    if (password.length < 16) {
-      console.log("⚠️ ADMIN_BOOTSTRAP_PASSWORD 16 characters se kam hai — skip.");
-      return;
-    }
-
-    const existing = await Admin.findOne({ email });
-    if (existing) {
-      console.log("✅ Admin already exists:", email);
-      return;
-    }
-
-    await Admin.create({
-      name: "HimRideG Admin",
-      email,
-      password
-    });
-
-    console.log("==========================================");
-    console.log("✅ Admin Bootstrap Successful!");
-    console.log("📧 Email:", email);
-    console.log("==========================================");
-  } catch (err) {
-    console.error("❌ Admin bootstrap error:", err.message);
+  if (/change|password|himrideg@123/i.test(password)) {
+    throw new Error(
+      "ADMIN_BOOTSTRAP_PASSWORD placeholder/default nahi ho sakta"
+    );
   }
 }
 
-const startServer = async () => {
-  try {
-    await connectDatabase();
-
-    // Admin auto-bootstrap
-    await bootstrapAdmin();
-
-    httpServer.listen(
-      PORT,
-      HOST,
-      () => {
-        console.log("");
-        console.log(
-          "========================================"
-        );
-        console.log(
-          "🚕 HimRideG v2 Backend Started"
-        );
-        console.log(
-          `🌐 Laptop: http://localhost:${PORT}`
-        );
-        console.log(
-          `📱 Mobile: http://LAPTOP_IP:${PORT}`
-        );
-        console.log(
-          `❤️ Health: http://localhost:${PORT}/api/v2/health`
-        );
-        console.log(
-          `⚙️ Environment: ${
-            process.env.NODE_ENV ||
-            "development"
-          }`
-        );
-        console.log(
-          "🗄️ MongoDB: Connected"
-        );
-        console.log(
-          "🔌 Socket.IO: Ready"
-        );
-        console.log(
-          `🌍 Host: ${HOST}`
-        );
-        console.log(
-          "========================================"
-        );
-        console.log("");
-      }
-    );
-  } catch (error) {
-    console.error("");
-    console.error(
-      "❌ HimRideG v2 server start nahi ho saka."
-    );
-    console.error(
-      `Reason: ${error.message}`
-    );
-    console.error("");
-
-    try {
-      await closeSocketServer();
-    } catch (socketError) {
-      console.error(
-        "Socket close error:",
-        socketError.message
-      );
-    }
-
-    try {
-      await disconnectDatabase();
-    } catch (databaseError) {
-      console.error(
-        "Database disconnect error:",
-        databaseError.message
-      );
-    }
-
-    process.exit(1);
-  }
-};
-
 /*
 |--------------------------------------------------------------------------
-| Graceful Shutdown
+| Admin Bootstrap / Safe Reset
 |--------------------------------------------------------------------------
+|
+| Behaviour:
+|
+| 1. ADMIN_EMAIL missing ho to server ko crash nahi karta; warning deta hai.
+| 2. Admin missing ho to ADMIN_BOOTSTRAP_PASSWORD se create karta hai.
+| 3. Admin already exists ho to normally password ko bilkul touch nahi karta.
+| 4. Sirf ADMIN_RESET_ON_START=true hone par existing admin ka password reset
+|    karta hai.
+| 5. Admin model ka pre-save hook password ko bcrypt hash karta hai, isliye
+|    plaintext password database me save nahi hota.
+|
+| IMPORTANT:
+| Reset successful hone ke turant baad Render Environment se
+| ADMIN_RESET_ON_START ko false/remove kar dena chahiye.
+|
 */
 
-const shutdown = async (signal) => {
-  if (isShuttingDown) {
-    return;
+async function syncAdminBootstrap() {
+  const email = cleanEnv("ADMIN_EMAIL").toLowerCase();
+  const password = cleanEnv("ADMIN_BOOTSTRAP_PASSWORD");
+  const shouldReset = envFlag("ADMIN_RESET_ON_START");
+
+  if (!email) {
+    console.warn(
+      "⚠️ ADMIN_EMAIL missing hai. Admin bootstrap skip kiya gaya."
+    );
+
+    return {
+      action: "skipped",
+      reason: "ADMIN_EMAIL_MISSING"
+    };
   }
 
-  isShuttingDown = true;
+  const admin = await Admin.findOne({
+    email
+  });
 
-  console.log("");
+  /*
+  |--------------------------------------------------------------------------
+  | Existing Admin — Normal Startup
+  |--------------------------------------------------------------------------
+  */
+
+  if (admin && !shouldReset) {
+    console.log(
+      `✅ Admin account ready: ${email}`
+    );
+
+    return {
+      action: "unchanged",
+      adminId: String(admin._id),
+      email
+    };
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Create / Reset requires a valid bootstrap password
+  |--------------------------------------------------------------------------
+  */
+
+  validateBootstrapPassword(password);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Existing Admin — Explicit One-Time Reset
+  |--------------------------------------------------------------------------
+  */
+
+  if (admin && shouldReset) {
+    admin.password = password;
+
+    if (!admin.name) {
+      admin.name = "HimRideG Admin";
+    }
+
+    admin.role = "admin";
+
+    await admin.save();
+
+    console.log(
+      "========================================"
+    );
+    console.log(
+      "✅ ADMIN PASSWORD RESET SUCCESSFUL"
+    );
+    console.log(
+      `📧 Admin: ${email}`
+    );
+    console.log(
+      "🔐 Password bcrypt hash ke saath database me update hua."
+    );
+    console.log(
+      "⚠️ SECURITY: Ab ADMIN_RESET_ON_START ko false/remove karo."
+    );
+    console.log(
+      "========================================"
+    );
+
+    return {
+      action: "reset",
+      adminId: String(admin._id),
+      email
+    };
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Admin Missing — Create Safely
+  |--------------------------------------------------------------------------
+  */
+
+  const createdAdmin = await Admin.create({
+    name: "HimRideG Admin",
+    email,
+    password,
+    role: "admin"
+  });
+
   console.log(
-    `${signal} received. Server close ho raha hai...`
+    "========================================"
+  );
+  console.log(
+    "✅ ADMIN CREATED SUCCESSFULLY"
+  );
+  console.log(
+    `📧 Admin: ${email}`
+  );
+  console.log(
+    "🔐 Password bcrypt hash ke saath database me save hua."
+  );
+  console.log(
+    "========================================"
   );
 
-  const forceShutdownTimer =
-    setTimeout(() => {
-      console.error(
-        "❌ Forced shutdown"
-      );
+  return {
+    action: "created",
+    adminId: String(createdAdmin._id),
+    email
+  };
+}
 
-      process.exit(1);
-    }, 10000);
-
-  forceShutdownTimer.unref();
-
-  try {
-    await closeSocketServer();
-  } catch (error) {
-    console.error(
-      "Socket shutdown error:",
-      error.message
-    );
-  }
-
-  httpServer.close(
-    async (error) => {
-      if (error) {
-        console.error(
-          "HTTP shutdown error:",
-          error.message
-        );
-      }
-
-      try {
-        await disconnectDatabase();
-
-        console.log(
-          "✅ MongoDB disconnected"
-        );
-        console.log(
-          "✅ HTTP server closed"
-        );
-
-        clearTimeout(
-          forceShutdownTimer
-        );
-
-        process.exit(
-          error ? 1 : 0
-        );
-      } catch (databaseError) {
-        console.error(
-          "Database shutdown error:",
-          databaseError.message
-        );
-
-        clearTimeout(
-          forceShutdownTimer
-        );
-
-        process.exit(1);
-      }
-    }
-  );
+module.exports = {
+  syncAdminBootstrap
 };
-
-/*
-|--------------------------------------------------------------------------
-| Process Events
-|--------------------------------------------------------------------------
-*/
-
-process.on("SIGINT", () => {
-  shutdown("SIGINT");
-});
-
-process.on("SIGTERM", () => {
-  shutdown("SIGTERM");
-});
-
-process.on(
-  "unhandledRejection",
-  (error) => {
-    console.error(
-      "Unhandled rejection:",
-      error
-    );
-
-    shutdown(
-      "UNHANDLED_REJECTION"
-    );
-  }
-);
-
-process.on(
-  "uncaughtException",
-  (error) => {
-    console.error(
-      "Uncaught exception:",
-      error
-    );
-
-    shutdown(
-      "UNCAUGHT_EXCEPTION"
-    );
-  }
-);
-
-/*
-|--------------------------------------------------------------------------
-| Run
-|--------------------------------------------------------------------------
-*/
-
-startServer();
