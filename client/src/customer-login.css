@@ -134,6 +134,7 @@
 .customerLoginBenefits small { color: #a9afb8; margin-top: 3px; font-size: 11px; line-height: 1.35; }
 
 .customerLoginFormPanel {
+  position: relative;
   min-height: 100vh;
   display: grid;
   place-items: center;
@@ -141,6 +142,38 @@
   background:
     radial-gradient(circle at 20% 20%, rgba(245,197,24,.08), transparent 28%),
     #08090b;
+}
+
+.customerLoginBackButton {
+  position: absolute;
+  top: 26px;
+  left: clamp(18px, 3vw, 42px);
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(245,197,24,.28);
+  background: rgba(245,197,24,.06);
+  color: #f5c518;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+  z-index: 3;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease;
+}
+
+.customerLoginBackButton:hover {
+  transform: translateY(-1px);
+  background: rgba(245,197,24,.11);
+  border-color: rgba(245,197,24,.52);
+}
+
+.customerLoginBackButton span {
+  font-size: 19px;
+  line-height: 1;
 }
 
 .customerLoginCard {
@@ -227,7 +260,11 @@
   .customerLoginBrandCopy h1 { font-size: 38px; }
   .customerLoginBenefits { grid-template-columns: 1fr; }
   .customerLoginBenefits article:nth-child(n+2) { display: none; }
-  .customerLoginFormPanel { padding: 18px 12px 28px; }
+  .customerLoginFormPanel { padding: 76px 12px 28px; }
+  .customerLoginBackButton {
+    top: 18px;
+    left: 14px;
+  }
   .customerLoginCard { border-radius: 19px; padding: 22px 16px; }
   .customerOtherLogins { grid-template-columns: 1fr; }
 }

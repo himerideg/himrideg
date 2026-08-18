@@ -1473,6 +1473,78 @@ function App() {
               data
             );
 
+          /*
+          |------------------------------------------------------------------
+          | Fresh Driver Snapshot -> Auth State
+          |------------------------------------------------------------------
+          | Login token me driver ka purana snapshot ho sakta hai. Admin jab
+          | documents verify karta hai, /driver/profile MongoDB ka latest
+          | driver return karta hai. Pehle yahan sirf online status uthaya ja
+          | raha tha, isliye DriverDashboard ko stale documents milte the aur
+          | 0/5 uploaded dikhta tha. Ab latest profile + documents + approval
+          | authenticated user state aur sessionStorage dono me sync honge.
+          */
+
+          if (driver) {
+            setUser((currentUser) => {
+              if (
+                !currentUser ||
+                currentUser.role !== "driver"
+              ) {
+                return currentUser;
+              }
+
+              const mergedDriver = {
+                ...currentUser,
+                ...driver,
+                driverProfile: {
+                  ...(currentUser.driverProfile || {}),
+                  ...(driver.driverProfile || {}),
+                  documents: Array.isArray(
+                    driver?.driverProfile?.documents
+                  )
+                    ? driver.driverProfile.documents
+                    : (
+                        currentUser?.driverProfile?.documents ||
+                        []
+                      )
+                }
+              };
+
+              /*
+              | React state ko same server snapshot par baar-baar replace na
+              | karo. Isse profile refresh loop avoid hota hai.
+              */
+              try {
+                if (
+                  JSON.stringify(currentUser) ===
+                  JSON.stringify(mergedDriver)
+                ) {
+                  return currentUser;
+                }
+              } catch (_) {
+                // Safe fallback: merged snapshot use karo.
+              }
+
+              try {
+                sessionStorage.setItem(
+                  "himrideg_user",
+                  JSON.stringify(mergedDriver)
+                );
+              } catch (_) {}
+
+              return mergedDriver;
+            });
+
+            setDriverApproved(
+              Boolean(
+                driver?.approved ||
+                driver?.isApproved ||
+                driver?.driverProfile?.isApproved
+              )
+            );
+          }
+
           setDriverStatus({
             isOnline:
               Boolean(
@@ -2785,8 +2857,6 @@ function App() {
           initialMode={authMode}
           onBack={goHome}
           onSuccess={handleAuthSuccess}
-          onDriverLogin={openDriverLogin}
-          onAdminLogin={openAdminLogin}
         />
       </>
     );

@@ -1,0 +1,23 @@
+HimRideG FULL CODE UPDATE
+=========================
+
+Base: User-provided HM G.zip
+
+1. Customer Login isolation
+- /login/ se Driver Login aur Admin Login buttons/tabs remove kiye gaye.
+- Driver dedicated /driverlogin/ par preserve hai.
+- Admin dedicated /adminlogin/ par preserve hai.
+- Customer login form par visible "Back to HimRideG" button add kiya gaya.
+- Existing logo-back behavior bhi preserve hai.
+
+2. Driver document/admin verification sync fix
+- /driver/profile ka latest MongoDB driver snapshot ab App authenticated state me sync hota hai.
+- Fresh driverProfile.documents sessionStorage me bhi update hote hain.
+- DriverDashboard ka purana early-return fix kiya gaya jo documents change ko ignore kar raha tha.
+- Admin verified documents driver side par fresh profile load ke baad Verified dikhte hain.
+- 0/5 stale upload gate verified/available documents ke saath automatically clear hota hai.
+- Missing/rejected documents ka upload/re-upload behavior preserve hai.
+
+3. Full-code preservation
+- Original project files preserve kiye gaye.
+- Existing customer, driver, admin, map, rides, payment, wallet, socket aur deployment logic remove nahi kiya gaya.

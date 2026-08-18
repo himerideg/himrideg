@@ -1450,42 +1450,52 @@ function DriverDashboard({
     );
   }, [bookings]);
 
-  // NEW: Sync legalName & approval status from user prop → profileData
-  // This ensures socket updates (driver:name:updated, driver:approved) reflect immediately
+  /*
+  |--------------------------------------------------------------------------
+  | Sync Fresh Driver Profile From Parent
+  |--------------------------------------------------------------------------
+  | Parent App /driver/profile se MongoDB ka latest driver snapshot load karta
+  | hai. Yahan documents ko bhi mandatory sync karna zaroori hai. Purane code
+  | me legalName/approval same hone par early return ho jata tha, isliye admin
+  | verified documents update hone ke baad bhi profileData stale reh sakta tha.
+  */
   useEffect(() => {
     if (!user) return;
-    setProfileData(prev => {
-      if (!prev) return user;
-      const newLegalName = user?.driverProfile?.legalName;
-      const newLegalNameVerified = user?.driverProfile?.legalNameVerified;
-      const newApprovalStatus = user?.driverProfile?.approvalStatus;
-      const newIsApproved = user?.driverProfile?.isApproved;
-      if (
-        newLegalName === prev?.driverProfile?.legalName &&
-        newLegalNameVerified === prev?.driverProfile?.legalNameVerified &&
-        newApprovalStatus === prev?.driverProfile?.approvalStatus
-      ) return prev;
-      return {
-        ...prev,
-        isApproved: user?.isApproved ?? prev?.isApproved,
-        approved: user?.approved ?? prev?.approved,
+
+    setProfileData((previous) => {
+      const base = previous || {};
+
+      const merged = {
+        ...base,
+        ...user,
         driverProfile: {
-          ...(prev?.driverProfile || {}),
-          legalName: newLegalName ?? prev?.driverProfile?.legalName,
-          legalNameVerified: newLegalNameVerified ?? prev?.driverProfile?.legalNameVerified,
-          approvalStatus: newApprovalStatus ?? prev?.driverProfile?.approvalStatus,
-          isApproved: newIsApproved ?? prev?.driverProfile?.isApproved,
-          documents: user?.driverProfile?.documents || prev?.driverProfile?.documents
+          ...(base.driverProfile || {}),
+          ...(user.driverProfile || {}),
+          documents: Array.isArray(
+            user?.driverProfile?.documents
+          )
+            ? user.driverProfile.documents
+            : (
+                base?.driverProfile?.documents ||
+                []
+              )
         }
       };
+
+      try {
+        if (
+          JSON.stringify(previous) ===
+          JSON.stringify(merged)
+        ) {
+          return previous;
+        }
+      } catch (_) {
+        // Merge continue karega.
+      }
+
+      return merged;
     });
-  }, [
-    user?.driverProfile?.legalName,
-    user?.driverProfile?.legalNameVerified,
-    user?.driverProfile?.approvalStatus,
-    user?.driverProfile?.isApproved,
-    user?.driverProfile?.documents
-  ]);
+  }, [user]);
 
   /*
   |--------------------------------------------------------------------------
@@ -1493,19 +1503,53 @@ function DriverDashboard({
   |--------------------------------------------------------------------------
   */
   useEffect(() => {
-    const REQUIRED = ["aadhaar","driving_license","vehicle_rc","vehicle_photo","permit"];
-    const docs = user?.driverProfile?.documents || [];
-    const hasIssue = REQUIRED.some(type => {
-      const doc = docs.find(d => d.documentType === type && d.documentUrl);
-      if (!doc) return true; // not uploaded
-      if (doc.verificationStatus === "rejected") return true;
-      return false;
+    const REQUIRED = [
+      "aadhaar",
+      "driving_license",
+      "vehicle_rc",
+      "vehicle_photo",
+      "permit"
+    ];
+
+    const docs = Array.isArray(
+      profileData?.driverProfile?.documents
+    )
+      ? profileData.driverProfile.documents
+      : (
+          user?.driverProfile?.documents ||
+          []
+        );
+
+    const hasIssue = REQUIRED.some((type) => {
+      const doc = docs.find(
+        (item) =>
+          item.documentType === type &&
+          item.documentUrl
+      );
+
+      if (!doc) return true;
+
+      return (
+        doc.verificationStatus ===
+        "rejected"
+      );
     });
-    if (hasIssue) {
-      const timer = setTimeout(() => setDocReminderOpen(true), 1200);
-      return () => clearTimeout(timer);
+
+    if (!hasIssue) {
+      setDocReminderOpen(false);
+      return undefined;
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const timer = setTimeout(
+      () => setDocReminderOpen(true),
+      1200
+    );
+
+    return () => clearTimeout(timer);
+  }, [
+    profileData?.driverProfile?.documents,
+    user?.driverProfile?.documents
+  ]);
 
   /*
   |--------------------------------------------------------------------------

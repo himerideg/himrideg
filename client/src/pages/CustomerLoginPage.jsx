@@ -106,9 +106,7 @@ function getResponseData(response) {
 function CustomerLoginPage({
   initialMode = "login",
   onSuccess,
-  onBack,
-  onDriverLogin,
-  onAdminLogin
+  onBack
 }) {
   const [mode, setMode] = useState(initialMode);
   const [phone, setPhone] = useState("");
@@ -404,6 +402,16 @@ function CustomerLoginPage({
       </section>
 
       <section className="customerLoginFormPanel">
+        <button
+          type="button"
+          className="customerLoginBackButton"
+          onClick={onBack}
+          aria-label="Back to HimRideG home"
+        >
+          <span aria-hidden="true">←</span>
+          Back to HimRideG
+        </button>
+
         <div className="customerLoginCard">
           <header>
             <img src="/himrideg-logo.png" alt="HimRideG" />
@@ -506,10 +514,11 @@ function CustomerLoginPage({
             karne par HimRideG Terms & Privacy Policy apply hoti hai.
           </p>
 
-          <div className="customerOtherLogins">
-            <button type="button" onClick={onDriverLogin}>🚕 Driver Login</button>
-            <button type="button" onClick={onAdminLogin}>🔐 Admin Login</button>
-          </div>
+          {/*
+            Customer login deliberately isolated hai. Driver aur Admin ke
+            dedicated URLs /driverlogin/ aur /adminlogin/ par hi access honge.
+            Customer screen par unke tabs/buttons render nahi kiye jaate.
+          */}
 
           <div className="customerLoginHowItWorks">
             <strong>How it works</strong>
