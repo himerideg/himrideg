@@ -1,4 +1,6 @@
-require("dotenv").config();
+from pathlib import Path
+
+code = r'''require("dotenv").config();
 
 const dns = require("node:dns");
 
@@ -19,10 +21,6 @@ const {
   connectDatabase,
   disconnectDatabase
 } = require("./src/config/database");
-
-const {
-  syncAdminBootstrap
-} = require("./src/utils/adminBootstrap");
 
 const {
   createSocketServer,
@@ -52,6 +50,279 @@ app.set("io", io);
 
 /*
 |--------------------------------------------------------------------------
+| Environment Helpers
+|--------------------------------------------------------------------------
+*/
+
+const cleanEnv = (name) =>
+  String(
+    process.env[name] || ""
+  ).trim();
+
+const envFlag = (name) => {
+  const value =
+    cleanEnv(name)
+      .toLowerCase();
+
+  return [
+    "1",
+    "true",
+    "yes",
+    "on"
+  ].includes(value);
+};
+
+/*
+|--------------------------------------------------------------------------
+| Admin Bootstrap Password Validation
+|--------------------------------------------------------------------------
+*/
+
+const validateAdminBootstrapPassword = (
+  password
+) => {
+  if (!password) {
+    throw new Error(
+      "ADMIN_BOOTSTRAP_PASSWORD environment variable required hai"
+    );
+  }
+
+  if (password.length < 16) {
+    throw new Error(
+      "ADMIN_BOOTSTRAP_PASSWORD minimum 16 characters ka hona chahiye"
+    );
+  }
+
+  if (
+    /change|password|himrideg@123/i.test(
+      password
+    )
+  ) {
+    throw new Error(
+      "ADMIN_BOOTSTRAP_PASSWORD placeholder/default nahi ho sakta"
+    );
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| Admin Bootstrap / One-Time Password Reset
+|--------------------------------------------------------------------------
+|
+| Normal behaviour:
+| - ADMIN_EMAIL missing ho to bootstrap skip.
+| - Admin missing ho to ADMIN_BOOTSTRAP_PASSWORD se create.
+| - Existing admin ko normal startup par touch nahi karte.
+|
+| One-time reset:
+| - Sirf ADMIN_RESET_ON_START=true hone par existing admin password
+|   ADMIN_BOOTSTRAP_PASSWORD se reset hota hai.
+| - Reset ke baad ADMIN_RESET_ON_START=false/remove karna compulsory hai.
+|
+*/
+
+async function bootstrapAdmin() {
+  try {
+    const Admin =
+      require("./src/models/Admin");
+
+    const email =
+      cleanEnv(
+        "ADMIN_EMAIL"
+      ).toLowerCase();
+
+    const password =
+      cleanEnv(
+        "ADMIN_BOOTSTRAP_PASSWORD"
+      );
+
+    const shouldReset =
+      envFlag(
+        "ADMIN_RESET_ON_START"
+      );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Email Required
+    |--------------------------------------------------------------------------
+    */
+
+    if (!email) {
+      console.log(
+        "⚠️ ADMIN_EMAIL set nahi hai — admin bootstrap skip."
+      );
+
+      return {
+        action: "skipped",
+        reason:
+          "ADMIN_EMAIL_MISSING"
+      };
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Find Existing Admin
+    |--------------------------------------------------------------------------
+    */
+
+    const existing =
+      await Admin.findOne({
+        email
+      });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Existing Admin — Normal Startup
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      existing &&
+      !shouldReset
+    ) {
+      console.log(
+        "✅ Admin already exists:",
+        email
+      );
+
+      console.log(
+        "✅ Admin account ready:",
+        email
+      );
+
+      return {
+        action: "unchanged",
+        adminId:
+          String(existing._id),
+        email
+      };
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Create / Reset Requires Valid Password
+    |--------------------------------------------------------------------------
+    */
+
+    validateAdminBootstrapPassword(
+      password
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Existing Admin — Explicit One-Time Password Reset
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      existing &&
+      shouldReset
+    ) {
+      existing.password =
+        password;
+
+      if (!existing.name) {
+        existing.name =
+          "HimRideG Admin";
+      }
+
+      existing.role =
+        "admin";
+
+      await existing.save();
+
+      console.log("");
+      console.log(
+        "=========================================="
+      );
+      console.log(
+        "✅ ADMIN PASSWORD RESET SUCCESSFUL"
+      );
+      console.log(
+        `📧 Admin: ${email}`
+      );
+      console.log(
+        "🔐 Password bcrypt hash ke saath database me update hua."
+      );
+      console.log(
+        "⚠️ SECURITY: Ab ADMIN_RESET_ON_START ko false/remove karo."
+      );
+      console.log(
+        "=========================================="
+      );
+      console.log("");
+
+      return {
+        action: "reset",
+        adminId:
+          String(existing._id),
+        email
+      };
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Missing — Create
+    |--------------------------------------------------------------------------
+    */
+
+    const createdAdmin =
+      await Admin.create({
+        name:
+          "HimRideG Admin",
+        email,
+        password,
+        role:
+          "admin"
+      });
+
+    console.log("");
+    console.log(
+      "=========================================="
+    );
+    console.log(
+      "✅ Admin Bootstrap Successful!"
+    );
+    console.log(
+      "✅ ADMIN CREATED SUCCESSFULLY"
+    );
+    console.log(
+      `📧 Email: ${email}`
+    );
+    console.log(
+      "🔐 Password bcrypt hash ke saath database me save hua."
+    );
+    console.log(
+      "=========================================="
+    );
+    console.log("");
+
+    return {
+      action: "created",
+      adminId:
+        String(createdAdmin._id),
+      email
+    };
+  } catch (err) {
+    console.error("");
+    console.error(
+      "❌ Admin bootstrap/reset error:",
+      err.message
+    );
+    console.error("");
+
+    /*
+    | Admin bootstrap failure ko silently ignore nahi karna.
+    | Startup catch ko error denge taaki broken auth ke saath
+    | production server live na ho.
+    */
+
+    throw err;
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
 | Shutdown State
 |--------------------------------------------------------------------------
 */
@@ -66,21 +337,27 @@ let isShuttingDown = false;
 
 const startServer = async () => {
   try {
+    /*
+    |--------------------------------------------------------------------------
+    | Database
+    |--------------------------------------------------------------------------
+    */
+
     await connectDatabase();
 
     /*
     |--------------------------------------------------------------------------
-    | Admin Bootstrap / One-Time Password Reset
+    | Admin Auto-Bootstrap / One-Time Reset
     |--------------------------------------------------------------------------
-    |
-    | Normal startup par existing admin ko touch nahi karta.
-    | ADMIN_RESET_ON_START=true hone par sirf ADMIN_EMAIL wale admin ka
-    | password ADMIN_BOOTSTRAP_PASSWORD se reset hota hai.
-    | Reset complete hone ke turant baad Render se flag remove/false karna hai.
-    |
     */
 
-    await syncAdminBootstrap();
+    await bootstrapAdmin();
+
+    /*
+    |--------------------------------------------------------------------------
+    | HTTP Server
+    |--------------------------------------------------------------------------
+    */
 
     httpServer.listen(
       PORT,
@@ -161,7 +438,9 @@ const startServer = async () => {
 |--------------------------------------------------------------------------
 */
 
-const shutdown = async (signal) => {
+const shutdown = async (
+  signal
+) => {
   if (isShuttingDown) {
     return;
   }
@@ -184,6 +463,12 @@ const shutdown = async (signal) => {
 
   forceShutdownTimer.unref();
 
+  /*
+  |--------------------------------------------------------------------------
+  | Close Socket.IO
+  |--------------------------------------------------------------------------
+  */
+
   try {
     await closeSocketServer();
   } catch (error) {
@@ -193,6 +478,12 @@ const shutdown = async (signal) => {
     );
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | Close HTTP Server
+  |--------------------------------------------------------------------------
+  */
+
   httpServer.close(
     async (error) => {
       if (error) {
@@ -201,6 +492,12 @@ const shutdown = async (signal) => {
           error.message
         );
       }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Disconnect Database
+      |--------------------------------------------------------------------------
+      */
 
       try {
         await disconnectDatabase();
@@ -219,7 +516,9 @@ const shutdown = async (signal) => {
         process.exit(
           error ? 1 : 0
         );
-      } catch (databaseError) {
+      } catch (
+        databaseError
+      ) {
         console.error(
           "Database shutdown error:",
           databaseError.message
@@ -241,13 +540,23 @@ const shutdown = async (signal) => {
 |--------------------------------------------------------------------------
 */
 
-process.on("SIGINT", () => {
-  shutdown("SIGINT");
-});
+process.on(
+  "SIGINT",
+  () => {
+    shutdown(
+      "SIGINT"
+    );
+  }
+);
 
-process.on("SIGTERM", () => {
-  shutdown("SIGTERM");
-});
+process.on(
+  "SIGTERM",
+  () => {
+    shutdown(
+      "SIGTERM"
+    );
+  }
+);
 
 process.on(
   "unhandledRejection",
@@ -284,3 +593,8 @@ process.on(
 */
 
 startServer();
+'''
+
+path = Path("/mnt/data/ROOT_server.js")
+path.write_text(code, encoding="utf-8")
+print(f"Created {path} with {len(code.splitlines())} lines")
