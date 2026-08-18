@@ -1,0 +1,64 @@
+.adminLoginPage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px 16px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 78% 20%, rgba(139, 59, 255, .18), transparent 25%),
+    radial-gradient(circle at 15% 85%, rgba(86, 40, 180, .14), transparent 30%),
+    #050507;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.adminLoginShell {
+  width: min(100%, 540px);
+  padding: clamp(26px, 5vw, 46px);
+  border: 1px solid rgba(161, 91, 255, .22);
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(15, 13, 20, .98), rgba(6, 6, 9, .98));
+  box-shadow: 0 34px 90px rgba(0, 0, 0, .55), 0 0 70px rgba(139, 59, 255, .05);
+}
+
+.adminLoginBrand {
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 900;
+}
+.adminLoginBrand img { width: 42px; height: 42px; object-fit: contain; border-radius: 9px; }
+.adminLoginBrand span span { color: #a45cff; }
+.adminLoginShield {
+  width: 70px; height: 70px; margin: 0 auto 13px; display: grid; place-items: center;
+  border-radius: 50%; font-size: 28px; background: rgba(151, 76, 255, .1);
+  border: 1px solid rgba(151, 76, 255, .3);
+}
+.adminLoginEyebrow { text-align: center; margin: 0; color: #a76aff; font-size: 11px; font-weight: 850; letter-spacing: 1.2px; }
+.adminLoginShell h1 { text-align: center; margin: 7px 0 3px; font-size: 34px; letter-spacing: -1px; }
+.adminLoginSubtitle { text-align: center; margin: 0 0 28px; color: #8d8b97; font-size: 13px; }
+.adminLoginForm { display: grid; gap: 16px; }
+.adminLoginForm label { display: grid; gap: 8px; }
+.adminLoginForm label span { font-size: 13px; font-weight: 800; color: #e9e7ee; }
+.adminLoginForm label b { color: #ff6060; }
+.adminLoginForm input {
+  height: 52px; border-radius: 11px; padding: 0 14px; outline: 0;
+  border: 1px solid rgba(255,255,255,.12); background: #111116; color: #fff; font-size: 14px;
+}
+.adminLoginForm input:focus { border-color: rgba(163, 91, 255, .7); box-shadow: 0 0 0 3px rgba(163, 91, 255, .09); }
+.adminLoginError { padding: 11px 13px; border-radius: 11px; color: #ff9b9b; background: rgba(255, 70, 70, .08); border: 1px solid rgba(255, 70, 70, .2); font-size: 13px; }
+.adminLoginPrimary {
+  height: 52px; margin-top: 4px; border: 0; border-radius: 11px; color: #fff; cursor: pointer;
+  background: linear-gradient(90deg, #7127d9, #a63cff); font-size: 15px; font-weight: 850;
+}
+.adminLoginPrimary:disabled { opacity: .58; cursor: not-allowed; }
+.adminBackWebsite {
+  width: 100%; height: 48px; margin-top: 18px; border-radius: 11px; cursor: pointer;
+  color: #b986ff; border: 1px solid rgba(162, 89, 255, .35); background: transparent; font-weight: 800;
+}
+.adminLoginShell footer { margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.07); color: #66636e; text-align: center; font-size: 11px; }

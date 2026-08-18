@@ -1,0 +1,47 @@
+HimRideG WEBSITE FINAL LAUNCH PATCH — TEST REPORT
+Date: 2026-08-16
+
+Static launch contract checks: 27/27 PASS
+[PASS] Production API URL /api/v2
+[PASS] Webhook raw body route
+[PASS] Webhook handler
+[PASS] Rate limiter middleware
+[PASS] Atomic/launch payment controller
+[PASS] Wallet ledger model
+[PASS] Withdrawal model
+[PASS] Admin withdrawal controller
+[PASS] Driver release endpoint
+[PASS] Driver release service
+[PASS] Driver final fare endpoint
+[PASS] Customer final fare UI
+[PASS] Driver request list -> details
+[PASS] Driver Cancel/Release UI
+[PASS] My Location customer booking
+[PASS] My Location home booking
+[PASS] Geoapify backend map routes
+[PASS] Advanced route map client service
+[PASS] Cash confirmation assigned driver path
+[PASS] Razorpay Route transfer service
+[PASS] Admin env-only bootstrap
+[PASS] SEO robots
+[PASS] SEO sitemap
+[PASS] Gitignore
+[PASS] Hero asset exists
+[PASS] Canonical source notice
+[PASS] Full-code rule: changed canonical files not shortened — decreases=[]
+
+Additional checks already run:
+- Server JavaScript syntax: 59/59 files PASS (node --check).
+- Client JS/JSX syntax parse: PASS via TypeScript parser with JSX preserve / noResolve.
+- Original-vs-final canonical line audit: 0 changed files reduced in line count.
+- Real secrets not embedded in final code; Render env variable names only.
+
+Build caveat:
+- Full Vite production build could not be executed in this sandbox because dependency installation was incomplete/unavailable. Client source syntax parsing passed. On deployment, Render/your build service will run npm ci + npm run build.
+
+After deploying this ZIP:
+1. Create Razorpay webhook URL: https://api.himrideg.com/api/v2/payments/webhook
+2. Use the exact same secret stored as RAZORPAY_WEBHOOK_SECRET in Render.
+3. Enable payment.captured and payment.failed events.
+4. Test customer booking -> driver accept -> customer counter -> driver final fare -> customer Accept -> ride -> payment.
+5. For automatic driver bank transfer, approved drivers must have a Razorpay Route linked account ID saved in driverProfile.razorpayLinkedAccountId.

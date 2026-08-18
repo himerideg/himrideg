@@ -1,0 +1,19 @@
+HimRideG FULL CODE RULE - REAL MONEY MERGE
+==========================================
+
+Base full replacement pack:
+HimRideG_HMG_FARE_LOCK_PAYMENT_PLANS_FULL_REPLACE.zip (~7.8 MB)
+
+Is package me base ke existing assets, guides, root replacement files,
+client/ aur server/ structure preserve kiye gaye hain.
+
+Latest soft-launch + real-money payment / RazorpayX instant withdrawal
+changes complete structured project par merge kiye gaye hain.
+
+Intentional rename only:
+client/src/components/paymentmodal.jsx -> PaymentModal.jsx
+Reason: Linux/Render case-sensitive import compatibility.
+
+No node_modules bundled.
+No live secret key bundled.
+Live secrets Render environment variables me hi add karni hain.

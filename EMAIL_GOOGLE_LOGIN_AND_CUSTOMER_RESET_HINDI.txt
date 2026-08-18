@@ -1,0 +1,48 @@
+HimRideG — Email + Google Verified Login + Old Customer Reset
+=============================================================
+
+FINAL CUSTOMER / DRIVER LOGIN FLOW
+----------------------------------
+1. Customer/Driver login page par mobile number ki jagah Google Account Email enter karega.
+2. "Verify Email & Login" / "Verify Email & Create Account" button Google Identity Services ko open karega.
+3. Entered email Google ko login_hint ke roop me di jaati hai.
+4. Backend Google ID token ki verified email ko entered email se exact match karta hai.
+5. Match hone par direct HimRideG login/session create hota hai.
+6. OTP aur password customer/driver ke liye required nahi hain.
+7. First-time Google account Basic Info page par jayega.
+8. Basic Info page par Name + Mobile save hoga. Password required nahi hai.
+9. Returning Google account basic info complete hone ke baad direct dashboard jayega.
+10. Admin login Email + Password waise hi rahega.
+
+TERMS CHECKBOX
+--------------
+Google customer/driver login ke liye checkbox compulsory nahi hai.
+Terms/Privacy links visible hain, lekin unchecked checkbox Google verification ko block nahi karega.
+
+OLD CUSTOMER ACCOUNTS DELETE — ONE TIME
+---------------------------------------
+IMPORTANT: Ye command sirf purane customer User accounts delete karti hai.
+Driver/Admin accounts delete nahi hote.
+Ride/Booking records delete nahi hote.
+
+Production Render backend Shell me, NEW customer login test karne se PEHLE:
+
+CONFIRM_DELETE_ALL_CUSTOMERS=YES_DELETE_ALL_CUSTOMERS npm run purge:customers
+
+Expected log:
+Existing customer accounts found: X
+Deleted customer accounts: X
+Remaining customer accounts: 0
+
+Windows PowerShell local server folder me:
+
+$env:CONFIRM_DELETE_ALL_CUSTOMERS="YES_DELETE_ALL_CUSTOMERS"
+npm run purge:customers
+Remove-Item Env:CONFIRM_DELETE_ALL_CUSTOMERS
+
+SECURITY
+--------
+- Customer deletion command confirmation ke bina run nahi hoti.
+- Backend Google token signature/audience/issuer/expiry + verified email check karta hai.
+- Entered email aur selected Google email different hue to login reject hoga.
+- Client secret frontend me required nahi hai.

@@ -1,0 +1,1744 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+
+:root {
+  font-family: "Inter", Arial, sans-serif;
+  color: #111111;
+  background: #f7f7f7;
+  font-synthesis: none;
+  --yellow: #ffc400;
+  --yellow-dark: #e6af00;
+  --black: #07090c;
+  --dark: #10141a;
+  --white: #ffffff;
+  --muted: #667085;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #f7f7f7;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* =========================
+   MAIN HOME PAGE
+========================= */
+
+.homePage {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: #f7f7f7;
+}
+
+/* =========================
+   NAVBAR
+========================= */
+
+.siteNavbar {
+  position: relative;
+  z-index: 50;
+  min-height: 82px;
+  padding: 0 5vw;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  background: rgba(5, 7, 10, 0.98);
+  color: white;
+  border-bottom: 1px solid rgba(255, 196, 0, 0.18);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.brandMark {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #ffd84d, #ffb800);
+  color: #080808;
+  font-size: 24px;
+  font-weight: 900;
+  box-shadow: 0 8px 25px rgba(255, 196, 0, 0.25);
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 27px;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.brand h1::first-letter {
+  color: var(--yellow);
+}
+
+.brand span {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  color: #aeb5c0;
+}
+
+.navLinks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+}
+
+.navLinks a {
+  position: relative;
+  padding: 29px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e9e9e9;
+  transition: 0.25s ease;
+}
+
+.navLinks a:hover {
+  color: var(--yellow);
+}
+
+.navLinks a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 20px;
+  width: 0;
+  height: 2px;
+  background: var(--yellow);
+  transition: width 0.25s ease;
+}
+
+.navLinks a:hover::after {
+  width: 100%;
+}
+
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.navActions button {
+  min-width: 92px;
+  padding: 13px 20px;
+  border-radius: 10px;
+  font-weight: 800;
+  transition: 0.25s ease;
+}
+
+.loginButton {
+  color: white;
+  background: transparent;
+  border: 1px solid #4c525c;
+}
+
+.loginButton:hover {
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.signupButton {
+  background: var(--yellow);
+  color: #080808;
+  box-shadow: 0 8px 25px rgba(255, 196, 0, 0.22);
+}
+
+.signupButton:hover {
+  background: #ffd12f;
+  transform: translateY(-2px);
+}
+
+/* =========================
+   HERO SECTION
+========================= */
+
+.heroSection {
+  position: relative;
+  min-height: 670px;
+  color: white;
+  isolation: isolate;
+  background-image:
+    linear-gradient(
+      90deg,
+      rgba(3, 7, 12, 0.94) 0%,
+      rgba(3, 7, 12, 0.78) 40%,
+      rgba(3, 7, 12, 0.42) 72%,
+      rgba(3, 7, 12, 0.28) 100%
+    ),
+    url("/himrideg-hero.jpg");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.heroSection::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(
+      circle at 60% 65%,
+      rgba(255, 196, 0, 0.12),
+      transparent 28%
+    ),
+    linear-gradient(
+      180deg,
+      transparent 70%,
+      rgba(0, 0, 0, 0.48)
+    );
+}
+
+.heroOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+
+.heroContent {
+  width: min(1420px, 91%);
+  min-height: 670px;
+  margin: 0 auto;
+  padding: 70px 0 92px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(380px, 0.75fr);
+  align-items: center;
+  gap: 70px;
+}
+
+.heroLeft {
+  max-width: 760px;
+}
+
+.heroTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 15px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(255, 196, 0, 0.35);
+  border-radius: 999px;
+  color: var(--yellow);
+  background: rgba(255, 196, 0, 0.08);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+}
+
+.heroLeft h1 {
+  max-width: 760px;
+  margin: 0;
+  font-size: clamp(48px, 6vw, 82px);
+  line-height: 0.98;
+  letter-spacing: -4px;
+  text-shadow: 0 10px 40px rgba(0, 0, 0, 0.28);
+}
+
+.heroLeft p {
+  max-width: 650px;
+  margin: 26px 0 0;
+  color: #e2e6eb;
+  font-size: 18px;
+  line-height: 1.75;
+}
+
+.heroButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 34px;
+}
+
+.heroButtons button {
+  min-width: 170px;
+  padding: 16px 24px;
+  border-radius: 11px;
+  font-weight: 800;
+  font-size: 15px;
+  transition: 0.25s ease;
+}
+
+.bookRideBtn {
+  color: #080808;
+  background: var(--yellow);
+  box-shadow: 0 14px 35px rgba(255, 196, 0, 0.25);
+}
+
+.bookRideBtn:hover {
+  background: #ffd12f;
+  transform: translateY(-3px);
+}
+
+.beDriverBtn {
+  color: white;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
+}
+
+.beDriverBtn:hover {
+  border-color: var(--yellow);
+  color: var(--yellow);
+  transform: translateY(-3px);
+}
+
+.heroStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 38px;
+  margin-top: 48px;
+}
+
+.heroStats div {
+  position: relative;
+  min-width: 125px;
+}
+
+.heroStats div:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: -20px;
+  width: 1px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.heroStats h2 {
+  margin: 0;
+  color: var(--yellow);
+  font-size: 27px;
+}
+
+.heroStats span {
+  display: block;
+  margin-top: 5px;
+  color: #d9dde3;
+  font-size: 13px;
+}
+
+/* =========================
+   BOOKING CARD
+========================= */
+
+.heroRight {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bookingCard {
+  width: 100%;
+  max-width: 470px;
+  padding: 32px;
+  border-radius: 24px;
+  color: #111;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(18px);
+}
+
+.bookingCard h2 {
+  position: relative;
+  margin: 0 0 25px;
+  padding-bottom: 18px;
+  font-size: 27px;
+}
+
+.bookingCard h2::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 54px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--yellow);
+}
+
+.bookingCard input,
+.bookingCard select {
+  width: 100%;
+  height: 58px;
+  margin-bottom: 14px;
+  padding: 0 17px;
+  border: 1px solid #dde1e7;
+  border-radius: 12px;
+  outline: none;
+  color: #111;
+  background: #f7f8fa;
+  transition: 0.2s ease;
+}
+
+.bookingCard input:focus,
+.bookingCard select:focus {
+  border-color: var(--yellow);
+  background: white;
+  box-shadow: 0 0 0 4px rgba(255, 196, 0, 0.12);
+}
+
+.fareButton {
+  width: 100%;
+  height: 58px;
+  margin-top: 6px;
+  border-radius: 12px;
+  color: #080808;
+  background: var(--yellow);
+  font-weight: 900;
+  font-size: 16px;
+  box-shadow: 0 12px 30px rgba(255, 196, 0, 0.23);
+  transition: 0.25s ease;
+}
+
+.fareButton:hover {
+  background: #ffd12f;
+  transform: translateY(-2px);
+}
+
+/* =========================
+   FEATURES
+========================= */
+
+.featuresSection {
+  padding: 100px 5vw 115px;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(255, 196, 0, 0.08), transparent 25%),
+    #f7f7f7;
+}
+
+.sectionHeading {
+  max-width: 720px;
+  margin: 0 auto 52px;
+  text-align: center;
+}
+
+.sectionHeading span {
+  color: #b78600;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.sectionHeading h2 {
+  margin: 13px 0 15px;
+  color: #111;
+  font-size: clamp(32px, 4vw, 50px);
+  line-height: 1.1;
+  letter-spacing: -2px;
+}
+
+.sectionHeading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.featureGrid {
+  width: min(1320px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.featureCard {
+  position: relative;
+  overflow: hidden;
+  min-height: 260px;
+  padding: 30px;
+  border: 1px solid #ececec;
+  border-radius: 22px;
+  background: white;
+  box-shadow: 0 18px 50px rgba(16, 24, 40, 0.07);
+  transition: 0.3s ease;
+}
+
+.featureCard::before {
+  content: "";
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: rgba(255, 196, 0, 0.1);
+}
+
+.featureCard:hover {
+  transform: translateY(-9px);
+  border-color: rgba(255, 196, 0, 0.65);
+  box-shadow: 0 25px 65px rgba(16, 24, 40, 0.12);
+}
+
+.featureIcon {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  border-radius: 17px;
+  background: #fff6d3;
+  font-size: 30px;
+}
+
+.featureCard h3 {
+  position: relative;
+  margin: 24px 0 12px;
+  font-size: 21px;
+}
+
+.featureCard p {
+  position: relative;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+.siteFooter {
+  padding: 72px 5vw 25px;
+  color: #d3d8df;
+  background: #080a0e;
+}
+
+.footerTop {
+  width: min(1320px, 100%);
+  margin: 0 auto;
+  padding-bottom: 48px;
+  display: grid;
+  grid-template-columns: 1.1fr 1.5fr;
+  gap: 80px;
+  border-bottom: 1px solid #252a32;
+}
+
+.footerBrand {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.footerBrand h2 {
+  margin: 2px 0 10px;
+  color: white;
+  font-size: 28px;
+}
+
+.footerBrand p {
+  max-width: 390px;
+  margin: 0;
+  color: #969eaa;
+  line-height: 1.75;
+}
+
+.footerLinks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+}
+
+.footerLinks h3 {
+  margin: 0 0 19px;
+  color: white;
+  font-size: 15px;
+}
+
+.footerLinks a {
+  display: block;
+  width: fit-content;
+  margin: 11px 0;
+  color: #9da5b1;
+  font-size: 14px;
+  transition: 0.2s ease;
+}
+
+.footerLinks a:hover {
+  color: var(--yellow);
+  transform: translateX(4px);
+}
+
+.footerBottom {
+  width: min(1320px, 100%);
+  margin: 0 auto;
+  padding-top: 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  color: #7f8792;
+  font-size: 13px;
+}
+
+.footerBottom p {
+  margin: 0;
+}
+
+.footerBottom div {
+  display: flex;
+  gap: 24px;
+}
+
+.footerBottom a:hover {
+  color: var(--yellow);
+}
+
+/* =========================
+   ANIMATION
+========================= */
+
+.heroLeft,
+.bookingCard {
+  animation: riseUp 0.75s ease both;
+}
+
+.bookingCard {
+  animation-delay: 0.12s;
+}
+
+@keyframes riseUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 1100px) {
+  .navLinks {
+    gap: 20px;
+  }
+
+  .heroContent {
+    grid-template-columns: 1fr 420px;
+    gap: 40px;
+  }
+
+  .featureGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .siteNavbar {
+    min-height: auto;
+    padding-top: 16px;
+    padding-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .navLinks {
+    width: 100%;
+    order: 3;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 3px;
+  }
+
+  .navLinks a {
+    padding: 8px 0;
+    white-space: nowrap;
+  }
+
+  .navLinks a::after {
+    bottom: 0;
+  }
+
+  .heroContent {
+    grid-template-columns: 1fr;
+    padding-top: 65px;
+  }
+
+  .heroRight {
+    justify-content: flex-start;
+  }
+
+  .bookingCard {
+    max-width: 600px;
+  }
+
+  .footerTop {
+    grid-template-columns: 1fr;
+    gap: 50px;
+  }
+}
+
+@media (max-width: 650px) {
+  .siteNavbar {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .brand span {
+    display: none;
+  }
+
+  .brandMark {
+    width: 42px;
+    height: 42px;
+  }
+
+  .brand h1 {
+    font-size: 23px;
+  }
+
+  .navActions {
+    gap: 7px;
+  }
+
+  .navActions button {
+    min-width: auto;
+    padding: 11px 14px;
+    font-size: 12px;
+  }
+
+  .heroSection,
+  .heroContent {
+    min-height: auto;
+  }
+
+  .heroContent {
+    width: calc(100% - 34px);
+    padding: 58px 0 65px;
+  }
+
+  .heroLeft h1 {
+    font-size: 46px;
+    letter-spacing: -2.5px;
+  }
+
+  .heroLeft p {
+    font-size: 16px;
+  }
+
+  .heroButtons button {
+    width: 100%;
+  }
+
+  .heroStats {
+    gap: 22px;
+  }
+
+  .heroStats div {
+    min-width: 90px;
+  }
+
+  .heroStats div::after {
+    display: none;
+  }
+
+  .bookingCard {
+    padding: 23px;
+    border-radius: 18px;
+  }
+
+  .featuresSection {
+    padding: 72px 18px 82px;
+  }
+
+  .featureGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .featureCard {
+    min-height: auto;
+  }
+
+  .siteFooter {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .footerLinks {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .footerBottom {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 430px) {
+  .heroLeft h1 {
+    font-size: 39px;
+  }
+
+  .heroTag {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+  }
+
+  .heroStats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .heroStats h2 {
+    font-size: 22px;
+  }
+
+  .heroStats span {
+    font-size: 11px;
+  }
+
+  .footerLinks {
+    grid-template-columns: 1fr;
+  }
+}
+.heroDescription {
+  max-width: 650px;
+}
+
+.heroHighlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  margin-top: 22px;
+  color: #f4f4f4;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.heroHighlights span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.heroButtons a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 170px;
+  padding: 16px 24px;
+  border-radius: 11px;
+  font-size: 15px;
+  font-weight: 800;
+  transition: 0.25s ease;
+}
+
+.bookingCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.bookingCardHeader span {
+  color: #a87900;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.6px;
+}
+
+.bookingCardHeader h2 {
+  margin: 7px 0 0;
+  padding: 0;
+}
+
+.bookingCardHeader h2::after {
+  display: none;
+}
+
+.bookingTaxiIcon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 15px;
+  background: #fff4c7;
+  font-size: 26px;
+}
+
+.bookingField {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.bookingField > span {
+  display: block;
+  margin-bottom: 7px;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bookingField > div {
+  position: relative;
+}
+
+.bookingField input,
+.bookingField select {
+  margin-bottom: 0;
+}
+
+.bookingField > div input {
+  padding-left: 42px;
+}
+
+.pickupDot,
+.dropDot {
+  position: absolute;
+  top: 50%;
+  left: 18px;
+  z-index: 2;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+
+.pickupDot {
+  background: #22a559;
+  box-shadow: 0 0 0 5px rgba(34, 165, 89, 0.12);
+}
+
+.dropDot {
+  background: #ef233c;
+  box-shadow: 0 0 0 5px rgba(239, 35, 60, 0.12);
+}
+
+.bookingGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+.fareButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+
+.fareButton span {
+  font-size: 24px;
+}
+
+.bookingNote {
+  margin: 14px 0 0;
+  color: #7a8290;
+  text-align: center;
+  font-size: 11px;
+}
+
+@media (max-width: 480px) {
+  .bookingGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroHighlights {
+    display: grid;
+    gap: 10px;
+  }
+}
+/* =====================================
+   HIMRIDEG MOVING TAXI SCENE
+===================================== */
+
+.heroSection {
+  position: relative;
+  overflow: hidden;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 6;
+}
+
+.taxiScene {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Moving clouds */
+
+.cloud {
+  position: absolute;
+  width: 170px;
+  height: 45px;
+  border-radius: 999px;
+  opacity: 0.26;
+  background: rgba(255, 255, 255, 0.8);
+  filter: blur(1px);
+}
+
+.cloud::before,
+.cloud::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.cloud::before {
+  width: 70px;
+  height: 70px;
+  left: 28px;
+  top: -32px;
+}
+
+.cloud::after {
+  width: 90px;
+  height: 90px;
+  right: 22px;
+  top: -48px;
+}
+
+.cloudOne {
+  top: 90px;
+  left: -220px;
+  animation: cloudMove 26s linear infinite;
+}
+
+.cloudTwo {
+  top: 170px;
+  left: -300px;
+  transform: scale(0.72);
+  animation: cloudMove 38s linear infinite 8s;
+}
+
+/* Road */
+
+.roadLayer {
+  position: absolute;
+  left: -6%;
+  right: -6%;
+  bottom: -6px;
+  height: 155px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.08),
+      transparent 8%
+    ),
+    linear-gradient(
+      180deg,
+      #3a3d42,
+      #121418
+    );
+  clip-path: polygon(
+    0 47%,
+    100% 14%,
+    100% 100%,
+    0 100%
+  );
+  box-shadow:
+    0 -24px 60px rgba(0, 0, 0, 0.35),
+    inset 0 5px 8px rgba(255, 255, 255, 0.06);
+}
+
+.roadLayer::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 28px;
+  height: 5px;
+  opacity: 0.5;
+  background: rgba(255, 196, 0, 0.55);
+  transform: rotate(-1.6deg);
+}
+
+.roadStripe {
+  position: absolute;
+  left: -20%;
+  bottom: 31px;
+  width: 140%;
+  height: 8px;
+  opacity: 0.8;
+  transform: rotate(-2.1deg);
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 95px,
+    rgba(255, 255, 255, 0.88) 95px 175px
+  );
+  animation: roadStripeMove 0.85s linear infinite;
+}
+
+/* Taxi movement */
+
+.movingTaxi {
+  position: absolute;
+  left: -360px;
+  bottom: 61px;
+  width: 320px;
+  height: 135px;
+  animation: taxiDrive 15s linear infinite;
+}
+
+.taxiShadow {
+  position: absolute;
+  left: 38px;
+  bottom: 1px;
+  width: 245px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.62);
+  filter: blur(9px);
+  animation: taxiShadowPulse 0.5s ease-in-out infinite alternate;
+}
+
+.taxiCar {
+  position: relative;
+  width: 320px;
+  height: 125px;
+  animation: taxiBounce 0.45s ease-in-out infinite alternate;
+}
+
+.taxiTopSign {
+  position: absolute;
+  top: 2px;
+  left: 132px;
+  z-index: 8;
+  min-width: 70px;
+  padding: 6px 8px;
+  border: 2px solid #111;
+  border-radius: 7px 7px 3px 3px;
+  color: #080808;
+  background: #ffc400;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 900;
+  box-shadow: 0 0 18px rgba(255, 196, 0, 0.5);
+}
+
+.taxiCabin {
+  position: absolute;
+  left: 70px;
+  bottom: 58px;
+  width: 177px;
+  height: 62px;
+  z-index: 3;
+  border: 2px solid #20242a;
+  border-radius: 76px 77px 8px 8px;
+  background: #eef1f4;
+  clip-path: polygon(
+    16% 100%,
+    29% 4%,
+    72% 0,
+    97% 100%
+  );
+}
+
+.taxiGlass {
+  position: absolute;
+  top: 9px;
+  height: 43px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(203, 235, 248, 0.92),
+      rgba(23, 43, 58, 0.95)
+    );
+  border: 2px solid #1d2228;
+}
+
+.taxiGlassRear {
+  left: 28px;
+  width: 58px;
+  border-radius: 22px 3px 3px 3px;
+  transform: skewX(-8deg);
+}
+
+.taxiGlassFront {
+  right: 20px;
+  width: 67px;
+  border-radius: 3px 24px 3px 3px;
+  transform: skewX(11deg);
+}
+
+.taxiMainBody {
+  position: absolute;
+  left: 4px;
+  bottom: 23px;
+  width: 310px;
+  height: 72px;
+  z-index: 4;
+  border: 2px solid #24272c;
+  border-radius: 57px 84px 24px 29px;
+  background:
+    linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #f3f4f6 53%,
+      #bec3ca 100%
+    );
+  box-shadow:
+    inset 0 -10px 17px rgba(0, 0, 0, 0.17),
+    0 14px 28px rgba(0, 0, 0, 0.42);
+}
+
+.taxiMainBody::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 25px;
+  bottom: 8px;
+  height: 5px;
+  border-radius: 99px;
+  background: #ffc400;
+}
+
+.taxiDoorLine {
+  position: absolute;
+  left: 151px;
+  top: 4px;
+  width: 1px;
+  height: 58px;
+  background: rgba(40, 44, 49, 0.46);
+}
+
+.taxiDoorHandle {
+  position: absolute;
+  left: 169px;
+  top: 21px;
+  width: 23px;
+  height: 4px;
+  border-radius: 8px;
+  background: #626870;
+}
+
+.taxiBrandBadge {
+  position: absolute;
+  left: 112px;
+  top: 29px;
+  width: 47px;
+  height: 29px;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  border: 1px solid #111;
+  border-radius: 7px;
+  color: #080808;
+  background: linear-gradient(135deg, #ffda46, #e3a800);
+  font-size: 13px;
+  font-weight: 1000;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.26);
+  transform: skewX(-7deg);
+}
+
+.taxiHeadlight {
+  position: absolute;
+  right: -2px;
+  top: 28px;
+  width: 19px;
+  height: 15px;
+  border-radius: 3px 12px 10px 3px;
+  background: #fff8a2;
+  box-shadow:
+    8px 0 20px rgba(255, 244, 141, 0.85),
+    25px 3px 40px rgba(255, 234, 80, 0.45);
+}
+
+.taxiTailLight {
+  position: absolute;
+  left: -3px;
+  top: 28px;
+  width: 12px;
+  height: 17px;
+  border-radius: 9px 2px 2px 9px;
+  background: #e53131;
+  box-shadow: -6px 0 15px rgba(229, 49, 49, 0.6);
+}
+
+.taxiWheel {
+  position: absolute;
+  bottom: -22px;
+  z-index: 9;
+  width: 55px;
+  height: 55px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #08090b;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle,
+      #b9bec5 0 22%,
+      #444950 23% 42%,
+      #111317 43% 100%
+    );
+  animation: taxiWheelSpin 0.52s linear infinite;
+}
+
+.taxiWheel span {
+  width: 17px;
+  height: 17px;
+  border: 3px dashed #f1f2f4;
+  border-radius: 50%;
+}
+
+.taxiWheelRear {
+  left: 41px;
+}
+
+.taxiWheelFront {
+  right: 39px;
+}
+
+/* Animations */
+
+@keyframes taxiDrive {
+  0% {
+    left: -370px;
+  }
+
+  42% {
+    left: 43%;
+  }
+
+  57% {
+    left: 43%;
+  }
+
+  100% {
+    left: calc(100% + 370px);
+  }
+}
+
+@keyframes taxiBounce {
+  from {
+    transform: translateY(0) rotate(-0.35deg);
+  }
+
+  to {
+    transform: translateY(-5px) rotate(0.35deg);
+  }
+}
+
+@keyframes taxiWheelSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes roadStripeMove {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: -175px 0;
+  }
+}
+
+@keyframes taxiShadowPulse {
+  from {
+    transform: scaleX(1);
+    opacity: 0.58;
+  }
+
+  to {
+    transform: scaleX(0.92);
+    opacity: 0.43;
+  }
+}
+
+@keyframes cloudMove {
+  from {
+    left: -300px;
+  }
+
+  to {
+    left: calc(100% + 300px);
+  }
+}
+
+/* Responsive */
+
+@media (max-width: 900px) {
+  .taxiScene {
+    opacity: 0.9;
+  }
+
+  .movingTaxi {
+    bottom: 48px;
+    transform: scale(0.78);
+    transform-origin: left bottom;
+  }
+
+  .roadLayer {
+    height: 125px;
+  }
+}
+
+@media (max-width: 600px) {
+  .taxiScene {
+    height: 170px;
+    top: auto;
+    bottom: 0;
+  }
+
+  .movingTaxi {
+    bottom: 32px;
+    transform: scale(0.56);
+  }
+
+  .roadLayer {
+    height: 90px;
+  }
+
+  .cloud {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .movingTaxi {
+    left: 58%;
+    animation: none;
+  }
+
+  .taxiCar,
+  .taxiWheel,
+  .roadStripe,
+  .taxiShadow,
+  .cloud {
+    animation: none;
+  }
+}
+/* =====================================
+   HIMRIDEG NAVBAR LOGO
+===================================== */
+
+.brandLogoLink {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.navbarLogo {
+  display: block;
+  width: auto;
+  height: 70px;
+  max-width: 250px;
+  object-fit: contain;
+  object-position: left center;
+  border-radius: 0;
+  background: transparent;
+  filter: drop-shadow(
+    0 7px 15px rgba(255, 196, 0, 0.2)
+  );
+  transition:
+    transform 0.25s ease,
+    filter 0.25s ease;
+}
+
+.brandLogoLink:hover .navbarLogo {
+  transform: scale(1.03);
+  filter: drop-shadow(
+    0 9px 21px rgba(255, 196, 0, 0.36)
+  );
+}
+
+@media (max-width: 900px) {
+  .navbarLogo {
+    height: 62px;
+    max-width: 220px;
+  }
+}
+
+@media (max-width: 650px) {
+  .navbarLogo {
+    height: 50px;
+    max-width: 165px;
+  }
+}
+.navLinks button {
+  position: relative;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.navLinks button:hover {
+  color: #ffc400;
+  transform: translateY(-1px);
+}
+
+.navLinks button::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: #ffc400;
+  content: "";
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+
+.navLinks button:hover::after {
+  transform: scaleX(1);
+}
+/* =========================================================
+   HIMRIDEG NAVBAR FIX
+========================================================= */
+
+.siteNavbar {
+  width: 100%;
+  min-height: 82px;
+  padding: 0 5%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 30px;
+  box-sizing: border-box;
+  background: #070a0d;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.hrgNavbarBrand {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-direction: row !important;
+  gap: 12px !important;
+  width: auto !important;
+  min-width: max-content;
+  text-decoration: none !important;
+  overflow: hidden;
+}
+
+.hrgNavbarLogo {
+  display: block !important;
+  width: 68px !important;
+  height: 68px !important;
+  min-width: 68px !important;
+  max-width: 68px !important;
+  max-height: 68px !important;
+  object-fit: contain !important;
+  flex-shrink: 0 !important;
+}
+
+.hrgNavbarBrandName {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  width: auto !important;
+  white-space: nowrap !important;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 32px !important;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -1.5px;
+}
+
+.hrgNavbarBrandName span {
+  display: inline !important;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
+
+.hrgBrandWhite {
+  color: #ffffff !important;
+}
+
+.hrgBrandGold {
+  color: #ffc400 !important;
+}
+
+.navLinks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(20px, 2.5vw, 38px);
+}
+
+.navLinks a,
+.navLinks button {
+  width: auto;
+  padding: 8px 2px;
+  color: #ffffff;
+  background: transparent;
+  border: 0;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.navLinks a:hover,
+.navLinks button:hover {
+  color: #ffc400;
+}
+
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.loginButton,
+.signupButton {
+  width: auto;
+  min-width: 95px;
+  min-height: 46px;
+  padding: 0 20px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.loginButton {
+  color: #ffffff;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.signupButton {
+  color: #090909;
+  background: #ffc400;
+  border: 1px solid #ffc400;
+}
+
+/* किसी भी पुराने global img rule को रोकने के लिए */
+
+.siteNavbar img.hrgNavbarLogo {
+  width: 68px !important;
+  height: 68px !important;
+  max-width: 68px !important;
+  max-height: 68px !important;
+}
+
+/* =========================================================
+   TABLET
+========================================================= */
+
+@media (max-width: 1000px) {
+  .siteNavbar {
+    padding: 0 24px;
+    grid-template-columns: auto auto;
+    justify-content: space-between;
+  }
+
+  .navLinks {
+    display: none;
+  }
+}
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+  .siteNavbar {
+    min-height: 68px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .hrgNavbarLogo,
+  .siteNavbar img.hrgNavbarLogo {
+    width: 50px !important;
+    height: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+    max-height: 50px !important;
+  }
+
+  .hrgNavbarBrand {
+    gap: 7px !important;
+  }
+
+  .hrgNavbarBrandName {
+    font-size: 23px !important;
+    letter-spacing: -1px;
+  }
+
+  .navActions {
+    gap: 6px;
+  }
+
+  .loginButton,
+  .signupButton {
+    min-width: auto;
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 430px) {
+  .hrgNavbarBrandName {
+    display: none !important;
+  }
+}
