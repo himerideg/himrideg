@@ -766,3 +766,94 @@
     animation: none;
   }
 }
+/*
+|--------------------------------------------------------------------------
+| Google Identity Services
+|--------------------------------------------------------------------------
+*/
+
+.authGoogleLoginArea {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.authGoogleButtonHost {
+  width: 100%;
+  min-height: 44px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.authGoogleButtonHost > div,
+.authGoogleButtonHost iframe {
+  max-width: 100% !important;
+}
+
+.authGoogleStatus {
+  margin: 8px 0 0;
+
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.authGoogleStatus.error {
+  color: #b42318;
+}
+
+.authGoogleCompleteButton {
+  width: 100%;
+  min-height: 48px;
+
+  margin-top: 10px;
+  padding: 0 16px;
+
+  color: #151515;
+  background: #f2bd16;
+
+  border: 0;
+  border-radius: 12px;
+
+  font-size: 14px;
+  font-weight: 900;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease,
+    filter 0.2s ease;
+}
+
+.authGoogleCompleteButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+}
+
+.authGoogleCompleteButton:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.authGooglePhoneHint {
+  margin: -5px 0 14px;
+
+  color: #667085;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (max-width: 520px) {
+  .authGoogleButtonHost {
+    justify-content: stretch;
+  }
+
+  .authGoogleButtonHost > div {
+    width: 100% !important;
+  }
+}

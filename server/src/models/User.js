@@ -805,6 +805,34 @@ const userSchema =
         default: undefined
       },
 
+      /*
+      |------------------------------------------------------------------
+      | Google Identity Link
+      |------------------------------------------------------------------
+      | `sub` Google account ka stable unique identifier hai. Email ko
+      | primary Google identifier nahi banaya gaya. Role ke saath link
+      | hota hai taaki Customer aur Driver flows separate rahen.
+      */
+      googleId: {
+        type: String,
+        trim: true,
+        maxlength: 255,
+        default: undefined
+      },
+
+      googleEmail: {
+        type: String,
+        trim: true,
+        lowercase: true,
+        maxlength: 150,
+        default: undefined
+      },
+
+      googleLinkedAt: {
+        type: Date,
+        default: null
+      },
+
       password: {
         type: String,
         select: false,
@@ -1104,6 +1132,7 @@ userSchema.methods
       });
 
     delete userObject.password;
+    delete userObject.googleId;
     delete userObject.__v;
     delete userObject.socketId;
     delete userObject.fcmTokens;
@@ -1335,6 +1364,21 @@ userSchema.methods
 | Indexes
 |--------------------------------------------------------------------------
 */
+
+userSchema.index(
+  {
+    googleId: 1,
+    role: 1
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      googleId: {
+        $type: "string"
+      }
+    }
+  }
+);
 
 userSchema.index({
   role: 1,

@@ -13,6 +13,10 @@ const {
 } = require("../controllers/driverAuthController");
 
 const {
+  googleLogin
+} = require("../controllers/googleAuthController");
+
+const {
   protect,
   allowRoles
 } = require("../middlewares/auth");
@@ -131,6 +135,26 @@ router.post(
   "/driver/verify-otp",
   loginLimiter,
   verifyDriverOtp
+);
+
+/*
+|--------------------------------------------------------------------------
+| Google Authentication — Customer + Driver
+|--------------------------------------------------------------------------
+|
+| POST /api/v2/auth/google
+| Body: { credential, role, phone? }
+|
+| Returning linked Google user: phone optional.
+| First Google signup: backend phone maangta hai, OTP nahi.
+| Admin Google login intentionally allowed nahi hai.
+|
+*/
+
+router.post(
+  "/google",
+  loginLimiter,
+  googleLogin
 );
 
 /*

@@ -1,11 +1,118 @@
 import React, {
   useEffect,
+  useRef,
   useState
 } from "react";
 
 import api from "../api";
 
 import "../auth.css";
+
+/*
+|--------------------------------------------------------------------------
+| Google Identity Services
+|--------------------------------------------------------------------------
+*/
+
+const GOOGLE_CLIENT_ID =
+  String(
+    import.meta.env
+      .VITE_GOOGLE_CLIENT_ID ||
+      ""
+  ).trim();
+
+let googleIdentityScriptPromise =
+  null;
+
+const loadGoogleIdentityScript =
+  () => {
+    if (
+      window.google
+        ?.accounts
+        ?.id
+    ) {
+      return Promise.resolve(
+        window.google
+      );
+    }
+
+    if (
+      googleIdentityScriptPromise
+    ) {
+      return googleIdentityScriptPromise;
+    }
+
+    googleIdentityScriptPromise =
+      new Promise(
+        (resolve, reject) => {
+          const existing =
+            document.getElementById(
+              "google-identity-services"
+            );
+
+          if (existing) {
+            existing.addEventListener(
+              "load",
+              () =>
+                resolve(
+                  window.google
+                ),
+              { once: true }
+            );
+
+            existing.addEventListener(
+              "error",
+              () =>
+                reject(
+                  new Error(
+                    "Google Identity Services load nahi hui."
+                  )
+                ),
+              { once: true }
+            );
+
+            return;
+          }
+
+          const script =
+            document.createElement(
+              "script"
+            );
+
+          script.id =
+            "google-identity-services";
+
+          script.src =
+            "https://accounts.google.com/gsi/client";
+
+          script.async =
+            true;
+
+          script.defer =
+            true;
+
+          script.onload =
+            () =>
+              resolve(
+                window.google
+              );
+
+          script.onerror =
+            () =>
+              reject(
+                new Error(
+                  "Google Identity Services load nahi hui."
+                )
+              );
+
+          document.head.appendChild(
+            script
+          );
+        }
+      );
+
+    return googleIdentityScriptPromise;
+  };
 
 /*
 |--------------------------------------------------------------------------
@@ -68,6 +175,33 @@ function AuthPage({
     developmentOtp,
     setDevelopmentOtp
   ] = useState("");
+
+  const [
+    googleReady,
+    setGoogleReady
+  ] = useState(false);
+
+  const [
+    googleError,
+    setGoogleError
+  ] = useState("");
+
+  const [
+    googlePendingCredential,
+    setGooglePendingCredential
+  ] = useState("");
+
+  const googleButtonRef =
+    useRef(null);
+
+  const googleInitializedRef =
+    useRef(false);
+
+  const googleCallbackRef =
+    useRef(null);
+
+  const phoneInputRef =
+    useRef(null);
 
   /*
   |--------------------------------------------------------------------------
@@ -227,6 +361,9 @@ function AuthPage({
     setName("");
     setAdminEmail("");
     setAdminPassword("");
+    setGooglePendingCredential(
+      ""
+    );
     resetOtpStep();
   };
 
@@ -265,6 +402,9 @@ function AuthPage({
     setName("");
     setAdminEmail("");
     setAdminPassword("");
+    setGooglePendingCredential(
+      ""
+    );
     resetOtpStep();
   };
 
@@ -697,6 +837,344 @@ function AuthPage({
         setLoading(false);
       }
     };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Google Login
+  |--------------------------------------------------------------------------
+  */
+
+  const finishGoogleLogin =
+    async (
+      credential,
+      phoneOverride = phone
+    ) => {
+      const cleanCredential =
+        String(
+          credential || ""
+        ).trim();
+
+      if (!cleanCredential) {
+        notify(
+          "Google credential nahi mili. Dobara Google account select karo.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        accountType ===
+        "admin"
+      ) {
+        notify(
+          "Admin ke liye Google login enabled nahi hai.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (!termsAccepted) {
+        setTermsError(true);
+
+        setGooglePendingCredential(
+          cleanCredential
+        );
+
+        notify(
+          "Google login continue karne ke liye Terms & Conditions accept karo.",
+          "error"
+        );
+
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setGoogleError("");
+
+        const response =
+          await api.post(
+            "/auth/google",
+            {
+              credential:
+                cleanCredential,
+              role:
+                accountType,
+              phone:
+                cleanPhone(
+                  phoneOverride
+                )
+            }
+          );
+
+        const responseData =
+          getResponseData(
+            response
+          );
+
+        const accessToken =
+          responseData
+            ?.accessToken ||
+          responseData?.token;
+
+        const authenticatedUser =
+          responseData?.user;
+
+        if (!accessToken) {
+          throw new Error(
+            "Google login response me access token nahi mila."
+          );
+        }
+
+        if (!authenticatedUser) {
+          throw new Error(
+            "Google login response me user information nahi mili."
+          );
+        }
+
+        if (
+          authenticatedUser.role !==
+          accountType
+        ) {
+          throw new Error(
+            `Google account ${authenticatedUser.role} role se linked hai.`
+          );
+        }
+
+        setGooglePendingCredential(
+          ""
+        );
+
+        saveLoginData(
+          accessToken,
+          authenticatedUser
+        );
+
+        notify(
+          response?.data
+            ?.message ||
+            `${getRoleLabel()} Google login successful`,
+          "success"
+        );
+
+        if (onSuccess) {
+          onSuccess({
+            ...responseData,
+            accessToken,
+            user:
+              authenticatedUser,
+            accountType:
+              authenticatedUser.role,
+            provider:
+              "google",
+            message:
+              response?.data
+                ?.message ||
+              "Google login successful"
+          });
+        }
+      } catch (error) {
+        const responseData =
+          error?.response?.data ||
+          {};
+
+        if (
+          responseData?.code ===
+          "GOOGLE_PHONE_REQUIRED"
+        ) {
+          setGooglePendingCredential(
+            cleanCredential
+          );
+
+          notify(
+            responseData?.message ||
+              "First Google signup ke liye mobile number enter karo. OTP nahi lagega.",
+            "info"
+          );
+
+          window.setTimeout(
+            () => {
+              phoneInputRef
+                .current
+                ?.focus?.();
+            },
+            100
+          );
+
+          return;
+        }
+
+        notify(
+          responseData?.message ||
+            error?.message ||
+            "Google login nahi ho paya.",
+          "error"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  googleCallbackRef.current =
+    (credential) => {
+      finishGoogleLogin(
+        credential
+      );
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Google Identity Services Initialize
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) {
+      setGoogleError(
+        "Google Client ID configure karna baaki hai."
+      );
+
+      return undefined;
+    }
+
+    let cancelled =
+      false;
+
+    loadGoogleIdentityScript()
+      .then(() => {
+        if (
+          cancelled ||
+          !window.google
+            ?.accounts
+            ?.id
+        ) {
+          return;
+        }
+
+        if (
+          !googleInitializedRef
+            .current
+        ) {
+          window.google.accounts.id.initialize({
+            client_id:
+              GOOGLE_CLIENT_ID,
+            callback:
+              (response) => {
+                const credential =
+                  response?.credential;
+
+                if (
+                  credential &&
+                  googleCallbackRef
+                    .current
+                ) {
+                  googleCallbackRef
+                    .current(
+                      credential
+                    );
+                }
+              },
+            auto_select:
+              false,
+            cancel_on_tap_outside:
+              true,
+            ux_mode:
+              "popup"
+          });
+
+          googleInitializedRef.current =
+            true;
+        }
+
+        setGoogleReady(true);
+        setGoogleError("");
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          "Google Identity Services error:",
+          error
+        );
+
+        setGoogleReady(false);
+        setGoogleError(
+          "Google login load nahi hua. Internet/check setup ke baad dobara try karo."
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Google Official Button Render
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    if (
+      accountType ===
+        "admin" ||
+      !googleReady ||
+      !googleButtonRef.current ||
+      !window.google
+        ?.accounts
+        ?.id
+    ) {
+      return;
+    }
+
+    const buttonHost =
+      googleButtonRef.current;
+
+    buttonHost.innerHTML =
+      "";
+
+    const measuredWidth =
+      Math.floor(
+        buttonHost
+          .getBoundingClientRect()
+          .width || 320
+      );
+
+    const buttonWidth =
+      Math.max(
+        220,
+        Math.min(
+          400,
+          measuredWidth
+        )
+      );
+
+    window.google.accounts.id.renderButton(
+      buttonHost,
+      {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        text:
+          mode === "register"
+            ? "signup_with"
+            : "continue_with",
+        shape: "rectangular",
+        logo_alignment:
+          "left",
+        width:
+          buttonWidth
+      }
+    );
+  }, [
+    accountType,
+    googleReady,
+    mode
+  ]);
 
   /*
   |--------------------------------------------------------------------------
@@ -1340,6 +1818,7 @@ function AuthPage({
                   <span>+91</span>
 
                   <input
+                    ref={phoneInputRef}
                     type="tel"
                     inputMode="numeric"
                     autoComplete="tel"
@@ -1359,6 +1838,10 @@ function AuthPage({
                     disabled={loading}
                   />
                 </div>
+
+                <p className="authGooglePhoneHint">
+                  Google se returning login me mobile dobara verify nahi hoga. First Google signup par mobile number account contact ke liye required hai; OTP nahi lagega.
+                </p>
 
                 {accountType !== "admin" && (
                   <div style={{marginBottom:"14px"}}>
@@ -1553,19 +2036,78 @@ function AuthPage({
                   <span />
                 </div>
 
-                <button
-                  type="button"
-                  className="authSocialButton"
-                  onClick={() =>
-                    notify(
-                      "Google login baad me connect hoga.",
-                      "info"
-                    )
-                  }
+                <div
+                  className="authGoogleLoginArea"
                 >
-                  <b>G</b>
-                  Continue with Google
-                </button>
+                  {googleReady ? (
+                    <div
+                      ref={
+                        googleButtonRef
+                      }
+                      className="authGoogleButtonHost"
+                      aria-label="Continue with Google"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="authSocialButton"
+                      disabled
+                    >
+                      <b>G</b>
+                      {googleError
+                        ? "Google Login Setup Required"
+                        : "Loading Google Login..."}
+                    </button>
+                  )}
+
+                  {googleError && (
+                    <p
+                      className="authGoogleStatus error"
+                    >
+                      {googleError}
+                    </p>
+                  )}
+
+                  {googlePendingCredential && (
+                    <button
+                      type="button"
+                      className="authGoogleCompleteButton"
+                      disabled={loading}
+                      onClick={() => {
+                        if (!termsAccepted) {
+                          setTermsError(true);
+                          notify(
+                            "Terms & Conditions accept karo.",
+                            "error"
+                          );
+                          return;
+                        }
+
+                        if (
+                          !/^[6-9]\d{9}$/.test(
+                            phone.trim()
+                          )
+                        ) {
+                          notify(
+                            "First Google signup complete karne ke liye valid 10 digit mobile number enter karo.",
+                            "error"
+                          );
+                          phoneInputRef.current?.focus?.();
+                          return;
+                        }
+
+                        finishGoogleLogin(
+                          googlePendingCredential,
+                          phone
+                        );
+                      }}
+                    >
+                      {loading
+                        ? "Completing Google Login..."
+                        : "Complete Google Login — No OTP"}
+                    </button>
+                  )}
+                </div>
 
                 <button
                   type="button"
