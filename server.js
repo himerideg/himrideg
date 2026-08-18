@@ -1,192 +1,286 @@
-const Admin = require("../models/Admin");
+require("dotenv").config();
+
+const dns = require("node:dns");
+
+// Local Windows/ISP DNS environments ke liye Atlas SRV fallback.
+// Production hosting par platform DNS ko override nahi karte.
+if (process.env.NODE_ENV !== "production") {
+  dns.setServers([
+    "8.8.8.8",
+    "1.1.1.1"
+  ]);
+}
+
+const http = require("http");
+
+const app = require("./src/app");
+
+const {
+  connectDatabase,
+  disconnectDatabase
+} = require("./src/config/database");
+
+const {
+  syncAdminBootstrap
+} = require("./src/utils/adminBootstrap");
+
+const {
+  createSocketServer,
+  closeSocketServer
+} = require("./src/sockets/socketServer");
+
+const PORT =
+  Number(process.env.PORT) || 5001;
+
+// Mobile aur doosre local devices ke liye
+const HOST = "0.0.0.0";
+
+const httpServer =
+  http.createServer(app);
 
 /*
 |--------------------------------------------------------------------------
-| Environment Helpers
+| Socket.IO
 |--------------------------------------------------------------------------
 */
 
-function cleanEnv(name) {
-  return String(process.env[name] || "").trim();
-}
+const io =
+  createSocketServer(httpServer);
 
-function envFlag(name) {
-  const value = cleanEnv(name).toLowerCase();
-
-  return [
-    "1",
-    "true",
-    "yes",
-    "on"
-  ].includes(value);
-}
-
-function validateBootstrapPassword(password) {
-  if (!password) {
-    throw new Error(
-      "ADMIN_BOOTSTRAP_PASSWORD environment variable required hai"
-    );
-  }
-
-  if (password.length < 16) {
-    throw new Error(
-      "ADMIN_BOOTSTRAP_PASSWORD minimum 16 characters ka hona chahiye"
-    );
-  }
-
-  if (/change|password|himrideg@123/i.test(password)) {
-    throw new Error(
-      "ADMIN_BOOTSTRAP_PASSWORD placeholder/default nahi ho sakta"
-    );
-  }
-}
+// Express controllers ko Socket.IO instance dena
+app.set("io", io);
 
 /*
 |--------------------------------------------------------------------------
-| Admin Bootstrap / Safe Reset
+| Shutdown State
 |--------------------------------------------------------------------------
-|
-| Behaviour:
-|
-| 1. ADMIN_EMAIL missing ho to server ko crash nahi karta; warning deta hai.
-| 2. Admin missing ho to ADMIN_BOOTSTRAP_PASSWORD se create karta hai.
-| 3. Admin already exists ho to normally password ko bilkul touch nahi karta.
-| 4. Sirf ADMIN_RESET_ON_START=true hone par existing admin ka password reset
-|    karta hai.
-| 5. Admin model ka pre-save hook password ko bcrypt hash karta hai, isliye
-|    plaintext password database me save nahi hota.
-|
-| IMPORTANT:
-| Reset successful hone ke turant baad Render Environment se
-| ADMIN_RESET_ON_START ko false/remove kar dena chahiye.
-|
 */
 
-async function syncAdminBootstrap() {
-  const email = cleanEnv("ADMIN_EMAIL").toLowerCase();
-  const password = cleanEnv("ADMIN_BOOTSTRAP_PASSWORD");
-  const shouldReset = envFlag("ADMIN_RESET_ON_START");
+let isShuttingDown = false;
 
-  if (!email) {
-    console.warn(
-      "⚠️ ADMIN_EMAIL missing hai. Admin bootstrap skip kiya gaya."
+/*
+|--------------------------------------------------------------------------
+| Start Server
+|--------------------------------------------------------------------------
+*/
+
+const startServer = async () => {
+  try {
+    await connectDatabase();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Bootstrap / One-Time Password Reset
+    |--------------------------------------------------------------------------
+    |
+    | Normal startup par existing admin ko touch nahi karta.
+    | ADMIN_RESET_ON_START=true hone par sirf ADMIN_EMAIL wale admin ka
+    | password ADMIN_BOOTSTRAP_PASSWORD se reset hota hai.
+    | Reset complete hone ke turant baad Render se flag remove/false karna hai.
+    |
+    */
+
+    await syncAdminBootstrap();
+
+    httpServer.listen(
+      PORT,
+      HOST,
+      () => {
+        console.log("");
+        console.log(
+          "========================================"
+        );
+        console.log(
+          "🚕 HimRideG v2 Backend Started"
+        );
+        console.log(
+          `🌐 Laptop: http://localhost:${PORT}`
+        );
+        console.log(
+          `📱 Mobile: http://LAPTOP_IP:${PORT}`
+        );
+        console.log(
+          `❤️ Health: http://localhost:${PORT}/api/v2/health`
+        );
+        console.log(
+          `⚙️ Environment: ${
+            process.env.NODE_ENV ||
+            "development"
+          }`
+        );
+        console.log(
+          "🗄️ MongoDB: Connected"
+        );
+        console.log(
+          "🔌 Socket.IO: Ready"
+        );
+        console.log(
+          `🌍 Host: ${HOST}`
+        );
+        console.log(
+          "========================================"
+        );
+        console.log("");
+      }
     );
-
-    return {
-      action: "skipped",
-      reason: "ADMIN_EMAIL_MISSING"
-    };
-  }
-
-  const admin = await Admin.findOne({
-    email
-  });
-
-  /*
-  |--------------------------------------------------------------------------
-  | Existing Admin — Normal Startup
-  |--------------------------------------------------------------------------
-  */
-
-  if (admin && !shouldReset) {
-    console.log(
-      `✅ Admin account ready: ${email}`
+  } catch (error) {
+    console.error("");
+    console.error(
+      "❌ HimRideG v2 server start nahi ho saka."
     );
+    console.error(
+      `Reason: ${error.message}`
+    );
+    console.error("");
 
-    return {
-      action: "unchanged",
-      adminId: String(admin._id),
-      email
-    };
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | Create / Reset requires a valid bootstrap password
-  |--------------------------------------------------------------------------
-  */
-
-  validateBootstrapPassword(password);
-
-  /*
-  |--------------------------------------------------------------------------
-  | Existing Admin — Explicit One-Time Reset
-  |--------------------------------------------------------------------------
-  */
-
-  if (admin && shouldReset) {
-    admin.password = password;
-
-    if (!admin.name) {
-      admin.name = "HimRideG Admin";
+    try {
+      await closeSocketServer();
+    } catch (socketError) {
+      console.error(
+        "Socket close error:",
+        socketError.message
+      );
     }
 
-    admin.role = "admin";
+    try {
+      await disconnectDatabase();
+    } catch (databaseError) {
+      console.error(
+        "Database disconnect error:",
+        databaseError.message
+      );
+    }
 
-    await admin.save();
+    process.exit(1);
+  }
+};
 
-    console.log(
-      "========================================"
-    );
-    console.log(
-      "✅ ADMIN PASSWORD RESET SUCCESSFUL"
-    );
-    console.log(
-      `📧 Admin: ${email}`
-    );
-    console.log(
-      "🔐 Password bcrypt hash ke saath database me update hua."
-    );
-    console.log(
-      "⚠️ SECURITY: Ab ADMIN_RESET_ON_START ko false/remove karo."
-    );
-    console.log(
-      "========================================"
-    );
+/*
+|--------------------------------------------------------------------------
+| Graceful Shutdown
+|--------------------------------------------------------------------------
+*/
 
-    return {
-      action: "reset",
-      adminId: String(admin._id),
-      email
-    };
+const shutdown = async (signal) => {
+  if (isShuttingDown) {
+    return;
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Admin Missing — Create Safely
-  |--------------------------------------------------------------------------
-  */
+  isShuttingDown = true;
 
-  const createdAdmin = await Admin.create({
-    name: "HimRideG Admin",
-    email,
-    password,
-    role: "admin"
-  });
-
+  console.log("");
   console.log(
-    "========================================"
-  );
-  console.log(
-    "✅ ADMIN CREATED SUCCESSFULLY"
-  );
-  console.log(
-    `📧 Admin: ${email}`
-  );
-  console.log(
-    "🔐 Password bcrypt hash ke saath database me save hua."
-  );
-  console.log(
-    "========================================"
+    `${signal} received. Server close ho raha hai...`
   );
 
-  return {
-    action: "created",
-    adminId: String(createdAdmin._id),
-    email
-  };
-}
+  const forceShutdownTimer =
+    setTimeout(() => {
+      console.error(
+        "❌ Forced shutdown"
+      );
 
-module.exports = {
-  syncAdminBootstrap
+      process.exit(1);
+    }, 10000);
+
+  forceShutdownTimer.unref();
+
+  try {
+    await closeSocketServer();
+  } catch (error) {
+    console.error(
+      "Socket shutdown error:",
+      error.message
+    );
+  }
+
+  httpServer.close(
+    async (error) => {
+      if (error) {
+        console.error(
+          "HTTP shutdown error:",
+          error.message
+        );
+      }
+
+      try {
+        await disconnectDatabase();
+
+        console.log(
+          "✅ MongoDB disconnected"
+        );
+        console.log(
+          "✅ HTTP server closed"
+        );
+
+        clearTimeout(
+          forceShutdownTimer
+        );
+
+        process.exit(
+          error ? 1 : 0
+        );
+      } catch (databaseError) {
+        console.error(
+          "Database shutdown error:",
+          databaseError.message
+        );
+
+        clearTimeout(
+          forceShutdownTimer
+        );
+
+        process.exit(1);
+      }
+    }
+  );
 };
+
+/*
+|--------------------------------------------------------------------------
+| Process Events
+|--------------------------------------------------------------------------
+*/
+
+process.on("SIGINT", () => {
+  shutdown("SIGINT");
+});
+
+process.on("SIGTERM", () => {
+  shutdown("SIGTERM");
+});
+
+process.on(
+  "unhandledRejection",
+  (error) => {
+    console.error(
+      "Unhandled rejection:",
+      error
+    );
+
+    shutdown(
+      "UNHANDLED_REJECTION"
+    );
+  }
+);
+
+process.on(
+  "uncaughtException",
+  (error) => {
+    console.error(
+      "Uncaught exception:",
+      error
+    );
+
+    shutdown(
+      "UNCAUGHT_EXCEPTION"
+    );
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| Run
+|--------------------------------------------------------------------------
+*/
+
+startServer();
