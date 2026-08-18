@@ -70,7 +70,8 @@ const getInitials = (
 |--------------------------------------------------------------------------
 |
 | Google account already verify ho chuka hai. Is page par password kabhi
-| required nahi hai. Mobile login page se hata kar yahan collect hota hai.
+| required nahi hai. Customer ke case me Google verified name aur login par
+| enter kiya hua mobile yahan automatically prefilled dikhte hain.
 |
 */
 
@@ -250,12 +251,16 @@ function GoogleBasicInfo({
             </p>
 
             <h1>
-              Bas basic info complete karo
+              {user?.role === "customer"
+                ? "Google verified details confirm karo"
+                : "Bas basic info complete karo"}
             </h1>
 
             <p className="googleBasicInfoBrandCopy">
               Google account verify ho chuka hai. Password ya OTP ki zarurat nahi hai.
-              Mobile number sirf ride contact aur account communication ke liye save hoga.
+              {user?.role === "customer"
+                ? " Google account ka name aur login par enter kiya mobile automatically yahan aa gaya hai."
+                : " Mobile number ride contact aur account communication ke liye save hoga."}
             </p>
           </div>
 
@@ -264,7 +269,7 @@ function GoogleBasicInfo({
               <span>✓</span>
               <div>
                 <strong>Google verified</strong>
-                <p>Email identity secure Google sign-in se verified hai.</p>
+                <p>Name aur email secure Google sign-in se aaye hain.</p>
               </div>
             </article>
 
@@ -310,7 +315,7 @@ function GoogleBasicInfo({
               </span>
 
               <h2>
-                Basic Info
+                {user?.role === "customer" ? "Verified Basic Info" : "Basic Info"}
               </h2>
 
               <p>
@@ -326,7 +331,7 @@ function GoogleBasicInfo({
           >
             <label className="googleBasicInfoField">
               <span>
-                Full Name <b>*</b>
+                {user?.role === "customer" ? "Google Verified Name" : "Full Name"} <b>*</b>
               </span>
 
               <input
@@ -341,6 +346,7 @@ function GoogleBasicInfo({
                     )
                   )
                 }
+                readOnly={user?.role === "customer" && name.trim().length >= 2}
                 disabled={loading}
                 required
               />
@@ -366,6 +372,7 @@ function GoogleBasicInfo({
                       )
                     )
                   }
+                  readOnly={user?.role === "customer" && /^[6-9]\d{9}$/.test(phone)}
                   maxLength={10}
                   disabled={loading}
                   required
@@ -420,7 +427,7 @@ function GoogleBasicInfo({
                 ? "Saving..."
                 : user?.role === "driver"
                   ? "Save & Continue to Driver Verification"
-                  : "Save & Continue to HimRideG"}
+                  : "Continue to Dashboard"}
               <span>→</span>
             </button>
 

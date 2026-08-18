@@ -5,21 +5,15 @@ import Features from "../components/Features";
 import Footer from "../components/Footer";
 import HomeBookRide from "../components/HomeBookRide";
 
-function Home({ onLogin, onRegister }) {
+function Home({
+  onLogin,
+  onRegister,
+  onDriverLogin,
+  onAdminLogin
+}) {
   const [bookRideOpen, setBookRideOpen] = useState(false);
 
-  const openDriverLogin = () => {
-    localStorage.setItem("himrideg_auth_account_type", "driver");
-    onLogin?.();
-  };
-
   const openCustomerLogin = () => {
-    localStorage.setItem("himrideg_auth_account_type", "customer");
-    onLogin?.();
-  };
-
-  const openAdminLogin = () => {
-    localStorage.setItem("himrideg_auth_account_type", "admin");
     onLogin?.();
   };
 
@@ -38,8 +32,8 @@ function Home({ onLogin, onRegister }) {
         onLogin={onLogin}
         onRegister={onRegister}
         onBookRide={() => setBookRideOpen(true)}
-        onDriverLogin={openDriverLogin}
-        onAdminLogin={openAdminLogin}
+        onDriverLogin={onDriverLogin}
+        onAdminLogin={onAdminLogin}
       />
 
       <main>

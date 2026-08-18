@@ -30,10 +30,10 @@ const {
 |--------------------------------------------------------------------------
 |
 | User.phone project me historically required + unique raha hai. Google
-| login ko direct rakhne ke liye first Google sign-in par login form me
-| mobile nahi maangte. New Google account ko ek internal temporary unique
-| phone identity milti hai. Ye value customer/driver ko kabhi dikhayi nahi
-| jaati aur Basic Info save hote hi real mobile se replace ho jaati hai.
+| Customer website login me mobile number pehle liya ja sakta hai aur Google
+| account se identity verify ki jaati hai; SMS OTP nahi hota. Driver/legacy
+| Google flow mobile na bheje to internal temporary unique phone identity
+| fallback ke roop me use hoti hai, jise Basic Info me replace kiya ja sakta hai.
 |
 | Prefix intentionally normal Indian mobile number se match nahi karta.
 |
@@ -82,6 +82,23 @@ const normalizeExpectedEmail = (
   }
 
   return email;
+};
+
+const normalizeExpectedPhone = (
+  value
+) => {
+  if (
+    value === undefined ||
+    value === null ||
+    text(value) === ""
+  ) {
+    return "";
+  }
+
+  return normalizePhone(
+    value,
+    { required: true }
+  );
 };
 
 const normalizeRole = (
@@ -439,20 +456,6 @@ const saveGoogleProfile = (
       googleProfile.picture;
   }
 
-  /*
-  | Old Google accounts jo previous version me real phone ke saath create
-  | ho chuke the unko unnecessary Basic Info gate par nahi rokenge.
-  */
-  if (
-    hasRealIndianPhone(
-      user.phone
-    ) &&
-    text(user.name).length >= 2
-  ) {
-    user.googleBasicInfoCompleted =
-      true;
-  }
-
   user.lastLoginAt =
     new Date();
 
@@ -521,12 +524,18 @@ const findSafeEmailMatch =
 const createGoogleUser =
   async ({
     googleProfile,
-    role
+    role,
+    initialPhone = ""
   }) => {
     const temporaryPhone =
       buildGoogleTemporaryPhone(
         googleProfile.googleId
       );
+
+    const firstPhone =
+      hasRealIndianPhone(initialPhone)
+        ? initialPhone
+        : temporaryPhone;
 
     const baseUser = {
       role,
@@ -538,7 +547,7 @@ const createGoogleUser =
             : "HimRideG Customer"
         ),
       phone:
-        temporaryPhone,
+        firstPhone,
       email:
         googleProfile.email,
       googleEmail:
@@ -630,6 +639,12 @@ const googleLogin =
           ?.expectedEmail
       );
 
+    const expectedPhone =
+      normalizeExpectedPhone(
+        req.body
+          ?.expectedPhone
+      );
+
     let googleProfile;
 
     try {
@@ -671,6 +686,20 @@ const googleLogin =
       );
     }
 
+    /*
+    | Customer web login me mobile pehle enter hota hai, lekin SMS OTP
+    | intentionally nahi bheja jaata. Google identity verify hone ke baad
+    | wahi mobile account se bind hota hai. Mobile ko "Google verified"
+    | claim nahi kiya jaata; Google account identity verify karta hai.
+    */
+    let phoneOwner = null;
+
+    if (expectedPhone) {
+      phoneOwner = await User.findOne({
+        phone: expectedPhone
+      });
+    }
+
     let user =
       await findExistingByGoogle(
         googleProfile.googleId,
@@ -707,11 +736,53 @@ const googleLogin =
       }
     }
 
+    if (user && expectedPhone) {
+      const currentRealPhone =
+        hasRealIndianPhone(
+          user.phone
+        );
+
+      if (
+        currentRealPhone &&
+        user.phone !== expectedPhone
+      ) {
+        throw new ApiError(
+          409,
+          "Entered mobile number is Google-linked HimRideG account se match nahi karta"
+        );
+      }
+
+      if (
+        phoneOwner &&
+        String(phoneOwner._id) !==
+          String(user._id)
+      ) {
+        throw new ApiError(
+          409,
+          "Ye mobile number pehle se doosre HimRideG account me registered hai"
+        );
+      }
+
+      if (!currentRealPhone) {
+        user.phone = expectedPhone;
+        user.isPhoneVerified = false;
+      }
+    }
+
     if (!user) {
+      if (phoneOwner) {
+        throw new ApiError(
+          409,
+          "Ye mobile number pehle se HimRideG account me registered hai. Us account ke linked Google account se login karo."
+        );
+      }
+
       user =
         await createGoogleUser({
           googleProfile,
-          role
+          role,
+          initialPhone:
+            expectedPhone
         });
 
       isNewUser =
@@ -768,6 +839,9 @@ const googleLogin =
               "google",
             verifiedEmail:
               googleProfile.email,
+            enteredPhone:
+              expectedPhone ||
+              (hasRealIndianPhone(user.phone) ? user.phone : ""),
             requiresBasicInfo,
             accessToken,
             user:

@@ -122,6 +122,8 @@ const loadGoogleIdentityScript =
 
 function AuthPage({
   initialMode = "login",
+  initialAccountType = "customer",
+  lockAccountType = false,
   onBack,
   onSuccess
 }) {
@@ -131,7 +133,7 @@ function AuthPage({
   const [
     accountType,
     setAccountType
-  ] = useState("customer");
+  ] = useState(initialAccountType);
 
   const [step, setStep] =
     useState(1);
@@ -231,6 +233,10 @@ function AuthPage({
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
+
+  useEffect(() => {
+    setAccountType(initialAccountType);
+  }, [initialAccountType]);
 
   /*
   |--------------------------------------------------------------------------
@@ -1760,27 +1766,28 @@ function AuthPage({
             </div>
 
             <h2>
-              {accountType ===
-              "admin"
-                ? "Admin Login"
-                : mode ===
-                    "register"
-                  ? "Create your account"
-                  : "Welcome back"}
+              {lockAccountType && accountType === "driver"
+                ? (mode === "register" ? "Create Driver Account" : "Driver Login")
+                : accountType === "admin"
+                  ? "Admin Login"
+                  : mode === "register"
+                    ? "Create your account"
+                    : "Welcome back"}
             </h2>
 
             <p
               className="authSubtitle"
             >
-              {accountType ===
-              "admin"
-                ? "Secure HimRideG administration access"
-                : mode ===
-                    "register"
-                  ? "Customer ya Driver account select karke Sign Up karo"
-                  : "Customer, Driver aur Admin yahin se Login kar sakte hain"}
+              {lockAccountType && accountType === "driver"
+                ? "HimRideG Driver account access"
+                : accountType === "admin"
+                  ? "Secure HimRideG administration access"
+                  : mode === "register"
+                    ? "Customer ya Driver account select karke Sign Up karo"
+                    : "Customer, Driver aur Admin yahin se Login kar sakte hain"}
             </p>
 
+            {!lockAccountType && (
             <div
               className="authRoleSection"
             >
@@ -1860,6 +1867,7 @@ function AuthPage({
                 )}
               </div>
             </div>
+            )}
 
             <div
               className={`authSelectedAccount ${accountType}`}

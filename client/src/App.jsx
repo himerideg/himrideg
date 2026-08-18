@@ -10,6 +10,8 @@ import socket from "./socket";
 
 import Home from "./pages/Home";
 import AuthPage from "./pages/AuthPage";
+import CustomerLoginPage from "./pages/CustomerLoginPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
 import GoogleBasicInfo from "./pages/GoogleBasicInfo";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import DriverDashboard from "./pages/DriverDashboard";
@@ -125,9 +127,38 @@ function getId(value) {
 
 /*
 |--------------------------------------------------------------------------
-| App
+| Public URL Routing
 |--------------------------------------------------------------------------
+| Customer, Driver aur Admin login pages ab public URL se separate hain.
+| App React Router dependency ke bina history API use karta hai taaki
+| existing project structure preserve rahe.
 */
+
+function getPublicPageFromLocation() {
+  const path = String(window.location.pathname || "/").toLowerCase();
+  const routeHint = new URLSearchParams(window.location.search).get("route");
+
+  if (routeHint === "adminlogin" || path.startsWith("/adminlogin")) {
+    return "adminAuth";
+  }
+
+  if (routeHint === "driverlogin" || path.startsWith("/driverlogin")) {
+    return "driverAuth";
+  }
+
+  if (routeHint === "login" || path.startsWith("/login")) {
+    return "customerAuth";
+  }
+
+  return "home";
+}
+
+function publicPathForPage(page) {
+  if (page === "adminAuth") return "/adminlogin/";
+  if (page === "driverAuth") return "/driverlogin/";
+  if (page === "customerAuth") return "/login/";
+  return "/";
+}
 
 function App() {
   const notificationTimer =
@@ -171,7 +202,7 @@ function App() {
         );
 
       if (!savedUser) {
-        return "home";
+        return getPublicPageFromLocation();
       }
 
       try {
@@ -185,7 +216,7 @@ function App() {
           ? "basicInfo"
           : "dashboard";
       } catch {
-        return "home";
+        return getPublicPageFromLocation();
       }
     });
 
@@ -196,6 +227,30 @@ function App() {
     useState(
       "register"
     );
+
+  /*
+  |-----------------------------------------------------------------------
+  | Browser URL Sync For Public Login Pages
+  |-----------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    const routeHint = new URLSearchParams(window.location.search).get("route");
+
+    if (!user && routeHint) {
+      const resolvedPage = getPublicPageFromLocation();
+      setPage(resolvedPage);
+      window.history.replaceState({}, "", publicPathForPage(resolvedPage));
+    }
+
+    const handlePopState = () => {
+      if (user) return;
+      setPage(getPublicPageFromLocation());
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [user]);
 
   const [
     booking,
@@ -330,6 +385,17 @@ function App() {
   useEffect(() => {
     const handleUnauthorized =
       () => {
+        let expiredRole = "customer";
+
+        try {
+          const storedUser = JSON.parse(
+            sessionStorage.getItem("himrideg_user") || "null"
+          );
+          expiredRole = storedUser?.role || "customer";
+        } catch {
+          expiredRole = "customer";
+        }
+
         sessionStorage.removeItem(
           "himrideg_token"
         );
@@ -379,8 +445,18 @@ function App() {
           "login"
         );
 
-        setPage(
-          "auth"
+        const expiredPage =
+          expiredRole === "admin"
+            ? "adminAuth"
+            : expiredRole === "driver"
+              ? "driverAuth"
+              : "customerAuth";
+
+        setPage(expiredPage);
+        window.history.replaceState(
+          {},
+          "",
+          publicPathForPage(expiredPage)
         );
 
         notify(
@@ -586,33 +662,41 @@ function App() {
   |--------------------------------------------------------------------------
   */
 
-  const openLogin =
-    () => {
-      setAuthMode(
-        "login"
-      );
+  const navigatePublic =
+    (nextPage, path, { replace = false } = {}) => {
+      setPage(nextPage);
 
-      setPage(
-        "auth"
-      );
+      const method = replace ? "replaceState" : "pushState";
+      window.history[method]({}, "", path);
     };
 
-  const openRegister =
+  const openCustomerLogin =
     () => {
-      setAuthMode(
-        "register"
-      );
+      setAuthMode("login");
+      navigatePublic("customerAuth", "/login/");
+    };
 
-      setPage(
-        "auth"
-      );
+  const openCustomerRegister =
+    () => {
+      setAuthMode("register");
+      navigatePublic("customerAuth", "/login/");
+    };
+
+  const openDriverLogin =
+    () => {
+      setAuthMode("login");
+      navigatePublic("driverAuth", "/driverlogin/");
+    };
+
+  const openAdminLogin =
+    () => {
+      setAuthMode("login");
+      navigatePublic("adminAuth", "/adminlogin/");
     };
 
   const goHome =
     () => {
-      setPage(
-        "home"
-      );
+      navigatePublic("home", "/");
     };
 
   /*
@@ -683,6 +767,10 @@ function App() {
           "basicInfo"
         );
 
+        if (authenticatedUser?.role === "customer") {
+          window.history.replaceState({}, "", "/login/");
+        }
+
         localStorage.removeItem(
           "himrideg_auth_account_type"
         );
@@ -693,6 +781,8 @@ function App() {
       setPage(
         "dashboard"
       );
+
+      window.history.replaceState({}, "", "/");
 
       if (
         "Notification" in
@@ -2678,7 +2768,65 @@ function App() {
       setPage(
         "home"
       );
+
+      window.history.replaceState({}, "", "/");
     };
+
+  if (
+    page === "customerAuth" &&
+    !user
+  ) {
+    return (
+      <>
+        {message && <div className="toast">{message}</div>}
+
+        <CustomerLoginPage
+          key={`customer-${authMode}`}
+          initialMode={authMode}
+          onBack={goHome}
+          onSuccess={handleAuthSuccess}
+          onDriverLogin={openDriverLogin}
+          onAdminLogin={openAdminLogin}
+        />
+      </>
+    );
+  }
+
+  if (
+    page === "adminAuth" &&
+    !user
+  ) {
+    return (
+      <>
+        {message && <div className="toast">{message}</div>}
+
+        <AdminLoginPage
+          onBack={goHome}
+          onSuccess={handleAuthSuccess}
+        />
+      </>
+    );
+  }
+
+  if (
+    page === "driverAuth" &&
+    !user
+  ) {
+    return (
+      <>
+        {message && <div className="toast">{message}</div>}
+
+        <AuthPage
+          key={`driver-${authMode}`}
+          initialMode={authMode}
+          initialAccountType="driver"
+          lockAccountType
+          onBack={goHome}
+          onSuccess={handleAuthSuccess}
+        />
+      </>
+    );
+  }
 
   if (
     page ===
@@ -2961,12 +3109,10 @@ function App() {
       }
 
       <Home
-        onLogin={
-          openLogin
-        }
-        onRegister={
-          openRegister
-        }
+        onLogin={openCustomerLogin}
+        onRegister={openCustomerRegister}
+        onDriverLogin={openDriverLogin}
+        onAdminLogin={openAdminLogin}
       />
     </>
   );
