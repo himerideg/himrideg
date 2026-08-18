@@ -615,10 +615,42 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       enum: [
         "pay_now",
-        "pay_later"
+        "pay_later",
+        "scheduled"
       ],
       default: "pay_later",
       index: true
+    },
+
+    /*
+    |--------------------------------------------------------------------------
+    | Fare-Lock Payment Plan
+    |--------------------------------------------------------------------------
+    | online_after_ride = ride complete hone ke baad Online/Cash
+    | advance           = full locked fare ride se pehle online pay
+    | scheduled         = payment later scheduled; Pay Now hamesha available
+    |--------------------------------------------------------------------------
+    */
+    paymentPlan: {
+      type: String,
+      enum: [
+        "online_after_ride",
+        "advance",
+        "scheduled",
+        null
+      ],
+      default: null,
+      index: true
+    },
+
+    paymentPlanSelectedAt: {
+      type: Date,
+      default: null
+    },
+
+    paymentScheduledAt: {
+      type: Date,
+      default: null
     },
 
     paymentChoiceAfterRide: {

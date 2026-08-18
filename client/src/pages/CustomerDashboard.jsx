@@ -77,13 +77,59 @@ const isRidePaid = (ride, paidBookingIds = new Set()) =>
   ride?.payment?.status === "paid" ||
   paidBookingIds.has(idOf(ride));
 
-const canCustomerPayRide = (ride, paidBookingIds = new Set()) =>
+const paymentPlanOf = (ride) => {
+  const explicit = String(ride?.paymentPlan || "").trim();
+
+  if (["online_after_ride", "advance", "scheduled"].includes(explicit)) {
+    return explicit;
+  }
+
+  if (ride?.paymentTiming === "pay_now") {
+    return "advance";
+  }
+
+  return null;
+};
+
+const isFinalFareLocked = (ride) =>
   Boolean(
     ride &&
-      ride.status === "completed" &&
-      lockedFareOf(ride) > 0 &&
-      !isRidePaid(ride, paidBookingIds)
+      ride.fareStatus === "fare_accepted" &&
+      lockedFareOf(ride) > 0
   );
+
+/*
+|--------------------------------------------------------------------------
+| Customer Payment Page Gate
+|--------------------------------------------------------------------------
+| Fare lock hote hi plan page khul sakta hai. Online-after-ride plan me real
+| payment ride complete ke baad; Advance/Scheduled me Pay Now pehle bhi.
+|--------------------------------------------------------------------------
+*/
+const canCustomerPayRide = (ride, paidBookingIds = new Set()) => {
+  if (
+    !ride ||
+    !isFinalFareLocked(ride) ||
+    isRidePaid(ride, paidBookingIds)
+  ) {
+    return false;
+  }
+
+  const plan = paymentPlanOf(ride);
+
+  if (!plan) {
+    return true;
+  }
+
+  if (["advance", "scheduled"].includes(plan)) {
+    return true;
+  }
+
+  return (
+    plan === "online_after_ride" &&
+    ride.status === "completed"
+  );
+};
 
 const distanceOf = (ride) =>
   Number(
@@ -1378,13 +1424,45 @@ function CustomerDashboard({
 
     // Fare accepted (final customer confirmation)
     const handleFareAccepted = (data) => {
+      const bid = String(data?.bookingId || "");
+      let mergedRide = null;
+
       setLocalBookings((prev) =>
-        prev.map((b) =>
-          idOf(b) === String(data.bookingId)
-            ? { ...b, fareStatus: "fare_accepted", finalFare: data.finalFare, status: "fare_accepted" }
-            : b
-        )
+        prev.map((b) => {
+          if (idOf(b) !== bid) {
+            return b;
+          }
+
+          mergedRide = {
+            ...b,
+            ...data,
+            fareStatus: "fare_accepted",
+            finalFare: Number(data?.finalFare || lockedFareOf(b) || 0),
+            status: "fare_accepted",
+          };
+
+          return mergedRide;
+        })
       );
+
+      if (bid) {
+        const currentRide = localBookings.find((ride) => idOf(ride) === bid);
+        const paymentRide = {
+          ...(currentRide || {}),
+          ...(data || {}),
+          _id: currentRide?._id || data?._id || bid,
+          fareStatus: "fare_accepted",
+          finalFare: Number(data?.finalFare || lockedFareOf(currentRide) || 0),
+          status: "fare_accepted",
+        };
+
+        const stageKey = `${bid}:fare-plan`;
+        if (!paymentShownRef.current.has(stageKey)) {
+          paymentShownRef.current.add(stageKey);
+          setPaymentBooking(paymentRide);
+          setShowPaymentModal(true);
+        }
+      }
     };
 
     // Fare rejected
@@ -1402,7 +1480,7 @@ function CustomerDashboard({
     const handlePaymentRequested = (data) => {
       const bid = String(data?.bookingId || "");
 
-      if (!bid || paymentShownRef.current.has(bid)) {
+      if (!bid) {
         return;
       }
 
@@ -1427,9 +1505,47 @@ function CustomerDashboard({
         return;
       }
 
-      paymentShownRef.current.add(bid);
-      setPaymentBooking(mergedRide);
-      setShowPaymentModal(true);
+      const stageKey = `${bid}:requested:${mergedRide.status || "unknown"}:${paymentPlanOf(mergedRide) || "choose"}`;
+
+      if (!paymentShownRef.current.has(stageKey)) {
+        paymentShownRef.current.add(stageKey);
+        setPaymentBooking(mergedRide);
+        setShowPaymentModal(true);
+      }
+    };
+
+    const handlePaymentPlanUpdated = (data = {}) => {
+      const bid = String(data?.bookingId || "");
+      if (!bid) return;
+
+      setLocalBookings((prev) =>
+        prev.map((ride) =>
+          idOf(ride) === bid
+            ? { ...ride, ...data }
+            : ride
+        )
+      );
+
+      setPaymentBooking((current) =>
+        current && idOf(current) === bid
+          ? { ...current, ...data }
+          : current
+      );
+    };
+
+    const handlePaymentCompleted = (data = {}) => {
+      const bid = String(data?.bookingId || "");
+      if (!bid) return;
+
+      setLocalBookings((prev) =>
+        prev.map((ride) =>
+          idOf(ride) === bid
+            ? { ...ride, ...data, paymentStatus: "paid" }
+            : ride
+        )
+      );
+
+      setPaidBookingIds((prev) => new Set([...prev, bid]));
     };
 
     socket.on("fare:offered", handleFareOffered);
@@ -1437,6 +1553,9 @@ function CustomerDashboard({
     socket.on("fare:accepted", handleFareAccepted);
     socket.on("fare:rejected", handleFareRejected);
     socket.on("payment:requested", handlePaymentRequested);
+    socket.on("payment:plan-updated", handlePaymentPlanUpdated);
+    socket.on("payment:method-updated", handlePaymentPlanUpdated);
+    socket.on("payment:completed", handlePaymentCompleted);
 
     return () => {
       socket.off("fare:offered", handleFareOffered);
@@ -1444,31 +1563,49 @@ function CustomerDashboard({
       socket.off("fare:accepted", handleFareAccepted);
       socket.off("fare:rejected", handleFareRejected);
       socket.off("payment:requested", handlePaymentRequested);
+      socket.off("payment:plan-updated", handlePaymentPlanUpdated);
+      socket.off("payment:method-updated", handlePaymentPlanUpdated);
+      socket.off("payment:completed", handlePaymentCompleted);
     };
   }, [localBookings, paidBookingIds]);
 
   /* ──────────────────────────────────────────────────────────────────
-     Auto Payment Modal — Ride Complete hone pe
+     Auto Payment Modal — Fare Lock + Waiting Payment
   ────────────────────────────────────────────────────────────────── */
   useEffect(() => {
-    if (!activeRide) return;
+    const paymentFlowRide = localBookings.find((ride) =>
+      canCustomerPayRide(ride, paidBookingIds)
+    );
 
-    const bid = idOf(activeRide);
-    if (
-      canCustomerPayRide(activeRide, paidBookingIds) &&
-      !paymentShownRef.current.has(bid)
-    ) {
-      const timer = setTimeout(() => {
-        paymentShownRef.current.add(bid);
-        setPaymentBooking(activeRide);
-        setShowPaymentModal(true);
-      }, 1500);
-      return () => clearTimeout(timer);
+    if (!paymentFlowRide) {
+      return undefined;
     }
+
+    const bid = idOf(paymentFlowRide);
+    const plan = paymentPlanOf(paymentFlowRide);
+
+    const stage =
+      !plan
+        ? "fare-plan"
+        : paymentFlowRide.status === "completed"
+          ? `complete-${plan}`
+          : `${plan}-pay-now`;
+
+    const stageKey = `${bid}:${stage}`;
+
+    if (paymentShownRef.current.has(stageKey)) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      paymentShownRef.current.add(stageKey);
+      setPaymentBooking(paymentFlowRide);
+      setShowPaymentModal(true);
+    }, paymentFlowRide.status === "completed" ? 900 : 350);
+
+    return () => clearTimeout(timer);
   }, [
-    activeRide,
-    activeRide?.status,
-    activeRide?.paymentStatus,
+    localBookings,
     paidBookingIds,
   ]);
 
@@ -1624,20 +1761,30 @@ function CustomerDashboard({
             )
         );
 
+        const paymentRide = {
+          ...(localBookings.find((ride) => idOf(ride) === String(bookingId)) || {}),
+          bookingId,
+          fareStatus: "fare_accepted",
+          status: "fare_accepted",
+          finalFare: acceptedFare,
+          driverFinalFareProposal: acceptedFare,
+          paymentPlan: result.paymentPlan || null,
+          paymentTiming: result.paymentTiming || "pay_later",
+          paymentStatus: result.paymentStatus || "pending",
+        };
+
+        paymentShownRef.current.add(`${bookingId}:fare-plan`);
+        setPaymentBooking(paymentRide);
+        setShowPaymentModal(true);
+
         /*
         |--------------------------------------------------------------------------
-        | Payment Deferred Until Driver Completes Ride
+        | Fare Lock -> Payment Plan Popup
         |--------------------------------------------------------------------------
-        | Latest customer rule:
-        | - final fare accept hote hi fare lock hoga
-        | - payment modal abhi open NAHI hogi
-        | - chahe legacy booking paymentTiming = pay_now ho, customer payment
-        |   driver ke ride complete karne ke baad hi start kar sakta hai
-        | - backend bhi isi rule ko enforce karta hai
-        |
-        | result.paymentRequiredNow ko preserve/observe karte hain taaki old
-        | bookings ka data lose na ho, lekin UI payment ko completed status tak
-        | defer karta hai.
+        | Final fare accept hote hi customer ko payment-plan popup milta hai.
+        | Legacy pay_now booking ko Advance plan ki tarah treat karte hain.
+        | Nayi booking me customer popup se Online / Advance / Scheduled choose
+        | karta hai. Scheduled option me Pay Now hamesha available rehta hai.
         */
 
         if (result.paymentRequiredNow) {
@@ -1647,11 +1794,16 @@ function CustomerDashboard({
                 ? {
                     ...ride,
                     paymentTiming: "pay_now",
-                    paymentDeferredUntilComplete: true,
+                    paymentPlan:
+                      ride.paymentPlan ||
+                      result.paymentPlan ||
+                      "advance",
                     paymentStatus:
                       ride.paymentStatus === "paid"
                         ? "paid"
-                        : ride.paymentStatus || "pending",
+                        : result.paymentStatus ||
+                          ride.paymentStatus ||
+                          "pending",
                   }
                 : ride
             )
@@ -1751,6 +1903,25 @@ function CustomerDashboard({
       loadBookings
     ]
   );
+
+  const handlePaymentBookingUpdate = useCallback((update = {}) => {
+    const bid = String(update?.bookingId || idOf(paymentBooking) || "");
+    if (!bid) return;
+
+    setLocalBookings((previous) =>
+      previous.map((ride) =>
+        idOf(ride) === bid
+          ? { ...ride, ...update }
+          : ride
+      )
+    );
+
+    setPaymentBooking((current) =>
+      current && idOf(current) === bid
+        ? { ...current, ...update }
+        : current
+    );
+  }, [paymentBooking]);
 
   /* ──────────────────────────────────────────────────────────────────
      Payment Success Handler
@@ -2589,6 +2760,7 @@ function CustomerDashboard({
         <PaymentModal
           booking={paymentBooking}
           onSuccess={handlePaymentSuccess}
+          onBookingUpdate={handlePaymentBookingUpdate}
           onClose={() => {
             setShowPaymentModal(false);
             setPaymentBooking(null);

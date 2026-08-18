@@ -856,7 +856,8 @@ async function createRide({
   if (
     ![
       "pay_now",
-      "pay_later"
+      "pay_later",
+      "scheduled"
     ].includes(
       normalizedPaymentTiming
     )
@@ -869,8 +870,9 @@ async function createRide({
   }
 
   const finalInitialPaymentMethod =
-    normalizedPaymentTiming ===
-    "pay_now"
+    ["pay_now", "scheduled"].includes(
+      normalizedPaymentTiming
+    )
       ? "online"
       : normalizedPaymentMethod ===
         "online"
@@ -1880,15 +1882,14 @@ async function markDriverArriving({
   }
 
   if (
-    booking.paymentTiming ===
-      "pay_now" &&
-    booking.paymentStatus !==
-      "paid"
+    (booking.paymentPlan === "advance" ||
+      booking.paymentTiming === "pay_now") &&
+    booking.paymentStatus !== "paid"
   ) {
     throw new RideServiceError(
-      "Pay Now booking me online payment complete hone ke baad hi pickup ke liye ja sakte ho",
+      "Advance payment select hai. Customer payment complete kare tabhi pickup ke liye ja sakte ho",
       409,
-      "PAY_NOW_PAYMENT_REQUIRED"
+      "ADVANCE_PAYMENT_REQUIRED"
     );
   }
 
@@ -1945,50 +1946,29 @@ async function markDriverArrived({
   bookingId,
   driverId
 }) {
-  const booking =
-    await Booking.findOneAndUpdate(
-      {
-        _id: objectId(
-          bookingId,
-          "Booking ID"
-        ),
+  const bookingObjectId = objectId(
+    bookingId,
+    "Booking ID"
+  );
 
-        driver: objectId(
-          driverId,
-          "Driver ID"
-        ),
+  const driverObjectId = objectId(
+    driverId,
+    "Driver ID"
+  );
 
-        status: {
-          $in: [
-            "accepted",
-            "driver_arriving"
-          ]
-        }
-      },
-
-      {
-        $set: {
-          status:
-            "driver_arrived",
-
-          driverArrivedAt:
-            new Date()
-        }
-      },
-
-      {
-        new: true,
-        runValidators: true
-      }
-    )
-      .populate(
-        "customer",
-        "name phone profileImage"
-      )
-      .populate(
-        "driver",
-        "name phone profileImage driverProfile currentLocation"
-      );
+  const booking = await Booking.findOne({
+    _id: bookingObjectId,
+    driver: driverObjectId,
+    status: {
+      $in: [
+        "accepted",
+        "fare_offered",
+        "negotiating",
+        "fare_accepted",
+        "driver_arriving"
+      ]
+    }
+  });
 
   if (!booking) {
     throw new RideServiceError(
@@ -1998,19 +1978,59 @@ async function markDriverArrived({
     );
   }
 
+  const lockedFare = Number(
+    booking.finalFare ||
+      booking.fare?.finalFare ||
+      0
+  );
+
+  if (
+    booking.fareStatus !== "fare_accepted" ||
+    !Number.isFinite(lockedFare) ||
+    lockedFare <= 0
+  ) {
+    throw new RideServiceError(
+      "Final fare lock hone ke baad hi driver arrived mark kar sakta hai",
+      409,
+      "FINAL_FARE_NOT_ACCEPTED"
+    );
+  }
+
+  if (
+    (booking.paymentPlan === "advance" ||
+      booking.paymentTiming === "pay_now") &&
+    booking.paymentStatus !== "paid"
+  ) {
+    throw new RideServiceError(
+      "Advance payment pending hai",
+      409,
+      "ADVANCE_PAYMENT_REQUIRED"
+    );
+  }
+
+  booking.status = "driver_arrived";
+  booking.driverArrivedAt = new Date();
+  await booking.save();
+
+  await booking.populate(
+    "customer",
+    "name phone profileImage"
+  );
+  await booking.populate(
+    "driver",
+    "name phone profileImage driverProfile currentLocation"
+  );
+
   safeEmit(
     emitDriverArrived,
-    {
-      booking
-    }
+    { booking }
   );
 
   safeEmit(
     emitRideStatusUpdated,
     {
       booking,
-      status:
-        booking.status
+      status: booking.status
     }
   );
 
@@ -2350,15 +2370,14 @@ async function startRide({
   }
 
   if (
-    booking.paymentTiming ===
-      "pay_now" &&
-    booking.paymentStatus !==
-      "paid"
+    (booking.paymentPlan === "advance" ||
+      booking.paymentTiming === "pay_now") &&
+    booking.paymentStatus !== "paid"
   ) {
     throw new RideServiceError(
-      "Pay Now booking ka payment abhi pending hai",
+      "Advance payment abhi pending hai",
       409,
-      "PAY_NOW_PAYMENT_REQUIRED"
+      "ADVANCE_PAYMENT_REQUIRED"
     );
   }
 

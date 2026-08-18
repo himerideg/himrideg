@@ -1316,7 +1316,15 @@ exports.customerAcceptFinalFare =
               fareStatus:
                 booking.fareStatus,
               rideStatus:
-                booking.status
+                booking.status,
+              paymentPlan:
+                booking.paymentPlan || null,
+              paymentTiming:
+                booking.paymentTiming,
+              paymentStatus:
+                booking.paymentStatus,
+              paymentScheduledAt:
+                booking.paymentScheduledAt || null
             }
           });
       }
@@ -1389,14 +1397,23 @@ exports.customerAcceptFinalFare =
 
       /*
       |--------------------------------------------------------------------------
-      | Pay Now booking online-only hai
+      | Legacy Pay Now = Advance Payment
       |--------------------------------------------------------------------------
+      | Nayi booking fare lock ke baad popup se paymentPlan choose karti hai.
+      | Purani pay_now booking ko safe compatibility ke liye Advance treat karte
+      | hain, isliye pickup se pehle payment paid hona required rahega.
       */
 
       if (
         booking.paymentTiming ===
         "pay_now"
       ) {
+        if (!booking.paymentPlan) {
+          booking.paymentPlan =
+            "advance";
+          booking.paymentPlanSelectedAt =
+            booking.fareAcceptedAt;
+        }
         booking.paymentMethod =
           "online";
 
@@ -1438,12 +1455,23 @@ exports.customerAcceptFinalFare =
             rideStatus:
               booking.status,
 
+            paymentPlan:
+              booking.paymentPlan || null,
+
             paymentTiming:
               booking.paymentTiming,
 
+            paymentStatus:
+              booking.paymentStatus,
+
+            paymentScheduledAt:
+              booking.paymentScheduledAt || null,
+
             paymentRequiredNow:
               booking.paymentTiming ===
-              "pay_now",
+                "pay_now" ||
+              booking.paymentPlan ===
+                "advance",
 
             platformCommissionAmount:
               booking.platformCommissionAmount,

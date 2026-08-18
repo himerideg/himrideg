@@ -15,6 +15,7 @@ const legacyPaymentController = require("../controllers/paymentController");
 const {
   createPaymentOrder,
   verifyPayment,
+  selectPaymentPlan,
   selectPaymentMethod,
   getPaymentStatus,
   confirmCashPayment,
@@ -41,6 +42,14 @@ router.post("/create-order", createPaymentOrder);
 |--------------------------------------------------------------------------
 */
 router.post("/verify", verifyPayment);
+
+/*
+|--------------------------------------------------------------------------
+| Customer Select Fare-Lock Payment Plan
+| POST /api/v2/payments/select-plan
+|--------------------------------------------------------------------------
+*/
+router.post("/select-plan", selectPaymentPlan);
 
 /*
 |--------------------------------------------------------------------------

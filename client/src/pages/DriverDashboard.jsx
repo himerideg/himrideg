@@ -25,8 +25,10 @@ import socket from "../socket";
 import DriverLocationTracker from "../DriverLocationTracker";
 import DriverRideMap from "../DriverRideMap";
 import DriverWarnings from "../components/DriverWarnings";
+import DriverPaymentModal from "../components/DriverPaymentModal";
 
 import "../driver-dashboard.css";
+import "../payment-modal.css";
 
 /*
 |--------------------------------------------------------------------------
@@ -442,6 +444,118 @@ function getFinalFare(ride) {
   return Number.isFinite(numericFare)
     ? numericFare
     : 0;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Payment-aware Driver Ride State
+|--------------------------------------------------------------------------
+|
+| Backend ride `status` physical trip complete hote hi `completed` hota hai.
+| Driver UI me final Completed tab/count tabhi maana jayega jab payment paid ho.
+| Isse customer payment pending phase clearly `Waiting for Payment` dikhega.
+|
+*/
+function getRidePaymentStatus(ride) {
+  return String(
+    ride?.paymentStatus ??
+      ride?.payment?.status ??
+      "pending"
+  )
+    .trim()
+    .toLowerCase();
+}
+
+function isRidePaymentPaid(ride) {
+  return ["paid", "completed"].includes(
+    getRidePaymentStatus(ride)
+  );
+}
+
+function getLockedFinalFare(ride) {
+  const value = Number(
+    ride?.finalFare ??
+      ride?.fare?.finalFare ??
+      0
+  );
+
+  return Number.isFinite(value) ? value : 0;
+}
+
+function isFinalFareLocked(ride) {
+  return Boolean(
+    ride &&
+      ride.fareStatus === "fare_accepted" &&
+      getLockedFinalFare(ride) > 0
+  );
+}
+
+function getPaymentPlan(ride) {
+  const explicit = String(ride?.paymentPlan || "").trim();
+
+  if (["online_after_ride", "advance", "scheduled"].includes(explicit)) {
+    return explicit;
+  }
+
+  if (ride?.paymentTiming === "pay_now") {
+    return "advance";
+  }
+
+  return null;
+}
+
+function isAdvancePaymentPending(ride) {
+  return (
+    getPaymentPlan(ride) === "advance" &&
+    !isRidePaymentPaid(ride)
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Driver Action Gate
+|--------------------------------------------------------------------------
+| Incoming request ke Accept/Reject aur fare-negotiation controls exception
+| hain. Assigned ride ke pickup/arrive/OTP/start/complete actions tabhi enable
+| honge jab final fare locked ho. Advance plan ho to payment paid bhi required.
+|--------------------------------------------------------------------------
+*/
+function canUseDriverRideActions(ride) {
+  if (!isFinalFareLocked(ride)) {
+    return false;
+  }
+
+  if (isAdvancePaymentPending(ride)) {
+    return false;
+  }
+
+  return true;
+}
+
+function isWaitingForPaymentRide(ride) {
+  return (
+    ride?.status === "completed" &&
+    !isRidePaymentPaid(ride)
+  );
+}
+
+function isFinalCompletedRide(ride) {
+  return (
+    ride?.status === "completed" &&
+    isRidePaymentPaid(ride)
+  );
+}
+
+function getDriverRideStatusLabel(ride) {
+  if (isWaitingForPaymentRide(ride)) {
+    return "Waiting for Payment";
+  }
+
+  return (
+    STATUS_LABELS[ride?.status] ||
+    ride?.status ||
+    "Unknown"
+  );
 }
 
 function getCommissionPercent(ride) {
@@ -1331,6 +1445,11 @@ function DriverDashboard({
   ] = useState("");
 
   const [
+    driverPaymentModalRide,
+    setDriverPaymentModalRide
+  ] = useState(null);
+
+  const [
     notice,
     setNotice
   ] = useState({
@@ -1930,16 +2049,31 @@ function DriverDashboard({
     };
 
     const handleFareAccepted = (payload = {}) => {
-      handleFareUpdate({
-        ...payload,
+      const bookingId = String(payload?.bookingId || "");
+      const currentRide = localBookings.find(
+        (ride) => getId(ride) === bookingId
+      );
+
+      const mergedRide = {
+        ...(currentRide || {}),
+        ...(payload || {}),
+        _id: currentRide?._id || payload?._id || bookingId,
         fareStatus: "fare_accepted",
-        status: "fare_accepted"
-      });
+        status: "fare_accepted",
+        finalFare: Number(
+          payload?.finalFare ||
+            getLockedFinalFare(currentRide) ||
+            0
+        )
+      };
+
+      handleFareUpdate(mergedRide);
+      setDriverPaymentModalRide(mergedRide);
 
       showNotice(
         "success",
         payload.message ||
-          "Fare final lock ho gaya."
+          "Fare final lock ho gaya. Customer payment option choose karega."
       );
     };
 
@@ -1954,6 +2088,65 @@ function DriverDashboard({
         "error",
         payload.message ||
           "Fare offer reject hua. Naya offer bhejo."
+      );
+    };
+
+    const handlePaymentUpdate = (payload = {}) => {
+      const bookingId = String(payload?.bookingId || "");
+      if (!bookingId) return;
+
+      setLocalBookings((previous) =>
+        previous.map((ride) =>
+          getId(ride) === bookingId
+            ? { ...ride, ...payload }
+            : ride
+        )
+      );
+
+      setDriverPaymentModalRide((current) => {
+        if (current && getId(current) === bookingId) {
+          return { ...current, ...payload };
+        }
+
+        const ride = localBookings.find(
+          (item) => getId(item) === bookingId
+        );
+
+        return ride ? { ...ride, ...payload } : current;
+      });
+
+      loadBookings?.();
+    };
+
+    const handlePaymentPlanUpdated = (payload = {}) => {
+      handlePaymentUpdate(payload);
+      setDriverPaymentModalRide((current) => {
+        const bookingId = String(payload?.bookingId || "");
+        if (current && getId(current) === bookingId) {
+          return { ...current, ...payload };
+        }
+        const ride = localBookings.find((item) => getId(item) === bookingId);
+        return ride ? { ...ride, ...payload } : current;
+      });
+
+      showNotice(
+        "success",
+        payload?.paymentPlan === "advance"
+          ? "Customer ne Advance Payment select ki. Payment paid hone tak ride actions locked hain."
+          : payload?.paymentPlan === "scheduled"
+            ? "Customer ne Scheduled Payment select ki. Pay Now option available hai."
+            : "Customer ne Payment Online select ki."
+      );
+    };
+
+    const handlePaymentCompleted = (payload = {}) => {
+      handlePaymentUpdate({
+        ...payload,
+        paymentStatus: "paid"
+      });
+      showNotice(
+        "success",
+        "Customer payment complete ho gayi."
       );
     };
 
@@ -2055,6 +2248,21 @@ function DriverDashboard({
       handleFareUpdate
     );
 
+    socket.on(
+      "payment:plan-updated",
+      handlePaymentPlanUpdated
+    );
+
+    socket.on(
+      "payment:method-updated",
+      handlePaymentUpdate
+    );
+
+    socket.on(
+      "payment:completed",
+      handlePaymentCompleted
+    );
+
     if (
       !socket.connected
     ) {
@@ -2150,6 +2358,21 @@ function DriverDashboard({
       socket.off(
         "fare:status:updated",
         handleFareUpdate
+      );
+
+      socket.off(
+        "payment:plan-updated",
+        handlePaymentPlanUpdated
+      );
+
+      socket.off(
+        "payment:method-updated",
+        handlePaymentUpdate
+      );
+
+      socket.off(
+        "payment:completed",
+        handlePaymentCompleted
       );
     };
   }, [
@@ -3004,7 +3227,7 @@ function DriverDashboard({
             ),
 
         successMessage:
-          "Ride complete ho gayi. Aap dobara available hain."
+          "Ride destination par complete ho gayi. Ab customer payment ka wait hai."
       });
     };
 
@@ -3356,11 +3579,41 @@ function DriverDashboard({
         "started"
     ).length;
 
+  const waitingPaymentRideList =
+    displayBookings
+      .filter(
+        (ride) =>
+          isWaitingForPaymentRide(
+            ride
+          )
+      )
+      .sort(
+        (a, b) =>
+          new Date(
+            b?.completedAt ||
+              b?.updatedAt ||
+              0
+          ).getTime() -
+          new Date(
+            a?.completedAt ||
+              a?.updatedAt ||
+              0
+          ).getTime()
+      );
+
+  const waitingPaymentRides =
+    waitingPaymentRideList.length;
+
+  const latestWaitingPaymentRide =
+    waitingPaymentRideList[0] ||
+    null;
+
   const completedRides =
     displayBookings.filter(
       (ride) =>
-        ride.status ===
-        "completed"
+        isFinalCompletedRide(
+          ride
+        )
     ).length;
 
   const requestRides =
@@ -3438,8 +3691,20 @@ function DriverDashboard({
       ) {
         return displayBookings.filter(
           (ride) =>
-            ride.status ===
-            "completed"
+            isFinalCompletedRide(
+              ride
+            )
+        );
+      }
+
+      if (
+        activeTab === "payment"
+      ) {
+        return displayBookings.filter(
+          (ride) =>
+            isWaitingForPaymentRide(
+              ride
+            )
         );
       }
 
@@ -3497,6 +3762,15 @@ function DriverDashboard({
       selectedAssignedDriverId ===
         currentUserId
     );
+
+  const selectedFareLocked =
+    isFinalFareLocked(selectedRide);
+
+  const selectedAdvancePending =
+    isAdvancePaymentPending(selectedRide);
+
+  const selectedRideActionsEnabled =
+    canUseDriverRideActions(selectedRide);
 
   const selectedIsRequest =
     Boolean(
@@ -3882,6 +4156,7 @@ function DriverDashboard({
               <article><span>⏳</span><small>Pending</small><strong>{pendingRides}</strong></article>
               <article><span>✅</span><small>Accepted</small><strong>{acceptedRides}</strong></article>
               <article><span>🛣️</span><small>Ongoing</small><strong>{startedRides}</strong></article>
+              <article><span>💳</span><small>Waiting Payment</small><strong>{waitingPaymentRides}</strong></article>
               <article><span>🏁</span><small>Completed</small><strong>{completedRides}</strong></article>
               <article><span>⭐</span><small>Rating</small><strong>{Number(user?.driverProfile?.rating || 0).toFixed(1)}</strong></article>
             </div>
@@ -3945,7 +4220,7 @@ function DriverDashboard({
               </article>
               <article>
                 <span>Completed Trips</span>
-                <strong>{driverView?.driverProfile?.completedRides || completedRides}</strong>
+                <strong>{completedRides}</strong>
               </article>
               <article>
                 <span>Platform Commission</span>
@@ -4400,7 +4675,7 @@ function DriverDashboard({
         <nav className="driverDesktopNav">
           <button className={activeTab === "dashboard" ? "active" : ""} type="button" onClick={() => setActiveTab("dashboard")}>Dashboard</button>
           <button className={activeTab === "requests" ? "active" : ""} type="button" onClick={() => setActiveTab("requests")}>Requests</button>
-          <button className={["active", "scheduled", "completed"].includes(activeTab) ? "active" : ""} type="button" onClick={() => setActiveTab("active")}>My Rides</button>
+          <button className={["active", "scheduled", "payment", "completed"].includes(activeTab) ? "active" : ""} type="button" onClick={() => setActiveTab("active")}>My Rides</button>
           <button type="button" onClick={() => setEarningsOpen(true)}>Earnings</button>
           <button type="button" onClick={() => setProfileOpen(true)}>Profile</button>
         </nav>
@@ -4471,13 +4746,39 @@ function DriverDashboard({
 
                               <span className="driverRequestCompactMeta">
                                 <b>{formatDistance(getDistance(ride))}</b>
-                                <em>{STATUS_LABELS[ride.status] || ride.status}</em>
+                                <em>{getDriverRideStatusLabel(ride)}</em>
                                 <i>Tap to view →</i>
                               </span>
                             </button>
                           );
                         })}
                       </>
+                    ) : latestWaitingPaymentRide ? (
+                      <div className="driverCustomerEmpty driverWaitingPaymentState">
+                        <span>💳</span>
+                        <strong>Waiting for Payment</strong>
+                        <p>Ride destination par complete hai. Customer ke payment ka wait ho raha hai.</p>
+                        <b style={{color:"#f5c518",fontSize:"24px"}}>
+                          ₹{Number(getFinalFare(latestWaitingPaymentRide) || 0).toFixed(0)}
+                        </b>
+                        {String(latestWaitingPaymentRide.paymentChoiceAfterRide || "").toLowerCase() === "cash" ? (
+                          <button
+                            type="button"
+                            className="accept"
+                            disabled={Boolean(loadingAction)}
+                            onClick={() => confirmCashReceived(latestWaitingPaymentRide)}
+                            style={{marginTop:"12px"}}
+                          >
+                            💵 Confirm Cash Received
+                          </button>
+                        ) : (
+                          <small style={{marginTop:"10px",color:"#9fb0c2"}}>
+                            {String(latestWaitingPaymentRide.paymentChoiceAfterRide || "").toLowerCase() === "online"
+                              ? "Customer online payment complete karega."
+                              : "Customer Online ya Cash payment choose karega."}
+                          </small>
+                        )}
+                      </div>
                     ) : (
                       <div className="driverCustomerEmpty">
                         <span>🚖</span>
@@ -4490,7 +4791,7 @@ function DriverDashboard({
                   <div className="driverCustomerRideBody">
                     <div className="driverCustomerRow">
                       <div className="driverCustomerAvatar">{getCustomerName(selectedRide).charAt(0).toUpperCase()}</div>
-                      <div><strong>{getCustomerName(selectedRide)}</strong><small>{STATUS_LABELS[selectedRide.status] || selectedRide.status}</small></div>
+                      <div><strong>{getCustomerName(selectedRide)}</strong><small>{getDriverRideStatusLabel(selectedRide)}</small></div>
                       {getCustomerPhone(selectedRide) !== "Not available" && <a href={`tel:${getCustomerPhone(selectedRide)}`}>☎</a>}
                     </div>
 
@@ -4565,26 +4866,107 @@ function DriverDashboard({
               </aside>
 
               <section className="driverCustomerMapCard">
-                <header><div><small>LIVE ROUTE</small><h2>{selectedRide ? "Pickup to Destination" : "Route Map"}</h2></div>{selectedRide && <span>{STATUS_LABELS[selectedRide.status] || selectedRide.status}</span>}</header>
-                <div className="driverCustomerMapStage">{selectedRide ? <DriverRideMap ride={selectedRide}/> : <div className="driverCustomerEmpty"><span>🗺️</span><strong>Waiting for Ride</strong></div>}</div>
-                {selectedRide && <div className="driverCustomerMapActions"><a href={createNavigationUrl(getPickupCoordinates(selectedRide))} target="_blank" rel="noreferrer">➤ Navigate Pickup</a><a href={createNavigationUrl(getDropCoordinates(selectedRide))} target="_blank" rel="noreferrer">➤ Navigate Destination</a><button type="button" onClick={() => setSelectedRideId(selectedRideIdValue)}>₹ Fare Negotiation</button></div>}
-                {selectedRide && selectedAssignedToMe && (
-                  <div className="driverCustomerRideActions">
-                    {selectedRide.status === "fare_accepted" && <button type="button" onClick={() => markArriving(selectedRide)}>🚕 Go to Pickup</button>}
-                    {["accepted","fare_offered","negotiating"].includes(selectedRide.status) && <button type="button" className="waiting" disabled>🔒 Fare final hone ka wait</button>}
-                    {["accepted","fare_offered","negotiating"].includes(selectedRide.status) && (
-                      <button
-                        type="button"
-                        className="danger"
-                        disabled={Boolean(loadingAction)}
-                        onClick={() => releaseAcceptedRide(selectedRide)}
-                      >
-                        × Cancel / Release Ride
+                <header>
+                  <div>
+                    <small>{selectedRide ? "LIVE ROUTE" : latestWaitingPaymentRide ? "PAYMENT STATUS" : "LIVE ROUTE"}</small>
+                    <h2>{selectedRide ? "Pickup to Destination" : latestWaitingPaymentRide ? "Waiting for Payment" : "Route Map"}</h2>
+                  </div>
+                  {selectedRide && <span>{getDriverRideStatusLabel(selectedRide)}</span>}
+                  {!selectedRide && latestWaitingPaymentRide && <span>Payment Pending</span>}
+                </header>
+                <div className="driverCustomerMapStage">
+                  {selectedRide ? (
+                    <DriverRideMap ride={selectedRide}/>
+                  ) : latestWaitingPaymentRide ? (
+                    <div className="driverCustomerEmpty driverWaitingPaymentState">
+                      <span>💳</span>
+                      <strong>Waiting for Payment</strong>
+                      <p>Customer ka payment complete hote hi ride Completed me chali jayegi.</p>
+                    </div>
+                  ) : (
+                    <div className="driverCustomerEmpty"><span>🗺️</span><strong>Waiting for Ride</strong></div>
+                  )}
+                </div>
+                {selectedRide && (
+                  <div className="driverCustomerMapActions">
+                    {selectedRideActionsEnabled ? (
+                      <>
+                        <a href={createNavigationUrl(getPickupCoordinates(selectedRide))} target="_blank" rel="noreferrer">➤ Navigate Pickup</a>
+                        <a href={createNavigationUrl(getDropCoordinates(selectedRide))} target="_blank" rel="noreferrer">➤ Navigate Destination</a>
+                      </>
+                    ) : (
+                      <>
+                        <span className="driverActionLinkDisabled">🔒 Navigate Pickup</span>
+                        <span className="driverActionLinkDisabled">🔒 Navigate Destination</span>
+                      </>
+                    )}
+                    <button type="button" onClick={() => setSelectedRideId(selectedRideIdValue)}>₹ Fare Negotiation</button>
+                    {selectedFareLocked && (
+                      <button type="button" onClick={() => setDriverPaymentModalRide(selectedRide)}>
+                        💳 Payment Status
                       </button>
                     )}
-                    {selectedRide.status === "driver_arriving" && <button type="button" onClick={() => markArrived(selectedRide)}>📍 I Have Arrived</button>}
-                    {selectedRide.status === "driver_arrived" && <button type="button" onClick={() => { setOtpRide(selectedRide); setOtp(""); }}>🔐 Enter Customer OTP</button>}
-                    {selectedRide.status === "started" && <button type="button" className="complete" onClick={() => completeRide(selectedRide)}>🏁 Complete Ride</button>}
+                  </div>
+                )}
+                {selectedRide && selectedAssignedToMe && (
+                  <div className="driverCustomerRideActions">
+                    {!selectedFareLocked && (
+                      <>
+                        <button type="button" className="waiting" disabled>
+                          🔒 Final Fare Lock Hone Tak Ride Actions Disabled
+                        </button>
+                        <button type="button" className="danger" disabled>
+                          🔒 Cancel / Release Locked
+                        </button>
+                      </>
+                    )}
+
+                    {selectedFareLocked && selectedAdvancePending && (
+                      <button type="button" className="waiting" disabled>
+                        🔒 Advance Payment Pending — Customer Pay Now Kare
+                      </button>
+                    )}
+
+                    {selectedRide.status === "fare_accepted" && (
+                      <button
+                        type="button"
+                        disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
+                        onClick={() => markArriving(selectedRide)}
+                      >
+                        🚕 Go to Pickup
+                      </button>
+                    )}
+
+                    {selectedRide.status === "driver_arriving" && (
+                      <button
+                        type="button"
+                        disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
+                        onClick={() => markArrived(selectedRide)}
+                      >
+                        📍 I Have Arrived
+                      </button>
+                    )}
+
+                    {selectedRide.status === "driver_arrived" && (
+                      <button
+                        type="button"
+                        disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
+                        onClick={() => { setOtpRide(selectedRide); setOtp(""); }}
+                      >
+                        🔐 Enter Customer OTP
+                      </button>
+                    )}
+
+                    {selectedRide.status === "started" && (
+                      <button
+                        type="button"
+                        className="complete"
+                        disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
+                        onClick={() => completeRide(selectedRide)}
+                      >
+                        🏁 Complete Ride
+                      </button>
+                    )}
                   </div>
                 )}
               </section>
@@ -4592,6 +4974,7 @@ function DriverDashboard({
               <aside className="driverCustomerSummary">
                 <header><div><small>TODAY'S SUMMARY</small><h2>Driver Summary</h2></div><button type="button" onClick={() => setSummaryOpen(true)}>☰</button></header>
                 <article><span>🚕</span><div><small>Total Rides</small><strong>{displayBookings.length}</strong></div></article>
+                <article><span>💳</span><div><small>Waiting Payment</small><strong>{waitingPaymentRides}</strong></div></article>
                 <article><span>✅</span><div><small>Completed</small><strong>{completedRides}</strong></div></article>
                 <article><span>🛣️</span><div><small>Active</small><strong>{acceptedRides + startedRides}</strong></div></article>
                 <article><span>₹</span><div><small>Total Earnings</small><strong>₹{Number(driverWallet.totalEarned || 0).toFixed(0)}</strong></div></article>
@@ -4603,14 +4986,14 @@ function DriverDashboard({
           <section className="driverRidesPage">
             <header><div><small>DRIVER RIDES</small><h2>{activeTab === "requests" ? "New Requests" : "My Rides"}</h2></div><button type="button" onClick={() => setActiveTab("dashboard")}>← Dashboard</button></header>
             <div className="driverRideTabs">
-              {[["requests","New Requests"],["scheduled","Scheduled"],["active","Active"],["completed","Completed"]].map(([value,label]) => <button type="button" key={value} className={activeTab === value ? "active" : ""} onClick={() => setActiveTab(value)}>{label}</button>)}
+              {[["requests","New Requests"],["scheduled","Scheduled"],["active","Active"],["payment","Waiting Payment"],["completed","Completed"]].map(([value,label]) => <button type="button" key={value} className={activeTab === value ? "active" : ""} onClick={() => setActiveTab(value)}>{label}</button>)}
             </div>
             <div className="driverRidesList">
               {tabRides.length ? tabRides.map((ride) => {
                 const rideId = getId(ride);
 
                 const completedDetailsOpen =
-                  activeTab === "completed" &&
+                  ["completed", "payment"].includes(activeTab) &&
                   completedRideOpenId === rideId;
 
                 return (
@@ -4618,7 +5001,7 @@ function DriverDashboard({
                     key={rideId}
                     onClick={() => {
                       if (
-                        activeTab === "completed"
+                        ["completed", "payment"].includes(activeTab)
                       ) {
                         setCompletedRideOpenId(
                           completedDetailsOpen
@@ -4795,6 +5178,14 @@ function DriverDashboard({
 
                           <p>
                             <strong>
+                              Status:
+                            </strong>
+                            {" "}
+                            {getDriverRideStatusLabel(ride)}
+                          </p>
+
+                          <p>
+                            <strong>
                               Completed:
                             </strong>
                             {" "}
@@ -4807,7 +5198,7 @@ function DriverDashboard({
                             }
                           </p>
 
-                          {(String(ride.paymentMethod || ride?.payment?.method || "").toLowerCase() === "cash") &&
+                          {(String(ride.paymentChoiceAfterRide || "").toLowerCase() === "cash") &&
                             !(["paid", "completed"].includes(String(ride.paymentStatus || ride?.payment?.status || "").toLowerCase())) && (
                               <button
                                 type="button"
@@ -4827,6 +5218,13 @@ function DriverDashboard({
               }) : <div className="driverCustomerEmpty"><span>🚖</span><strong>Is section me koi ride nahi hai</strong></div>}
             </div>
           </section>
+        )}
+
+        {driverPaymentModalRide && (
+          <DriverPaymentModal
+            ride={driverPaymentModalRide}
+            onClose={() => setDriverPaymentModalRide(null)}
+          />
         )}
 
         {selectedRide && selectedAssignedToMe && LOCATION_TRACKING_STATUSES.includes(selectedRide.status) && <DriverLocationTracker bookingId={selectedRideIdValue} rideStatus={selectedRide.status}/>} 

@@ -9,34 +9,40 @@ import api from "../api";
 
 /*
 |--------------------------------------------------------------------------
-| PaymentModal — HimRideG Customer Ride Payment
+| PaymentModal — HimRideG Fare-Lock + Payment Flow
 |--------------------------------------------------------------------------
 |
-| IMPORTANT PAYMENT RULES
+| FINAL RULES
 |
-| 1. Customer payment sirf driver ke ride COMPLETED karne ke baad enable hogi.
+| 1. Final fare lock ke bina payment option choose nahi hoga.
 | 2. Payment amount sirf FINAL LOCKED FARE se aayega.
-| 3. estimatedFare / driverOfferedFare ko payment amount ke liye use nahi karna.
-| 4. Online payment UPI-only checkout kholega.
-| 5. Mobile web par Razorpay UPI Intent available UPI apps open karta hai.
-| 6. Desktop web par Razorpay UPI flow QR scan option dikha sakta hai.
-| 7. Cash select karne par backend choice save karega; assigned driver cash
-|    receive confirm karega. Customer cash selection ko "paid" nahi maana jayega.
-|
-| Props:
-|   booking   - completed booking object with finalFare
-|   onSuccess - online payment success / cash selection callback
-|   onClose   - modal close callback
+| 3. Customer ko fare lock hote hi 3 payment plans milenge:
+|      A. Payment Online    = ride complete hone ke baad Online/Cash
+|      B. Payment Advance   = full locked fare abhi online pay
+|      C. Scheduled Payment = later pay; Pay Now hamesha available
+| 4. Advance select hone par driver pickup action payment paid hone tak locked.
+| 5. Scheduled Payment me customer kabhi bhi Pay Now kar sakta hai.
+| 6. Ride complete + payment pending = Waiting for Payment.
+| 7. Cash choice sirf normal post-ride payment ke andar preserve hai.
+| 8. estimatedFare / driverOfferedFare ko payment amount ke liye use nahi karna.
 |
 |--------------------------------------------------------------------------
 */
 
 const STEP = Object.freeze({
-  CHOOSE: "choose",
+  PLAN: "plan",
+  PLAN_STATUS: "plan_status",
+  METHOD: "method",
   PROCESSING: "processing",
   SUCCESS: "success",
   ERROR: "error",
   LOCKED: "locked",
+});
+
+const PLAN = Object.freeze({
+  ONLINE_AFTER_RIDE: "online_after_ride",
+  ADVANCE: "advance",
+  SCHEDULED: "scheduled",
 });
 
 const METHOD = Object.freeze({
@@ -53,15 +59,6 @@ function bookingIdOf(booking) {
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| Locked Fare Only
-|--------------------------------------------------------------------------
-|
-| Do not add fallback to estimatedFare or driverOfferedFare here.
-| Payment backend also uses finalFare only.
-|
-*/
 function lockedFareOf(booking) {
   return (
     Number(
@@ -69,6 +66,13 @@ function lockedFareOf(booking) {
         booking?.fare?.finalFare ??
         0
     ) || 0
+  );
+}
+
+function isFareLocked(booking) {
+  return (
+    String(booking?.fareStatus || "") === "fare_accepted" &&
+    lockedFareOf(booking) > 0
   );
 }
 
@@ -83,12 +87,52 @@ function isAlreadyPaid(booking) {
   );
 }
 
+function paymentPlanOf(booking) {
+  const plan = String(booking?.paymentPlan || "").trim();
+
+  if (
+    [
+      PLAN.ONLINE_AFTER_RIDE,
+      PLAN.ADVANCE,
+      PLAN.SCHEDULED,
+    ].includes(plan)
+  ) {
+    return plan;
+  }
+
+  if (booking?.paymentTiming === "pay_now") {
+    return PLAN.ADVANCE;
+  }
+
+  return null;
+}
+
 function formatMoney(amount) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(Number(amount) || 0);
+}
+
+function formatSchedule(value) {
+  if (!value) {
+    return "Ride schedule ke according";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Ride schedule ke according";
+  }
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function rideLabel(booking) {
@@ -106,10 +150,7 @@ function rideLabel(booking) {
     (typeof booking?.drop === "string" ? booking.drop : "") ||
     "Destination";
 
-  return {
-    pickup,
-    drop,
-  };
+  return { pickup, drop };
 }
 
 function loadRazorpayScript() {
@@ -147,7 +188,37 @@ function loadRazorpayScript() {
   });
 }
 
-function PaymentModal({ booking, onSuccess, onClose }) {
+function initialStep(booking) {
+  if (!isFareLocked(booking)) {
+    return STEP.LOCKED;
+  }
+
+  if (isAlreadyPaid(booking)) {
+    return STEP.SUCCESS;
+  }
+
+  const plan = paymentPlanOf(booking);
+
+  if (!plan) {
+    return STEP.PLAN;
+  }
+
+  if (
+    plan === PLAN.ONLINE_AFTER_RIDE &&
+    isRideCompleted(booking)
+  ) {
+    return STEP.METHOD;
+  }
+
+  return STEP.PLAN_STATUS;
+}
+
+function PaymentModal({
+  booking,
+  onSuccess,
+  onBookingUpdate,
+  onClose,
+}) {
   const bookingId = useMemo(
     () => bookingIdOf(booking),
     [booking]
@@ -163,79 +234,143 @@ function PaymentModal({ booking, onSuccess, onClose }) {
     [booking]
   );
 
+  const fareLocked = isFareLocked(booking);
   const completed = isRideCompleted(booking);
   const alreadyPaid = isAlreadyPaid(booking);
-  const fareLocked = finalFare > 0;
-  const paymentAllowed =
-    Boolean(bookingId) &&
-    completed &&
-    fareLocked &&
-    !alreadyPaid;
 
-  const [step, setStep] = useState(
-    paymentAllowed ? STEP.CHOOSE : STEP.LOCKED
-  );
+  const [plan, setPlan] = useState(() => paymentPlanOf(booking));
+  const [step, setStep] = useState(() => initialStep(booking));
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState(null);
+  const [scheduledAt, setScheduledAt] = useState(
+    booking?.paymentScheduledAt || booking?.travelDate || null
+  );
 
-  /*
-  |--------------------------------------------------------------------------
-  | Reset Modal When Booking Changes
-  |--------------------------------------------------------------------------
-  */
   useEffect(() => {
+    setPlan(paymentPlanOf(booking));
+    setStep(initialStep(booking));
     setPaymentMethod(null);
     setLoading(false);
     setError("");
-    setReceipt(null);
-    setStep(paymentAllowed ? STEP.CHOOSE : STEP.LOCKED);
-  }, [bookingId, paymentAllowed]);
+    setReceipt(
+      isAlreadyPaid(booking)
+        ? {
+            paymentMethod:
+              booking?.paymentMethod ||
+              booking?.payment?.method ||
+              METHOD.ONLINE,
+            paymentStatus: "paid",
+            fare: lockedFareOf(booking),
+            paymentId: booking?.razorpayPaymentId || null,
+          }
+        : null
+    );
+    setScheduledAt(
+      booking?.paymentScheduledAt || booking?.travelDate || null
+    );
+  }, [bookingId, booking]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Defensive Guard
-  |--------------------------------------------------------------------------
-  |
-  | UI ke alawa backend bhi completed status + locked final fare check karta
-  | hai. Yeh helper customer ko clear message dikhane ke liye hai.
-  |
-  */
+  const planTitle = useMemo(() => {
+    if (plan === PLAN.ADVANCE) return "Advance Payment";
+    if (plan === PLAN.SCHEDULED) return "Scheduled Payment";
+    if (plan === PLAN.ONLINE_AFTER_RIDE) return "Payment Online";
+    return "Choose Payment Option";
+  }, [plan]);
+
   const paymentLockMessage = useMemo(() => {
     if (!bookingId) {
       return "Booking ID missing hai. Ride refresh karke dobara try karein.";
     }
 
-    if (alreadyPaid) {
-      return "Is ride ka payment already complete hai.";
-    }
-
-    if (!completed) {
-      return "Payment driver ke ride complete karne ke baad hi enable hoga.";
-    }
-
     if (!fareLocked) {
-      return "Final locked fare available nahi hai. Driver fare lock hone ke baad payment karein.";
+      return "Final fare lock hone ke baad payment page enable hoga.";
     }
 
     return "Payment abhi available nahi hai.";
-  }, [bookingId, alreadyPaid, completed, fareLocked]);
+  }, [bookingId, fareLocked]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Online Payment — Razorpay UPI Intent / UPI QR
-  |--------------------------------------------------------------------------
-  |
-  | Backend order amount final locked fare se create hota hai. Frontend user
-  | amount edit nahi kar sakta. Checkout ko UPI-only block par land karaya gaya
-  | hai, taaki mobile par UPI app intent aur desktop par QR flow mile.
-  |
-  */
+  const selectPlan = useCallback(
+    async (nextPlan) => {
+      if (!fareLocked || !bookingId || loading) {
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+
+      try {
+        const { data } = await api.post(
+          "/payments/select-plan",
+          {
+            bookingId,
+            plan: nextPlan,
+          }
+        );
+
+        if (!data?.success) {
+          throw new Error(
+            data?.message || "Payment option select nahi hua"
+          );
+        }
+
+        const updated = data?.data || {};
+
+        setPlan(nextPlan);
+        setScheduledAt(
+          updated.paymentScheduledAt || booking?.travelDate || null
+        );
+        setStep(
+          nextPlan === PLAN.ONLINE_AFTER_RIDE && completed
+            ? STEP.METHOD
+            : STEP.PLAN_STATUS
+        );
+
+        onBookingUpdate?.({
+          bookingId,
+          paymentPlan: nextPlan,
+          paymentTiming: updated.paymentTiming,
+          paymentScheduledAt: updated.paymentScheduledAt || null,
+          paymentStatus: updated.paymentStatus || "pending",
+        });
+      } catch (planError) {
+        setError(
+          planError?.response?.data?.message ||
+            planError?.message ||
+            "Payment option select nahi ho saka"
+        );
+        setStep(STEP.ERROR);
+      } finally {
+        setLoading(false);
+      }
+    }, [
+      bookingId,
+      booking?.travelDate,
+      completed,
+      fareLocked,
+      loading,
+      onBookingUpdate,
+    ]
+  );
+
   const handleOnlinePayment = useCallback(async () => {
-    if (!paymentAllowed) {
+    if (!fareLocked || !bookingId || alreadyPaid) {
       setError(paymentLockMessage);
       setStep(STEP.LOCKED);
+      return;
+    }
+
+    if (!plan) {
+      setStep(STEP.PLAN);
+      return;
+    }
+
+    if (
+      plan === PLAN.ONLINE_AFTER_RIDE &&
+      !completed
+    ) {
+      setStep(STEP.PLAN_STATUS);
       return;
     }
 
@@ -251,37 +386,29 @@ function PaymentModal({ booking, onSuccess, onClose }) {
         );
       }
 
-      /*
-      | Backend is the source of truth for amount.
-      */
       const { data } = await api.post(
         "/payments/create-order",
-        {
-          bookingId,
-        }
+        { bookingId }
       );
 
       if (!data?.success) {
         throw new Error(
-          data?.message ||
-            "Payment order create nahi hua"
+          data?.message || "Payment order create nahi hua"
         );
       }
 
       if (data?.data?.alreadyPaid) {
-        setReceipt({
+        const paidReceipt = {
           paymentMethod: METHOD.ONLINE,
           paymentStatus: "paid",
           paymentId: data?.data?.paymentId || null,
           fare: Number(data?.data?.fare || finalFare),
-        });
+          paymentPlan: plan,
+        };
+
+        setReceipt(paidReceipt);
         setStep(STEP.SUCCESS);
-        onSuccess?.({
-          paymentMethod: METHOD.ONLINE,
-          paymentStatus: "paid",
-          alreadyPaid: true,
-          ...data.data,
-        });
+        onSuccess?.(paidReceipt);
         return;
       }
 
@@ -293,12 +420,11 @@ function PaymentModal({ booking, onSuccess, onClose }) {
         fare: serverFare,
         customerName,
         customerPhone,
+        paymentContext,
       } = data.data || {};
 
       if (!keyId || !orderId || !amount) {
-        throw new Error(
-          "Payment gateway details incomplete hain"
-        );
+        throw new Error("Payment gateway details incomplete hain");
       }
 
       const backendLockedFare = Number(serverFare || 0);
@@ -321,9 +447,11 @@ function PaymentModal({ booking, onSuccess, onClose }) {
         order_id: orderId,
         name: "HimRideG",
         description:
-          `Ride Payment - ${bookingId
-            .slice(-8)
-            .toUpperCase()}`,
+          plan === PLAN.ADVANCE
+            ? "Advance Ride Payment"
+            : plan === PLAN.SCHEDULED
+              ? "Scheduled Ride Payment - Pay Now"
+              : "Ride Payment",
         image: "/himrideg-logo.png",
 
         prefill: {
@@ -334,36 +462,23 @@ function PaymentModal({ booking, onSuccess, onClose }) {
         notes: {
           bookingId,
           platform: "HimRideG",
-          paymentFor: "completed_ride",
+          paymentPlan: plan,
+          paymentContext: paymentContext || "post_ride",
         },
 
         theme: {
           color: "#fbbf24",
         },
 
-        /*
-        |--------------------------------------------------------------------
-        | UPI ONLY CHECKOUT
-        |--------------------------------------------------------------------
-        | Razorpay Standard Checkout configuration:
-        | - mobile: UPI Intent / available UPI apps
-        | - desktop: UPI QR scan flow
-        */
         config: {
           display: {
             blocks: {
               himrideg_upi: {
                 name: "Pay via UPI",
-                instruments: [
-                  {
-                    method: "upi",
-                  },
-                ],
+                instruments: [{ method: "upi" }],
               },
             },
-            sequence: [
-              "block.himrideg_upi",
-            ],
+            sequence: ["block.himrideg_upi"],
             preferences: {
               show_default_blocks: false,
             },
@@ -374,7 +489,11 @@ function PaymentModal({ booking, onSuccess, onClose }) {
           escape: true,
           backdropclose: false,
           ondismiss: () => {
-            setStep(STEP.CHOOSE);
+            setStep(
+              plan === PLAN.ONLINE_AFTER_RIDE && completed
+                ? STEP.METHOD
+                : STEP.PLAN_STATUS
+            );
             setLoading(false);
           },
         },
@@ -396,30 +515,37 @@ function PaymentModal({ booking, onSuccess, onClose }) {
 
             if (!verifyRes?.data?.success) {
               throw new Error(
-                verifyRes?.data?.message ||
-                  "Payment verify nahi hui"
+                verifyRes?.data?.message || "Payment verify nahi hui"
               );
             }
 
-            const verified =
-              verifyRes.data.data || {};
+            const verified = verifyRes.data.data || {};
 
-            setReceipt({
+            const paidReceipt = {
               paymentMethod: METHOD.ONLINE,
+              paymentPlan: plan,
+              paymentStatus: "paid",
               fare:
                 Number(verified.fare) ||
                 backendLockedFare,
-              ...verified,
-            });
-
-            setStep(STEP.SUCCESS);
-
-            onSuccess?.({
-              paymentMethod: METHOD.ONLINE,
               paymentId:
                 response.razorpay_payment_id,
               ...verified,
+            };
+
+            setReceipt(paidReceipt);
+            setStep(STEP.SUCCESS);
+
+            onBookingUpdate?.({
+              bookingId,
+              paymentPlan: plan,
+              paymentStatus: "paid",
+              paymentMethod: METHOD.ONLINE,
+              razorpayPaymentId:
+                response.razorpay_payment_id,
             });
+
+            onSuccess?.(paidReceipt);
           } catch (verifyError) {
             setError(
               verifyError?.response?.data?.message ||
@@ -433,18 +559,15 @@ function PaymentModal({ booking, onSuccess, onClose }) {
 
       const razorpay = new window.Razorpay(options);
 
-      razorpay.on(
-        "payment.failed",
-        (response) => {
-          setError(
-            response?.error?.description ||
-              response?.error?.reason ||
-              "Payment fail ho gayi. Dobara try karein."
-          );
-          setStep(STEP.ERROR);
-          setLoading(false);
-        }
-      );
+      razorpay.on("payment.failed", (response) => {
+        setError(
+          response?.error?.description ||
+            response?.error?.reason ||
+            "Payment fail ho gayi. Dobara try karein."
+        );
+        setStep(STEP.ERROR);
+        setLoading(false);
+      });
 
       razorpay.open();
     } catch (onlineError) {
@@ -458,27 +581,27 @@ function PaymentModal({ booking, onSuccess, onClose }) {
       setLoading(false);
     }
   }, [
+    alreadyPaid,
     bookingId,
+    completed,
+    fareLocked,
     finalFare,
+    onBookingUpdate,
     onSuccess,
-    paymentAllowed,
     paymentLockMessage,
+    plan,
   ]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Cash Payment Selection
-  |--------------------------------------------------------------------------
-  |
-  | Customer cash select karta hai. Backend is choice ko booking par save karta
-  | hai. Payment status pending hi rahega. Assigned driver ke cash receive
-  | confirmation ke baad backend actual paid status karega.
-  |
-  */
   const handleCashPayment = useCallback(async () => {
-    if (!paymentAllowed) {
-      setError(paymentLockMessage);
-      setStep(STEP.LOCKED);
+    if (
+      !fareLocked ||
+      !completed ||
+      plan !== PLAN.ONLINE_AFTER_RIDE
+    ) {
+      setError(
+        "Cash payment sirf normal post-ride payment me available hai."
+      );
+      setStep(STEP.ERROR);
       return;
     }
 
@@ -497,17 +620,16 @@ function PaymentModal({ booking, onSuccess, onClose }) {
 
       if (!data?.success) {
         throw new Error(
-          data?.message ||
-            "Cash payment select nahi ho saka"
+          data?.message || "Cash payment select nahi ho saka"
         );
       }
 
       const selectedFare =
-        Number(data?.data?.fare) ||
-        finalFare;
+        Number(data?.data?.fare) || finalFare;
 
       const cashReceipt = {
         paymentMethod: METHOD.CASH,
+        paymentPlan: plan,
         paymentStatus: "pending",
         cashSelected: true,
         fare: selectedFare,
@@ -518,6 +640,14 @@ function PaymentModal({ booking, onSuccess, onClose }) {
 
       setReceipt(cashReceipt);
       setStep(STEP.SUCCESS);
+
+      onBookingUpdate?.({
+        bookingId,
+        paymentPlan: plan,
+        paymentMethod: METHOD.CASH,
+        paymentChoiceAfterRide: METHOD.CASH,
+        paymentStatus: "pending",
+      });
 
       onSuccess?.(cashReceipt);
     } catch (cashError) {
@@ -532,29 +662,36 @@ function PaymentModal({ booking, onSuccess, onClose }) {
     }
   }, [
     bookingId,
+    completed,
+    fareLocked,
     finalFare,
+    onBookingUpdate,
     onSuccess,
-    paymentAllowed,
-    paymentLockMessage,
+    plan,
   ]);
 
-  const handlePrimaryAction = () => {
-    if (loading) {
+  const closeAllowed = step !== STEP.PROCESSING;
+
+  const retryStep = () => {
+    setError("");
+
+    if (!fareLocked) {
+      setStep(STEP.LOCKED);
       return;
     }
 
-    if (paymentMethod === METHOD.ONLINE) {
-      handleOnlinePayment();
+    if (!plan) {
+      setStep(STEP.PLAN);
       return;
     }
 
-    if (paymentMethod === METHOD.CASH) {
-      handleCashPayment();
+    if (plan === PLAN.ONLINE_AFTER_RIDE && completed) {
+      setStep(STEP.METHOD);
+      return;
     }
+
+    setStep(STEP.PLAN_STATUS);
   };
-
-  const closeAllowed =
-    step !== STEP.PROCESSING;
 
   return (
     <div
@@ -570,23 +707,20 @@ function PaymentModal({ booking, onSuccess, onClose }) {
       role="presentation"
     >
       <div
-        className="paymentModal"
+        className="paymentModal paymentPlanModal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="himrideg-payment-title"
       >
-        {/* ---------------------------------------------------------------
-            Header
-        ---------------------------------------------------------------- */}
         <div className="paymentModalHeader">
           <div className="paymentModalLogo">🚖</div>
 
           <div className="paymentModalTitleGroup">
             <h2 id="himrideg-payment-title">
-              Ride Payment
+              {planTitle}
             </h2>
             <small>
-              Completed ride · Locked fare only
+              Final fare locked · Secure HimRideG payment
             </small>
           </div>
 
@@ -602,9 +736,6 @@ function PaymentModal({ booking, onSuccess, onClose }) {
           )}
         </div>
 
-        {/* ---------------------------------------------------------------
-            Route + Fare
-        ---------------------------------------------------------------- */}
         <div className="paymentRideSummary">
           <div className="paymentRouteLine">
             <span className="paymentRouteDot pickup" />
@@ -629,42 +760,27 @@ function PaymentModal({ booking, onSuccess, onClose }) {
           <div>
             <span>Final Locked Fare</span>
             <small>
-              Amount automatically payment me jayega
+              Payment amount automatically locked fare se aayega
             </small>
           </div>
-          <strong>
-            {formatMoney(finalFare)}
-          </strong>
+          <strong>{formatMoney(finalFare)}</strong>
         </div>
 
-        {/* ---------------------------------------------------------------
-            Locked State
-        ---------------------------------------------------------------- */}
         {step === STEP.LOCKED && (
           <div className="paymentLockedState">
-            <div className="paymentLockedIcon">
-              🔒
-            </div>
-
-            <h3>Payment Locked</h3>
-
+            <div className="paymentLockedIcon">🔒</div>
+            <h3>Payment Options Locked</h3>
             <p>{paymentLockMessage}</p>
-
             <div className="paymentLockedRules">
               <span>
-                {completed ? "✅" : "○"}
-                Driver ride complete kare
-              </span>
-              <span>
                 {fareLocked ? "✅" : "○"}
-                Final fare locked ho
+                Customer final fare accept kare
               </span>
               <span>
-                {alreadyPaid ? "✅" : "○"}
-                Payment pending ho
+                {finalFare > 0 ? "✅" : "○"}
+                Locked fare available ho
               </span>
             </div>
-
             <button
               type="button"
               className="paymentCancelBtn"
@@ -675,73 +791,219 @@ function PaymentModal({ booking, onSuccess, onClose }) {
           </div>
         )}
 
-        {/* ---------------------------------------------------------------
-            Choose Payment Method
-        ---------------------------------------------------------------- */}
-        {step === STEP.CHOOSE && (
+        {step === STEP.PLAN && (
+          <div className="paymentChoose paymentPlanChoose">
+            <p className="paymentChooseLabel">
+              Payment option chuniye:
+            </p>
+
+            <div className="paymentPlanGrid">
+              <button
+                type="button"
+                className="paymentPlanCard"
+                disabled={loading}
+                onClick={() => selectPlan(PLAN.ONLINE_AFTER_RIDE)}
+              >
+                <span className="paymentPlanIcon">📱</span>
+                <strong>Payment Online</strong>
+                <small>
+                  Ride complete hone ke baad Online/UPI payment. Cash option bhi post-ride available rahega.
+                </small>
+                <em>After Ride →</em>
+              </button>
+
+              <button
+                type="button"
+                className="paymentPlanCard advance"
+                disabled={loading}
+                onClick={() => selectPlan(PLAN.ADVANCE)}
+              >
+                <span className="paymentPlanIcon">⚡</span>
+                <strong>Payment Advance</strong>
+                <small>
+                  Full locked fare abhi Pay Now. Payment paid hone ke baad driver ride actions unlock honge.
+                </small>
+                <em>Pay Before Ride →</em>
+              </button>
+
+              <button
+                type="button"
+                className="paymentPlanCard scheduled"
+                disabled={loading}
+                onClick={() => selectPlan(PLAN.SCHEDULED)}
+              >
+                <span className="paymentPlanIcon">📅</span>
+                <strong>Scheduled Payment</strong>
+                <small>
+                  Payment later scheduled rahegi. Pay Now button kisi bhi time use kar sakte ho.
+                </small>
+                <em>Schedule + Pay Now →</em>
+              </button>
+            </div>
+
+            {loading && (
+              <div className="paymentInlineStatus">
+                Payment option save ho raha hai...
+              </div>
+            )}
+
+            {error && (
+              <div className="paymentError">⚠️ {error}</div>
+            )}
+          </div>
+        )}
+
+        {step === STEP.PLAN_STATUS && (
+          <div className="paymentChoose paymentPlanStatus">
+            {plan === PLAN.ONLINE_AFTER_RIDE && (
+              <>
+                <div className="paymentPlanSelectedBanner">
+                  <span>📱</span>
+                  <div>
+                    <small>SELECTED</small>
+                    <strong>Payment Online</strong>
+                    <p>
+                      Ride complete hone ke baad Pay Online / Cash options khulenge.
+                    </p>
+                  </div>
+                </div>
+
+                {!completed ? (
+                  <div className="paymentWaitingBox">
+                    <span>🚕</span>
+                    <strong>Ride Complete Hone Ka Wait</strong>
+                    <p>
+                      Driver ride complete karega tab payment popup automatically khulega.
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="paymentConfirmBtn"
+                    onClick={() => setStep(STEP.METHOD)}
+                  >
+                    Choose Online / Cash · {formatMoney(finalFare)}
+                  </button>
+                )}
+              </>
+            )}
+
+            {plan === PLAN.ADVANCE && (
+              <>
+                <div className="paymentPlanSelectedBanner advance">
+                  <span>⚡</span>
+                  <div>
+                    <small>SELECTED</small>
+                    <strong>Payment Advance</strong>
+                    <p>
+                      Driver ke ride-action buttons advance payment complete hone tak locked rahenge.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="paymentConfirmBtn"
+                  disabled={loading}
+                  onClick={handleOnlinePayment}
+                >
+                  {loading
+                    ? "Processing..."
+                    : `Pay Advance Now · ${formatMoney(finalFare)}`}
+                </button>
+              </>
+            )}
+
+            {plan === PLAN.SCHEDULED && (
+              <>
+                <div className="paymentPlanSelectedBanner scheduled">
+                  <span>📅</span>
+                  <div>
+                    <small>SCHEDULED</small>
+                    <strong>Scheduled Payment</strong>
+                    <p>
+                      Scheduled for: {formatSchedule(scheduledAt)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="paymentScheduledActions">
+                  <button
+                    type="button"
+                    className="paymentConfirmBtn"
+                    disabled={loading}
+                    onClick={handleOnlinePayment}
+                  >
+                    {loading
+                      ? "Processing..."
+                      : `Pay Now · ${formatMoney(finalFare)}`}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="paymentCancelBtn"
+                    disabled={loading}
+                    onClick={onClose}
+                  >
+                    Pay Later — Keep Scheduled
+                  </button>
+                </div>
+              </>
+            )}
+
+            <button
+              type="button"
+              className="paymentChangePlanBtn"
+              disabled={loading || completed}
+              onClick={() => setStep(STEP.PLAN)}
+            >
+              Change Payment Option
+            </button>
+
+            {error && (
+              <div className="paymentError">⚠️ {error}</div>
+            )}
+          </div>
+        )}
+
+        {step === STEP.METHOD && (
           <div className="paymentChoose">
             <p className="paymentChooseLabel">
-              Payment method chuniye:
+              Ride complete hai — payment method chuniye:
             </p>
 
             <div className="paymentMethods">
-              {/* Online / UPI */}
               <button
                 type="button"
                 className={`paymentMethodCard ${
-                  paymentMethod === METHOD.ONLINE
-                    ? "selected"
-                    : ""
+                  paymentMethod === METHOD.ONLINE ? "selected" : ""
                 }`}
-                onClick={() =>
-                  setPaymentMethod(METHOD.ONLINE)
-                }
+                onClick={() => setPaymentMethod(METHOD.ONLINE)}
               >
-                <div className="paymentMethodIcon">
-                  📱
-                </div>
-
+                <div className="paymentMethodIcon">📱</div>
                 <div className="paymentMethodInfo">
-                  <strong>Online — UPI</strong>
-                  <small>
-                    UPI App / QR Scanner
-                  </small>
+                  <strong>Pay Online — UPI</strong>
+                  <small>UPI App / QR Scanner</small>
                 </div>
-
                 <div className="paymentMethodCheck">
-                  {paymentMethod === METHOD.ONLINE
-                    ? "✅"
-                    : "○"}
+                  {paymentMethod === METHOD.ONLINE ? "✅" : "○"}
                 </div>
               </button>
 
-              {/* Cash */}
               <button
                 type="button"
                 className={`paymentMethodCard ${
-                  paymentMethod === METHOD.CASH
-                    ? "selected"
-                    : ""
+                  paymentMethod === METHOD.CASH ? "selected" : ""
                 }`}
-                onClick={() =>
-                  setPaymentMethod(METHOD.CASH)
-                }
+                onClick={() => setPaymentMethod(METHOD.CASH)}
               >
-                <div className="paymentMethodIcon">
-                  💵
-                </div>
-
+                <div className="paymentMethodIcon">💵</div>
                 <div className="paymentMethodInfo">
                   <strong>Cash Payment</strong>
-                  <small>
-                    Driver ko locked fare cash dein
-                  </small>
+                  <small>Driver ko locked fare cash dein</small>
                 </div>
-
                 <div className="paymentMethodCheck">
-                  {paymentMethod === METHOD.CASH
-                    ? "✅"
-                    : "○"}
+                  {paymentMethod === METHOD.CASH ? "✅" : "○"}
                 </div>
               </button>
             </div>
@@ -751,23 +1013,17 @@ function PaymentModal({ booking, onSuccess, onClose }) {
                 <div>
                   <span>📱</span>
                   <p>
-                    <strong>Phone:</strong> Continue karte hi UPI checkout
-                    se Google Pay, PhonePe, BHIM ya available UPI app open
-                    ki ja sakti hai.
+                    <strong>Phone:</strong> UPI app intent open ho sakta hai.
                   </p>
                 </div>
-
                 <div>
                   <span>▦</span>
                   <p>
-                    <strong>Computer:</strong> UPI QR ko phone se scan karke
-                    payment complete karein.
+                    <strong>Computer:</strong> UPI QR ko phone se scan karke pay karein.
                   </p>
                 </div>
-
                 <div className="paymentAmountLockedNote">
-                  🔒 Amount {formatMoney(finalFare)} locked hai — customer ko
-                  amount manually enter nahi karna padega.
+                  🔒 Amount {formatMoney(finalFare)} locked hai.
                 </div>
               </div>
             )}
@@ -776,72 +1032,57 @@ function PaymentModal({ booking, onSuccess, onClose }) {
               <div className="paymentCashNotice">
                 <span>💵</span>
                 <p>
-                  Ride completed hai. Driver ko exactly
+                  Driver ko exactly
                   <strong> {formatMoney(finalFare)} </strong>
-                  cash dijiye. Driver receive confirm karne ke baad payment
-                  status Paid hoga.
+                  cash dijiye. Driver receive confirm karega.
                 </p>
               </div>
             )}
 
             {error && (
-              <div className="paymentError">
-                ⚠️ {error}
-              </div>
+              <div className="paymentError">⚠️ {error}</div>
             )}
 
             <button
               type="button"
               className="paymentConfirmBtn"
-              disabled={
-                !paymentMethod ||
-                loading ||
-                !paymentAllowed
-              }
-              onClick={handlePrimaryAction}
+              disabled={!paymentMethod || loading}
+              onClick={() => {
+                if (paymentMethod === METHOD.ONLINE) {
+                  handleOnlinePayment();
+                  return;
+                }
+                if (paymentMethod === METHOD.CASH) {
+                  handleCashPayment();
+                }
+              }}
             >
               {loading
                 ? "Processing..."
                 : paymentMethod === METHOD.ONLINE
-                ? `Open UPI / QR · ${formatMoney(finalFare)}`
-                : paymentMethod === METHOD.CASH
-                ? `Select Cash · ${formatMoney(finalFare)}`
-                : `Choose Payment · ${formatMoney(finalFare)}`}
+                  ? `Pay Online · ${formatMoney(finalFare)}`
+                  : paymentMethod === METHOD.CASH
+                    ? `Select Cash · ${formatMoney(finalFare)}`
+                    : `Choose Payment · ${formatMoney(finalFare)}`}
             </button>
-
-            <p className="paymentSecurityNote">
-              🔐 Online amount backend ke final locked fare se create hota hai.
-            </p>
           </div>
         )}
 
-        {/* ---------------------------------------------------------------
-            Processing
-        ---------------------------------------------------------------- */}
         {step === STEP.PROCESSING && (
           <div className="paymentProcessing">
-            <div className="paymentSpinner">
-              ⏳
-            </div>
+            <div className="paymentSpinner">⏳</div>
             <h3>Payment process ho raha hai</h3>
             <p>
-              UPI / QR payment complete hone tak window band na karein.
+              Payment process complete hone tak window band na karein.
             </p>
-            <small>
-              Locked amount: {formatMoney(finalFare)}
-            </small>
+            <small>Locked amount: {formatMoney(finalFare)}</small>
           </div>
         )}
 
-        {/* ---------------------------------------------------------------
-            Success / Cash Selected
-        ---------------------------------------------------------------- */}
         {step === STEP.SUCCESS && (
           <div className="paymentSuccess">
             <div className="paymentSuccessIcon">
-              {receipt?.paymentMethod === METHOD.CASH
-                ? "💵"
-                : "✅"}
+              {receipt?.paymentMethod === METHOD.CASH ? "💵" : "✅"}
             </div>
 
             <h3>
@@ -856,29 +1097,14 @@ function PaymentModal({ booking, onSuccess, onClose }) {
                   <span>💰</span>
                   <p>
                     Driver ko
-                    <strong>
-                      {" "}
-                      {formatMoney(
-                        receipt?.fare || finalFare
-                      )}
-                    </strong>
-                    {" "}
-                    cash dijiye.
+                    <strong> {formatMoney(receipt?.fare || finalFare)}</strong>
+                    {" "}cash dijiye.
                   </p>
                 </div>
-
                 <div className="cashInstRow">
                   <span>✅</span>
                   <p>
-                    Assigned driver cash receive confirm karega. Tab ride
-                    payment status Paid hoga.
-                  </p>
-                </div>
-
-                <div className="cashInstRow">
-                  <span>🔒</span>
-                  <p>
-                    Cash amount final locked fare hi hai.
+                    Driver cash receive confirm karega. Tab payment Paid hoga.
                   </p>
                 </div>
               </div>
@@ -886,20 +1112,18 @@ function PaymentModal({ booking, onSuccess, onClose }) {
               <div className="paymentReceiptBox">
                 <div className="receiptRow">
                   <span>Amount Paid</span>
-                  <strong>
-                    {formatMoney(
-                      receipt?.fare || finalFare
-                    )}
-                  </strong>
+                  <strong>{formatMoney(receipt?.fare || finalFare)}</strong>
                 </div>
-
                 <div className="receiptRow">
-                  <span>Method</span>
+                  <span>Payment Plan</span>
                   <strong>
-                    Online UPI (Razorpay)
+                    {plan === PLAN.ADVANCE
+                      ? "Advance"
+                      : plan === PLAN.SCHEDULED
+                        ? "Scheduled / Pay Now"
+                        : "Online"}
                   </strong>
                 </div>
-
                 {receipt?.paymentId && (
                   <div className="receiptRow">
                     <span>Payment ID</span>
@@ -921,39 +1145,21 @@ function PaymentModal({ booking, onSuccess, onClose }) {
           </div>
         )}
 
-        {/* ---------------------------------------------------------------
-            Error
-        ---------------------------------------------------------------- */}
         {step === STEP.ERROR && (
           <div className="paymentErrorState">
-            <div className="paymentErrorIcon">
-              ❌
-            </div>
-
-            <h3>Payment Start Nahi Hua</h3>
-
+            <div className="paymentErrorIcon">❌</div>
+            <h3>Payment Action Complete Nahi Hua</h3>
             <p>
-              {error ||
-                "Kuch galat ho gaya. Dobara try karein."}
+              {error || "Kuch galat ho gaya. Dobara try karein."}
             </p>
-
             <div className="paymentErrorActions">
               <button
                 type="button"
                 className="paymentRetryBtn"
-                onClick={() => {
-                  setStep(
-                    paymentAllowed
-                      ? STEP.CHOOSE
-                      : STEP.LOCKED
-                  );
-                  setError("");
-                  setPaymentMethod(null);
-                }}
+                onClick={retryStep}
               >
                 Dobara Try Karo
               </button>
-
               <button
                 type="button"
                 className="paymentCancelBtn"
@@ -964,6 +1170,10 @@ function PaymentModal({ booking, onSuccess, onClose }) {
             </div>
           </div>
         )}
+
+        <p className="paymentSecurityNote paymentGlobalSecurityNote">
+          🔐 Payment amount backend ke final locked fare se hi create hota hai.
+        </p>
       </div>
     </div>
   );

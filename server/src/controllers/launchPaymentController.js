@@ -15,9 +15,54 @@ function userId(req) {
 }
 
 function paymentTimingOf(booking) {
-  return booking?.paymentTiming === "pay_now"
-    ? "pay_now"
-    : "pay_later";
+  if (booking?.paymentPlan === "advance") return "pay_now";
+  if (booking?.paymentPlan === "scheduled") return "scheduled";
+  if (booking?.paymentPlan === "online_after_ride") return "pay_later";
+
+  if (booking?.paymentTiming === "pay_now") return "pay_now";
+  if (booking?.paymentTiming === "scheduled") return "scheduled";
+  return "pay_later";
+}
+
+function paymentPlanOf(booking) {
+  const explicit = String(booking?.paymentPlan || "").trim();
+  if (["online_after_ride", "advance", "scheduled"].includes(explicit)) {
+    return explicit;
+  }
+
+  // Legacy compatibility: old pay_now bookings behave like advance.
+  if (booking?.paymentTiming === "pay_now") return "advance";
+  return null;
+}
+
+function emitPaymentUpdate(req, booking, eventName = "payment:plan-updated") {
+  try {
+    const io = req.app?.get("io");
+    if (!io || !booking) return;
+
+    const payload = {
+      bookingId: booking._id,
+      status: booking.status,
+      fareStatus: booking.fareStatus,
+      finalFare: finalFareOf(booking),
+      paymentPlan: paymentPlanOf(booking),
+      paymentTiming: paymentTimingOf(booking),
+      paymentScheduledAt: booking.paymentScheduledAt || booking.travelDate || null,
+      paymentMethod: booking.paymentMethod,
+      paymentStatus: booking.paymentStatus,
+      paymentChoiceAfterRide: booking.paymentChoiceAfterRide || null
+    };
+
+    io.to(`booking:${booking._id}`).emit(eventName, payload);
+    if (booking.customer) {
+      io.to(`user:${booking.customer?._id || booking.customer}`).emit(eventName, payload);
+    }
+    if (booking.driver) {
+      io.to(`user:${booking.driver?._id || booking.driver}`).emit(eventName, payload);
+    }
+  } catch (error) {
+    console.error("Payment socket emit error:", error.message);
+  }
 }
 
 function isFareLocked(booking) {
@@ -41,33 +86,13 @@ function requireCustomerOwner(booking, req) {
 }
 
 function canPayOnlineNow(booking) {
-  /*
-  |--------------------------------------------------------------------------
-  | HARD PAYMENT GATE — RIDE MUST BE COMPLETED
-  |--------------------------------------------------------------------------
-  |
-  | Latest HimRideG customer rule:
-  | - legacy paymentTiming value preserve rahegi
-  | - lekin actual customer payment ride complete hone se pehle start nahi hogi
-  | - final locked fare compulsory hai
-  |
-  | Is backend gate ko frontend button ke saath intentionally duplicate rakha
-  | gaya hai. Frontend bypass hone par bhi API early payment allow nahi karegi.
-  */
-
   const status = String(booking?.status || "");
+  const plan = paymentPlanOf(booking);
 
   if (["cancelled", "expired"].includes(status)) {
     return {
       allowed: false,
       message: "Cancelled/expired ride ka payment nahi ho sakta"
-    };
-  }
-
-  if (status !== "completed") {
-    return {
-      allowed: false,
-      message: "Payment driver ke ride complete karne ke baad hi enable hoga"
     };
   }
 
@@ -78,8 +103,34 @@ function canPayOnlineNow(booking) {
     };
   }
 
+  // Advance = fare lock ke baad immediately full online payment.
+  if (plan === "advance") {
+    return { allowed: true, paymentContext: "advance" };
+  }
+
+  // Scheduled = later due, lekin customer ka Pay Now hamesha available.
+  if (plan === "scheduled") {
+    return { allowed: true, paymentContext: "scheduled_pay_now" };
+  }
+
+  // Legacy pay_now without paymentPlan.
+  if (!plan && booking?.paymentTiming === "pay_now") {
+    return { allowed: true, paymentContext: "advance" };
+  }
+
+  // Normal online-after-ride payment ride complete hone ke baad.
+  if (status !== "completed") {
+    return {
+      allowed: false,
+      message: plan
+        ? "Online payment ride complete hone ke baad Pay Now hogi"
+        : "Pehle payment option choose karo"
+    };
+  }
+
   return {
-    allowed: true
+    allowed: true,
+    paymentContext: "post_ride"
   };
 }
 
@@ -142,7 +193,9 @@ async function createPaymentOrder(req, res) {
         bookingId: booking._id.toString(),
         customerId: String(booking.customer?._id || booking.customer || ""),
         driverId: String(booking.driver?._id || booking.driver || ""),
-        paymentTiming: paymentTimingOf(booking)
+        paymentTiming: paymentTimingOf(booking),
+        paymentPlan: paymentPlanOf(booking),
+        paymentContext: gate.paymentContext || "post_ride"
       }
     });
 
@@ -169,6 +222,9 @@ async function createPaymentOrder(req, res) {
         bookingId: booking._id,
         fare,
         paymentTiming: paymentTimingOf(booking),
+        paymentPlan: paymentPlanOf(booking),
+        paymentContext: gate.paymentContext || "post_ride",
+        paymentScheduledAt: booking.paymentScheduledAt || booking.travelDate || null,
         customerName: booking.customer?.name || req.user?.name || "Customer",
         customerPhone: booking.customer?.phone || req.user?.phone || ""
       }
@@ -223,6 +279,8 @@ async function verifyPayment(req, res) {
       const settlement = await settleOnlinePayment(booking, {
         paymentId: razorpay_payment_id
       });
+
+      emitPaymentUpdate(req, booking, "payment:completed");
 
       return res.status(200).json({
         success: true,
@@ -290,6 +348,8 @@ async function verifyPayment(req, res) {
       paymentId: razorpay_payment_id
     });
 
+    emitPaymentUpdate(req, booking, "payment:completed");
+
     return res.status(200).json({
       success: true,
       message: "Payment successfully verify ho gayi",
@@ -310,6 +370,130 @@ async function verifyPayment(req, res) {
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || "Payment verify nahi ho saka"
+    });
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Customer Select Payment Plan After Final Fare Lock
+| POST /api/v2/payments/select-plan
+|--------------------------------------------------------------------------
+|
+| online_after_ride = ride complete hone ke baad online/cash
+| advance           = full locked fare abhi online pay; driver waits for paid
+| scheduled         = later payment scheduled; Pay Now hamesha available
+|
+*/
+async function selectPaymentPlan(req, res) {
+  try {
+    const bookingId = String(req.body?.bookingId || "").trim();
+    const plan = String(req.body?.plan || "").trim().toLowerCase();
+
+    if (!bookingId) {
+      return res.status(400).json({ success: false, message: "Booking ID required hai" });
+    }
+
+    if (!["online_after_ride", "advance", "scheduled"].includes(plan)) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment option Online, Advance ya Scheduled hona chahiye"
+      });
+    }
+
+    const booking = await Booking.findById(bookingId)
+      .populate("customer", "name phone email")
+      .populate("driver", "name phone driverProfile");
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking nahi mili" });
+    }
+
+    requireCustomerOwner(booking, req);
+
+    if (!isFareLocked(booking)) {
+      return res.status(409).json({
+        success: false,
+        message: "Final fare lock hone ke baad hi payment option choose hoga"
+      });
+    }
+
+    if (["cancelled", "expired"].includes(String(booking.status || ""))) {
+      return res.status(409).json({ success: false, message: "Is ride par payment option change nahi ho sakta" });
+    }
+
+    if (booking.paymentStatus === "paid") {
+      return res.status(409).json({ success: false, message: "Payment already complete hai" });
+    }
+
+    if (
+      plan === "advance" &&
+      ["driver_arriving", "driver_arrived", "started", "completed"].includes(String(booking.status || ""))
+    ) {
+      return res.status(409).json({
+        success: false,
+        message: "Ride process start hone ke baad Advance Payment select nahi ho sakti"
+      });
+    }
+
+    booking.paymentPlan = plan;
+    booking.paymentPlanSelectedAt = new Date();
+    booking.razorpayOrderId = null;
+    booking.paymentChoiceAfterRide = null;
+
+    if (plan === "advance") {
+      booking.paymentTiming = "pay_now";
+      booking.paymentMethod = "online";
+      booking.payment.method = "online";
+      booking.paymentScheduledAt = null;
+    } else if (plan === "scheduled") {
+      booking.paymentTiming = "scheduled";
+      booking.paymentMethod = "online";
+      booking.payment.method = "online";
+      booking.paymentScheduledAt = booking.travelDate || null;
+    } else {
+      booking.paymentTiming = "pay_later";
+      booking.paymentMethod = "online";
+      booking.payment.method = "online";
+      booking.paymentScheduledAt = null;
+    }
+
+    booking.paymentStatus = "pending";
+    booking.payment.status = "pending";
+
+    await booking.save();
+    emitPaymentUpdate(req, booking, "payment:plan-updated");
+
+    const canPayNow =
+      plan === "advance" ||
+      plan === "scheduled" ||
+      booking.status === "completed";
+
+    return res.status(200).json({
+      success: true,
+      message:
+        plan === "advance"
+          ? "Advance Payment selected — Pay Now required before pickup"
+          : plan === "scheduled"
+            ? "Scheduled Payment selected — Pay Now option available hai"
+            : "Online Payment selected — ride complete hone ke baad payment hogi",
+      data: {
+        bookingId: booking._id,
+        paymentPlan: plan,
+        paymentTiming: booking.paymentTiming,
+        paymentScheduledAt: booking.paymentScheduledAt,
+        paymentStatus: booking.paymentStatus,
+        finalFare: finalFareOf(booking),
+        canPayNow,
+        driverCanProceed:
+          plan !== "advance" || booking.paymentStatus === "paid"
+      }
+    });
+  } catch (error) {
+    console.error("Select payment plan error:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Payment option select nahi ho saka"
     });
   }
 }
@@ -366,11 +550,17 @@ async function selectPaymentMethod(req, res) {
       });
     }
 
-    const gate = canPayOnlineNow(booking);
-    if (!gate.allowed) {
+    if (String(booking.status || "") !== "completed") {
       return res.status(409).json({
         success: false,
-        message: gate.message
+        message: "Online/Cash final method ride complete hone ke baad choose hoga"
+      });
+    }
+
+    if (!isFareLocked(booking)) {
+      return res.status(409).json({
+        success: false,
+        message: "Final fare lock nahi hai"
       });
     }
 
@@ -393,6 +583,7 @@ async function selectPaymentMethod(req, res) {
     }
 
     await booking.save();
+    emitPaymentUpdate(req, booking, "payment:method-updated");
 
     return res.status(200).json({
       success: true,
@@ -511,6 +702,8 @@ async function confirmCashPayment(req, res) {
 
     const settlement = await settleCashCommission(booking);
 
+    emitPaymentUpdate(req, booking, "payment:completed");
+
     return res.status(200).json({
       success: true,
       message: "Cash received confirm ho gaya",
@@ -538,7 +731,7 @@ async function getPaymentStatus(req, res) {
   try {
     const booking = await Booking.findById(req.params.bookingId)
       .select(
-        "customer driver payment paymentMethod paymentStatus paymentTiming paymentChoiceAfterRide razorpayOrderId razorpayPaymentId paidAt finalFare fare fareStatus platformCommissionAmount driverPayableAmount settlementStatus settlementReference settlementError settledAt status"
+        "customer driver payment paymentMethod paymentStatus paymentTiming paymentPlan paymentPlanSelectedAt paymentScheduledAt paymentChoiceAfterRide razorpayOrderId razorpayPaymentId paidAt finalFare fare fareStatus platformCommissionAmount driverPayableAmount settlementStatus settlementReference settlementError settledAt status travelDate"
       );
 
     if (!booking) {
@@ -764,6 +957,8 @@ async function razorpayWebhook(req, res) {
       await settleOnlinePayment(booking, {
         paymentId: paymentId || booking.razorpayPaymentId
       });
+
+      emitPaymentUpdate(req, booking, "payment:completed");
     }
 
     return res.status(200).json({
@@ -781,6 +976,7 @@ async function razorpayWebhook(req, res) {
 module.exports = {
   createPaymentOrder,
   verifyPayment,
+  selectPaymentPlan,
   selectPaymentMethod,
   confirmCashPayment,
   getPaymentStatus,

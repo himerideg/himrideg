@@ -2108,3 +2108,26 @@ body:has(.driverDashboardPage) {
 .driverRequestCompactMeta b{color:#f5c518;font-size:12px}
 .driverRequestCompactMeta em{font-style:normal;color:#cbd5e1;font-size:9px}
 .driverRequestCompactMeta i{font-style:normal;color:#f5c518;font-size:9px;font-weight:800}
+
+/* Fare-lock hard action gate */
+.driverActionLinkDisabled {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 10px;
+  background: rgba(148, 163, 184, .08);
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: not-allowed;
+  user-select: none;
+}
+
+.driverCustomerRideActions button:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+  filter: saturate(.6);
+}
