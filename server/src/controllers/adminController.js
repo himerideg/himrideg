@@ -2004,6 +2004,89 @@ async function updateDriverLegalName(req, res) {
   }
 }
 
+/*
+|--------------------------------------------------------------------------
+| Configure Razorpay Route Linked Account
+|--------------------------------------------------------------------------
+|
+| Linked Account Razorpay Dashboard/API KYC complete hone ke baad uska
+| acc_... ID driver profile se map kiya ja sakta hai. Online ride payment
+| settlement service isi ID par driver share automatically transfer karta hai.
+|
+*/
+async function setDriverRouteAccount(req, res) {
+  try {
+    if (!isAdminRequest(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Sirf admin Route account configure kar sakta hai."
+      });
+    }
+
+    const driverId = String(req.params?.driverId || "").trim();
+    const linkedAccountId = String(
+      req.body?.razorpayLinkedAccountId ||
+      req.body?.linkedAccountId ||
+      ""
+    ).trim();
+    const routeStatus = String(
+      req.body?.routeStatus ||
+      (linkedAccountId ? "active" : "not_created")
+    ).trim();
+
+    if (!mongoose.Types.ObjectId.isValid(driverId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid driver ID required hai."
+      });
+    }
+
+    if (linkedAccountId && !/^acc_[A-Za-z0-9]+$/.test(linkedAccountId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Razorpay Linked Account ID acc_ se start honi chahiye."
+      });
+    }
+
+    const driver = await User.findOne({
+      _id: driverId,
+      role: "driver"
+    });
+
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: "Driver nahi mila."
+      });
+    }
+
+    driver.driverProfile.razorpayLinkedAccountId = linkedAccountId;
+    driver.driverProfile.razorpayRouteStatus = routeStatus;
+
+    await driver.save();
+
+    return res.status(200).json({
+      success: true,
+      message: linkedAccountId
+        ? "Driver Razorpay Route account map ho gaya."
+        : "Driver Razorpay Route account mapping clear ho gayi.",
+      data: {
+        driverId: driver._id,
+        razorpayLinkedAccountId: driver.driverProfile.razorpayLinkedAccountId,
+        razorpayRouteStatus: driver.driverProfile.razorpayRouteStatus
+      }
+    });
+  } catch (error) {
+    console.error("[Admin] setDriverRouteAccount error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Razorpay Route account save nahi hua."
+    });
+  }
+}
+
+
 module.exports = {
   loginAdmin,
   getAdminProfile,
@@ -2014,5 +2097,6 @@ module.exports = {
   updateCustomer,
   getDriverDocument,
   verifyDriverDocument,
-  updateDriverLegalName  // NEW
+  updateDriverLegalName,  // NEW
+  setDriverRouteAccount
 };

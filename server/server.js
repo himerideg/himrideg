@@ -21,6 +21,10 @@ const {
 } = require("./src/config/database");
 
 const {
+  syncAdminBootstrap
+} = require("./src/utils/adminBootstrap");
+
+const {
   createSocketServer,
   closeSocketServer
 } = require("./src/sockets/socketServer");
@@ -68,6 +72,7 @@ let isShuttingDown = false;
 const startServer = async () => {
   try {
     await connectDatabase();
+    await syncAdminBootstrap();
     startPayoutScheduler();
 
     httpServer.listen(

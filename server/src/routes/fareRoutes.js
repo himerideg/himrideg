@@ -9,6 +9,9 @@ const {
   getFareDetails,
   driverOfferFare,
   customerCounterFare,
+  driverFinalFare,
+  customerAcceptFinalFare,
+  customerRejectFinalFare,
   acceptFare,
   rejectFare
 } = require("../controllers/fareController");
@@ -62,6 +65,30 @@ router.post(
   "/:bookingId/customer-counter",
   allowRoles("customer"),
   customerCounterFare
+);
+
+/*
+|--------------------------------------------------------------------------
+| Launch V3 Final Fare Flow
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  "/:bookingId/driver-final",
+  allowRoles("driver"),
+  driverFinalFare
+);
+
+router.post(
+  "/:bookingId/customer-accept-final",
+  allowRoles("customer"),
+  customerAcceptFinalFare
+);
+
+router.post(
+  "/:bookingId/customer-reject-final",
+  allowRoles("customer"),
+  customerRejectFinalFare
 );
 
 /*

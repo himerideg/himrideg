@@ -2616,12 +2616,79 @@ async function completeRide({
 
   /*
   |--------------------------------------------------------------------------
-  | Wallet Settlement
+  | Driver Wallet Earnings Update
   |--------------------------------------------------------------------------
-  | Ride completion sirf ride status complete karta hai. Wallet tabhi settle
-  | hoga jab online payment verify ho ya driver cash receive karke confirm kare.
-  | Isse failed/unpaid payment par fake earning/duplicate balance nahi banta.
+  |
+  | Ride complete hone par driver ki wallet update karo:
+  | - driverPayableAmount booking pe fare accept ke time save hota hai
+  | - agar fare_accepted nahi tha (edge case) toh finalFare use karo
+  | - totalEarned aur balance dono increment karo
+  |
   */
+
+  try {
+    const driverEarning =
+      Number(booking.driverPayableAmount) ||
+      Number(booking.fare?.finalFare) ||
+      Number(booking.finalFare) ||
+      0;
+
+    if (driverEarning > 0) {
+      const paymentMethod =
+        booking.paymentMethod ||
+        booking.payment?.method ||
+        "cash";
+
+      /*
+      | Cash ride mein driver ko paise seedha milte hain customer se,
+      | isliye balance immediately add hoga lekin cashDue track karo
+      | taaki platform commission collect ho sake.
+      |
+      | Online ride mein balance tabhi add hoga jab payment verify ho.
+      | Abhi hum dono cases mein totalEarned update karte hain.
+      */
+
+      const walletIncrement = {
+        "wallet.totalEarned": driverEarning
+      };
+
+      if (paymentMethod === "cash") {
+        /*
+        | Cash ride: driver ne customer se full fare liya.
+        | Platform commission (commissionAmount) driver pe due hai.
+        | Balance mein sirf driverPayable add karo.
+        */
+        walletIncrement["wallet.balance"] =
+          driverEarning;
+      }
+
+      await User.findOneAndUpdate(
+        {
+          _id: driverObjectId,
+          role: "driver"
+        },
+        {
+          $inc: walletIncrement
+        },
+        {
+          new: true
+        }
+      );
+
+      console.log(
+        `[RideService] Driver wallet updated: driverId=${driverObjectId}, earning=₹${driverEarning}, method=${paymentMethod}`
+      );
+    }
+  } catch (walletError) {
+    /*
+    | Wallet update fail hone par ride complete ko block mat karo.
+    | Error log karo aur aage badho.
+    */
+    console.error(
+      "[RideService] Driver wallet update failed (non-blocking):",
+      walletError.message
+    );
+  }
 
   safeEmit(
     emitRideCompleted,

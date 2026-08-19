@@ -1,7 +1,7 @@
 const express = require("express");
 const { protect, allowRoles } = require("../middlewares/auth");
 const { paymentLimiter, mutationLimiter } = require("../middlewares/rateLimits");
-const walletController = require("../controllers/walletController");
+const walletController = require("../controllers/legacyWalletController");
 
 const router = express.Router();
 router.use(protect);

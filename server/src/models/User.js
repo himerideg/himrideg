@@ -318,7 +318,20 @@ const walletSchema =
         default: 0
       },
 
+      commissionDue: {
+        type: Number,
+        min: 0,
+        default: 0
+      },
+
+
       totalCommissionPaid: {
+        type: Number,
+        min: 0,
+        default: 0
+      },
+
+      totalOnlineTransferred: {
         type: Number,
         min: 0,
         default: 0
@@ -946,6 +959,40 @@ const userSchema =
         type: walletSchema,
         default: () => ({})
       },
+
+      razorpayLinkedAccountId: {
+        type: String,
+        trim: true,
+        default: "",
+        index: true
+      },
+
+
+      razorpayRouteStatus: {
+        type: String,
+        enum: [
+          "not_created",
+          "pending",
+          "active",
+          "failed"
+        ],
+        default: "not_created"
+      },
+
+
+      razorpayRouteLastError: {
+        type: String,
+        trim: true,
+        maxlength: 1000,
+        default: ""
+      },
+
+
+      razorpayRouteUpdatedAt: {
+        type: Date,
+        default: null
+      },
+
 
       payoutSettings: {
         type: payoutSettingsSchema,

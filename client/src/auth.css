@@ -766,3 +766,202 @@
     animation: none;
   }
 }
+/*
+|--------------------------------------------------------------------------
+| Google Identity Services
+|--------------------------------------------------------------------------
+*/
+
+.authGoogleLoginArea {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.authGoogleButtonHost {
+  width: 100%;
+  min-height: 44px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.authGoogleButtonHost > div,
+.authGoogleButtonHost iframe {
+  max-width: 100% !important;
+}
+
+.authGoogleStatus {
+  margin: 8px 0 0;
+
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.authGoogleStatus.error {
+  color: #b42318;
+}
+
+.authGoogleCompleteButton {
+  width: 100%;
+  min-height: 48px;
+
+  margin-top: 10px;
+  padding: 0 16px;
+
+  color: #151515;
+  background: #f2bd16;
+
+  border: 0;
+  border-radius: 12px;
+
+  font-size: 14px;
+  font-weight: 900;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease,
+    filter 0.2s ease;
+}
+
+.authGoogleCompleteButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+}
+
+.authGoogleCompleteButton:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.authGooglePhoneHint {
+  margin: -5px 0 14px;
+
+  color: #667085;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (max-width: 520px) {
+  .authGoogleButtonHost {
+    justify-content: stretch;
+  }
+
+  .authGoogleButtonHost > div {
+    width: 100% !important;
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Email + Google Verified Login
+|--------------------------------------------------------------------------
+*/
+
+.authEmailGoogleForm {
+  width: 100%;
+}
+
+.authGoogleEmailHint {
+  margin: -2px 0 14px;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.authOptionalTerms {
+  margin: 0 0 14px;
+  padding: 11px 12px;
+  background: #fffaf0;
+  border: 1px solid rgba(242, 189, 22, 0.24);
+  border-radius: 12px;
+}
+
+.authOptionalTerms > label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #344054;
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.authOptionalTerms input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  accent-color: #f2bd16;
+}
+
+.authOptionalTerms button {
+  padding: 0;
+  color: #a66c00;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.authOptionalTerms small {
+  display: block;
+  margin-top: 4px;
+  color: #667085;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.authGoogleVerifyPrimary > span {
+  min-width: 26px;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #111827;
+  font-weight: 900;
+}
+
+.authGoogleFallback {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+}
+
+.authGoogleFallback .authGoogleStatus {
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+
+.authGoogleSecurityNote {
+  display: grid;
+  gap: 2px;
+  margin: 12px 0 14px;
+  padding: 11px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  color: #166534;
+}
+
+.authGoogleSecurityNote strong {
+  font-size: 12px;
+}
+
+.authGoogleSecurityNote span {
+  color: #3f6212;
+  font-size: 11px;
+  line-height: 1.45;
+}

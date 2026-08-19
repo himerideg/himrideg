@@ -11,6 +11,12 @@ const {
   getPaymentReceipt
 } = require("../controllers/paymentController");
 
+const {
+  selectPaymentPlan,
+  selectPaymentMethod,
+  retrySettlement
+} = require("../controllers/launchPaymentController");
+
 const { protect } = require("../middlewares/auth");
 
 router.use(protect);
@@ -31,6 +37,10 @@ router.post("/create-order", createPaymentOrder);
 */
 router.post("/verify", verifyPayment);
 
+/* ADD-ONLY: fare-lock payment plan compatibility */
+router.post("/select-plan", selectPaymentPlan);
+router.post("/select-method", selectPaymentMethod);
+
 /* Payment failure audit */
 router.post("/failed", markPaymentFailed);
 
@@ -44,6 +54,9 @@ router.post("/cash-select", selectCashPayment);
 |--------------------------------------------------------------------------
 */
 router.post("/cash-confirm", confirmCashPayment);
+
+/* Admin retry for legacy Route settlement; instant wallet settlement remains separate. */
+router.post("/:bookingId/retry-settlement", retrySettlement);
 
 /*
 |--------------------------------------------------------------------------

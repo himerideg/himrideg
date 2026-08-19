@@ -4,14 +4,27 @@ const Booking = require("../models/Booking");
 const walletService = require("../services/walletService");
 
 const getFare = (booking) =>
-  Number(
-    booking.finalFare ||
-      booking.driverOfferedFare ||
-      booking.fare?.finalFare ||
-      booking.fare?.totalFare ||
-      booking.estimatedFare ||
-      0
-  );
+  Number(booking?.finalFare ?? booking?.fare?.finalFare ?? 0) || 0;
+
+function paymentPlanOf(booking) {
+  const plan = String(booking?.paymentPlan || "").trim();
+  if (["online_after_ride", "advance", "scheduled"].includes(plan)) return plan;
+  if (booking?.paymentTiming === "pay_now") return "advance";
+  return null;
+}
+
+function canPayOnlineNow(booking) {
+  const fareLocked = booking?.fareStatus === "fare_accepted" && getFare(booking) > 0;
+  if (!fareLocked) return false;
+  if (["cancelled", "expired"].includes(String(booking?.status || ""))) return false;
+  const plan = paymentPlanOf(booking);
+  if (plan === "advance" || plan === "scheduled") return true;
+  return String(booking?.status || "") === "completed";
+}
+
+function canSettleDriverNow(booking) {
+  return String(booking?.status || "") === "completed";
+}
 
 function getCustomerId(booking) {
   return String(
@@ -67,8 +80,8 @@ function ensureLivePaymentConfig() {
 
 async function applyCapturedPayment(booking, paymentEntity, { signature = "" } = {}) {
   if (!booking) throw new Error("Booking nahi mili");
-  if (booking.status !== "completed") {
-    const error = new Error("Incomplete ride ka payment settle nahi ho sakta");
+  if (!canPayOnlineNow(booking)) {
+    const error = new Error("Is ride stage/payment plan par online payment allowed nahi hai");
     error.statusCode = 400;
     throw error;
   }
@@ -108,7 +121,9 @@ async function applyCapturedPayment(booking, paymentEntity, { signature = "" } =
       error.statusCode = 409;
       throw error;
     }
-    await walletService.settleRidePayment(booking._id);
+    if (canSettleDriverNow(booking)) {
+      await walletService.settleRidePayment(booking._id);
+    }
     return booking;
   }
 
@@ -128,7 +143,9 @@ async function applyCapturedPayment(booking, paymentEntity, { signature = "" } =
   syncEmbeddedPayment(booking);
   await booking.save();
 
-  await walletService.settleRidePayment(booking._id);
+  if (canSettleDriverNow(booking)) {
+    await walletService.settleRidePayment(booking._id);
+  }
   return booking;
 }
 
@@ -156,10 +173,10 @@ exports.createPaymentOrder = async (req, res) => {
     if (!booking) return res.status(404).json({ success: false, message: "Booking nahi mili" });
     ensureOwner(req, booking);
 
-    if (booking.status !== "completed") {
+    if (!canPayOnlineNow(booking)) {
       return res.status(400).json({
         success: false,
-        message: "Payment ride complete hone ke baad hi start hoga"
+        message: "Final fare lock/payment plan ke hisaab se Pay Now abhi available nahi hai"
       });
     }
 
@@ -184,7 +201,9 @@ exports.createPaymentOrder = async (req, res) => {
       receipt,
       notes: {
         bookingId: String(booking._id),
-        customerId: String(req.user?._id || "")
+        customerId: String(req.user?._id || ""),
+        paymentPlan: paymentPlanOf(booking) || "online_after_ride",
+        paymentContext: booking.status === "completed" ? "post_ride" : "pre_ride_pay_now"
       }
     });
 
@@ -209,7 +228,9 @@ exports.createPaymentOrder = async (req, res) => {
         fare,
         customerName: req.user?.name || "Customer",
         customerPhone: req.user?.phone || "",
-        customerEmail: req.user?.email || ""
+        customerEmail: req.user?.email || "",
+        paymentPlan: paymentPlanOf(booking),
+        paymentContext: booking.status === "completed" ? "post_ride" : "pre_ride_pay_now"
       }
     });
   } catch (error) {
@@ -236,8 +257,8 @@ exports.verifyPayment = async (req, res) => {
     if (!booking) return res.status(404).json({ success: false, message: "Booking nahi mili" });
     ensureOwner(req, booking);
 
-    if (booking.status !== "completed") {
-      return res.status(400).json({ success: false, message: "Incomplete ride ka payment verify nahi ho sakta" });
+    if (!canPayOnlineNow(booking)) {
+      return res.status(400).json({ success: false, message: "Is ride stage/payment plan par payment verify nahi ho sakta" });
     }
 
     if (!booking.razorpayOrderId || booking.razorpayOrderId !== razorpay_order_id) {
@@ -358,6 +379,7 @@ exports.selectCashPayment = async (req, res) => {
     booking.paymentMethod = "cash";
     booking.paymentStatus = "pending";
     booking.cashSelectedAt = new Date();
+    booking.paymentChoiceAfterRide = "cash";
     booking.paymentFailureReason = "";
     syncEmbeddedPayment(booking);
     await booking.save();
@@ -432,6 +454,7 @@ exports.confirmCashPayment = async (req, res) => {
     const commissionPercent = Number(booking.platformCommissionPercent || 10);
     const commissionAmount = Math.round(((fare * commissionPercent) / 100) * 100) / 100;
     booking.paymentMethod = "cash";
+    booking.paymentChoiceAfterRide = "cash";
     booking.paymentStatus = "paid";
     booking.paidAt = new Date();
     booking.platformCommissionAmount = commissionAmount;

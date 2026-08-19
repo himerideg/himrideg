@@ -6,6 +6,7 @@ const Booking = require("../models/Booking");
 const User = require("../models/User");
 
 const socketEvents = require("./socketEventService");
+const walletService = require("./walletService");
 
 const {
   emitRideRequest,
@@ -2623,6 +2624,17 @@ async function completeRide({
   | Isse failed/unpaid payment par fake earning/duplicate balance nahi banta.
   */
 
+  // ADD-ONLY: Advance/Scheduled Pay Now ride pe payment pehle ho sakti hai.
+  // Driver earning ride complete hone se pehle credit nahi hoti; completion
+  // ke waqt paid booking ko idempotent wallet settlement milta hai.
+  if (booking.paymentStatus === "paid") {
+    try {
+      await walletService.settleRidePayment(booking._id);
+    } catch (settlementError) {
+      console.error("[completeRide prepaid settlement]", settlementError.message);
+    }
+  }
+
   safeEmit(
     emitRideCompleted,
     {
@@ -2641,6 +2653,289 @@ async function completeRide({
 
   return booking;
 }
+
+/*
+|--------------------------------------------------------------------------
+| Launch V3 — Driver Release Unconfirmed Ride
+|--------------------------------------------------------------------------
+|
+| Driver ne request accept kar li lekin customer response nahi de raha,
+| final fare lock nahi hui, ya ride confirm nahi hui. Is endpoint se poori
+| customer booking cancel nahi hoti. Current driver release hota hai aur
+| booking dobara nearest available drivers ko dispatch hoti hai.
+|
+*/
+async function driverReleaseRide({
+  bookingId,
+  driverId,
+  reason = ""
+}) {
+  const bookingObjectId =
+    objectId(
+      bookingId,
+      "Booking ID"
+    );
+
+  const driverObjectId =
+    objectId(
+      driverId,
+      "Driver ID"
+    );
+
+  const booking =
+    await Booking.findOne({
+      _id:
+        bookingObjectId,
+
+      driver:
+        driverObjectId,
+
+      status: {
+        $in: [
+          "driver_assigned",
+          "accepted",
+          "fare_offered",
+          "negotiating"
+        ]
+      }
+    }).select(
+      "+rideStartOtp.otpHash"
+    );
+
+  if (!booking) {
+    throw new RideServiceError(
+      "Sirf unconfirmed accepted ride ko release kar sakte ho",
+      409,
+      "DRIVER_RELEASE_NOT_ALLOWED"
+    );
+  }
+
+  const cleanReason =
+    text(
+      reason,
+      "Customer not responding"
+    );
+
+  booking.driverReleaseHistory.push({
+    driver:
+      driverObjectId,
+
+    reason:
+      cleanReason,
+
+    releasedAt:
+      new Date()
+  });
+
+  booking.addRejectedDriver(
+    driverObjectId
+  );
+
+  booking.driver =
+    null;
+
+  booking.status =
+    "searching_driver";
+
+  booking.acceptedAt =
+    null;
+
+  booking.driverArrivingAt =
+    null;
+
+  booking.driverArrivedAt =
+    null;
+
+  booking.rideStartOtp = {
+    otpHash:
+      null,
+
+    expiresAt:
+      null,
+
+    attempts:
+      0,
+
+    maxAttempts:
+      MAX_OTP_ATTEMPTS,
+
+    verified:
+      false,
+
+    verifiedAt:
+      null
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Active fare proposal reset
+  |--------------------------------------------------------------------------
+  |
+  | History fields object me rahe sakte hain, lekin next driver ke saath
+  | current negotiation zero se start hogi.
+  |
+  */
+
+  booking.driverOfferedFare =
+    null;
+
+  booking.customerCounterFare =
+    null;
+
+  booking.driverFinalFareProposal =
+    null;
+
+  booking.finalFare =
+    null;
+
+  booking.fareStatus =
+    "not_offered";
+
+  booking.fareOfferedBy =
+    null;
+
+  booking.fareOfferCount =
+    0;
+
+  booking.fareOfferedAt =
+    null;
+
+  booking.fareAcceptedAt =
+    null;
+
+  if (booking.fare) {
+    booking.fare.finalFare =
+      0;
+
+    booking.fare.platformFee =
+      0;
+  }
+
+  booking.platformCommissionAmount =
+    0;
+
+  booking.driverPayableAmount =
+    0;
+
+  booking.dispatchQueue.forEach(
+    (request) => {
+      if (
+        String(
+          request.driver
+        ) ===
+        String(
+          driverObjectId
+        )
+      ) {
+        request.status =
+          "rejected";
+      }
+    }
+  );
+
+  booking.expiresAt =
+    addMinutes(
+      new Date(),
+      DEFAULT_RIDE_EXPIRY_MINUTES
+    );
+
+  await booking.save();
+
+  await releaseDriver(
+    driverObjectId,
+    bookingObjectId
+  );
+
+  await User.updateOne(
+    {
+      _id:
+        driverObjectId,
+
+      role:
+        "driver"
+    },
+
+    {
+      $inc: {
+        "driverProfile.cancelledRides":
+          1
+      }
+    }
+  );
+
+  socketEvents.emitBookingEvent({
+    booking,
+
+    eventName:
+      "ride:driver-released",
+
+    message:
+      "Driver ne unconfirmed ride release ki. Naya driver search ho raha hai.",
+
+    status:
+      booking.status,
+
+    metadata: {
+      previousDriverId:
+        driverObjectId,
+
+      reason:
+        cleanReason
+    },
+
+    sendToDriver:
+      true,
+
+    sendToCustomer:
+      true,
+
+    sendToAdmins:
+      true
+  });
+
+  safeEmit(
+    emitRideStatusUpdated,
+    {
+      booking,
+
+      status:
+        booking.status
+    }
+  );
+
+  let dispatchResult =
+    null;
+
+  try {
+    dispatchResult =
+      await dispatchRide({
+        bookingId:
+          booking._id
+      });
+  } catch (dispatchError) {
+    console.error(
+      "[driverReleaseRide re-dispatch]",
+      dispatchError.message
+    );
+  }
+
+  const populated =
+    await getBookingOrThrow(
+      booking._id,
+      {
+        populate: true
+      }
+    );
+
+  return {
+    booking:
+      populated,
+
+    dispatch:
+      dispatchResult
+  };
+}
+
 
 /*
 |--------------------------------------------------------------------------
@@ -3105,6 +3400,331 @@ async function rateCustomer({
   return booking;
 }
 
+async function acceptRideAtomic({
+  bookingId,
+  driverId
+}) {
+  const bookingObjectId =
+    objectId(
+      bookingId,
+      "Booking ID"
+    );
+
+  const driverObjectId =
+    objectId(
+      driverId,
+      "Driver ID"
+    );
+
+  await getDriverOrThrow(
+    driverObjectId
+  );
+
+  const busyDriver =
+    await markDriverBusy(
+      driverObjectId,
+      bookingObjectId
+    );
+
+  if (!busyDriver) {
+    throw new RideServiceError(
+      "Driver is no longer available",
+      409,
+      "DRIVER_NOT_AVAILABLE"
+    );
+  }
+
+  try {
+    const otp =
+      generateOtp(4);
+
+    const otpHash =
+      await bcrypt.hash(
+        otp,
+        10
+      );
+
+    const now =
+      new Date();
+
+    const otpExpiresAt =
+      addMinutes(
+        now,
+        DEFAULT_OTP_EXPIRY_MINUTES
+      );
+
+    const booking =
+      await Booking.findOneAndUpdate(
+        {
+          _id:
+            bookingObjectId,
+
+          driver:
+            null,
+
+          status: {
+            $in: [
+              "pending",
+              "searching_driver"
+            ]
+          },
+
+          rejectedDrivers: {
+            $ne:
+              driverObjectId
+          },
+
+          $or: [
+            {
+              dispatchQueue: {
+                $elemMatch: {
+                  driver:
+                    driverObjectId,
+
+                  status:
+                    "pending",
+
+                  expiresAt: {
+                    $gt:
+                      now
+                  }
+                }
+              }
+            },
+
+            {
+              dispatchQueue: {
+                $size: 0
+              }
+            }
+          ]
+        },
+
+        {
+          $set: {
+            driver:
+              driverObjectId,
+
+            status:
+              "accepted",
+
+            acceptedAt:
+              now,
+
+            fareStatus:
+              "not_offered",
+
+            fareOfferedBy:
+              null,
+
+            driverOfferedFare:
+              null,
+
+            customerCounterFare:
+              null,
+
+            driverFinalFareProposal:
+              null,
+
+            finalFare:
+              null,
+
+            fareAcceptedAt:
+              null,
+
+            rideStartOtp: {
+              otpHash,
+
+              expiresAt:
+                otpExpiresAt,
+
+              attempts: 0,
+
+              maxAttempts:
+                MAX_OTP_ATTEMPTS,
+
+              verified:
+                false,
+
+              verifiedAt:
+                null
+            }
+          }
+        },
+
+        {
+          new: true,
+          runValidators: true
+        }
+      ).select(
+        "+rideStartOtp.otpHash"
+      );
+
+    if (!booking) {
+      await releaseDriver(
+        driverObjectId,
+        bookingObjectId
+      );
+
+      throw new RideServiceError(
+        "Ride request ab kisi aur driver ne accept kar li ya expire ho gayi",
+        409,
+        "RIDE_REQUEST_UNAVAILABLE"
+      );
+    }
+
+    booking.dispatchQueue.forEach(
+      (request) => {
+        if (
+          String(
+            request.driver
+          ) ===
+          String(
+            driverObjectId
+          )
+        ) {
+          request.status =
+            "accepted";
+        } else if (
+          request.status ===
+          "pending"
+        ) {
+          request.status =
+            "ignored";
+        }
+      }
+    );
+
+    await booking.save();
+
+    const populated =
+      await getBookingOrThrow(
+        booking._id,
+        {
+          populate: true
+        }
+      );
+
+    safeEmit(
+      emitRideAccepted,
+      {
+        booking:
+          populated,
+
+        driverId:
+          driverObjectId
+      }
+    );
+
+    safeEmit(
+      emitRideOtpGenerated,
+      {
+        booking:
+          populated,
+
+        rideStartOtp:
+          otp,
+
+        otpExpiresAt
+      }
+    );
+
+    safeEmit(
+      emitRideStatusUpdated,
+      {
+        booking:
+          populated,
+
+        status:
+          populated.status
+      }
+    );
+
+    return {
+      booking:
+        populated,
+
+      rideStartOtp:
+        otp,
+
+      otpExpiresAt
+    };
+  } catch (error) {
+    await releaseDriver(
+      driverObjectId,
+      bookingObjectId
+    );
+
+    throw error;
+  }
+}
+
+async function driverCanAcceptNewRide(
+  driverId
+) {
+  const driver =
+    await User.findOne({
+      _id:
+        objectId(
+          driverId,
+          "Driver ID"
+        ),
+
+      role:
+        "driver"
+    }).select(
+      "wallet.commissionDue wallet.cashCommissionDue wallet.balance isOnline isAvailable currentRide"
+    );
+
+  if (!driver) {
+    return {
+      allowed:
+        false,
+
+      reason:
+        "Driver not found"
+    };
+  }
+
+  const commissionDue =
+    Math.max(
+      Number(
+        driver.wallet
+          ?.commissionDue ||
+          0
+      ),
+      Number(
+        driver.wallet
+          ?.cashCommissionDue ||
+          0
+      )
+    );
+
+  if (commissionDue > 0) {
+    return {
+      allowed:
+        false,
+
+      reason:
+        `₹${commissionDue} platform commission due hai`,
+
+      commissionDue
+    };
+  }
+
+  return {
+    allowed:
+      Boolean(
+        driver.isOnline &&
+          driver.isAvailable &&
+          !driver.currentRide
+      ),
+
+    commissionDue:
+      0
+  };
+}
+
 module.exports = {
   RideServiceError,
 
@@ -3118,7 +3738,10 @@ module.exports = {
   findNearestDrivers,
   dispatchRide,
   acceptRide,
+  acceptRideAtomic,
   rejectRide,
+  driverReleaseRide,
+  driverCanAcceptNewRide,
 
   expireDriverRequests,
   expireBooking,

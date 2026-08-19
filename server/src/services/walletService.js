@@ -43,6 +43,16 @@ async function createLedgerEntry(data) {
 
 async function settleRidePayment(bookingOrId) {
   const bookingId = bookingOrId?._id || bookingOrId;
+
+  // ADD-ONLY: Prepaid payment can be paid before ride completion, but driver
+  // earning/commission settlement must wait until the service (ride) completes.
+  const settlementGate = await Booking.findById(bookingId).select("status paymentStatus walletSettlementStatus");
+  if (!settlementGate || settlementGate.paymentStatus !== "paid") {
+    return settlementGate;
+  }
+  if (settlementGate.status !== "completed") {
+    return settlementGate;
+  }
   const locked = await Booking.findOneAndUpdate(
     {
       _id: bookingId,
@@ -83,7 +93,12 @@ async function settleRidePayment(bookingOrId) {
       // Purani cash rides ki unpaid company commission ko next online earning se
       // automatically recover karo. Driver ko gross earning report me poora net
       // earning dikhega, par wallet credit due commission minus karke hoga.
-      const oldCommissionDue = money(driver.wallet?.cashCommissionDue);
+      const oldCommissionDue = money(
+        Math.max(
+          Number(driver.wallet?.cashCommissionDue || 0),
+          Number(driver.wallet?.commissionDue || 0)
+        )
+      );
       const recoveredDue = Math.min(oldCommissionDue, driverEarning);
       const walletCredit = money(driverEarning - recoveredDue);
 
@@ -93,7 +108,8 @@ async function settleRidePayment(bookingOrId) {
           $inc: {
             "wallet.balance": walletCredit,
             "wallet.totalEarned": driverEarning,
-            "wallet.cashCommissionDue": -recoveredDue,
+            "wallet.cashCommissionDue": -Math.min(recoveredDue, Number(driver.wallet?.cashCommissionDue || 0)),
+            "wallet.commissionDue": -Math.min(recoveredDue, Number(driver.wallet?.commissionDue || 0)),
             "wallet.totalCommissionPaid": recoveredDue
           },
           $set: { "wallet.lastSettledAt": new Date() }
@@ -133,6 +149,7 @@ async function settleRidePayment(bookingOrId) {
             "wallet.balance": -commissionDebit,
             "wallet.totalEarned": driverEarning,
             "wallet.cashCommissionDue": due,
+            "wallet.commissionDue": due,
             "wallet.totalCommissionPaid": commissionDebit
           },
           $set: { "wallet.lastSettledAt": new Date() }

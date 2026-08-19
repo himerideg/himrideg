@@ -43,6 +43,18 @@ function Footer() {
         </div>
       </div>
 
+      <div className="footerLegalSummary">
+        <section id="privacy">
+          <h3>Privacy</h3>
+          <p>HimRideG account, booking, location, driver verification aur payment data ko service operate karne, safety aur legal compliance ke liye process karta hai. Payment secrets browser me store nahi kiye jaate.</p>
+        </section>
+
+        <section id="terms">
+          <h3>Terms</h3>
+          <p>HimRideG verified commercial taxi drivers aur customers ko connect karta hai. Fare driver-customer negotiation ke baad customer acceptance par lock hota hai. Ride, cancellation aur payment records safety aur settlement ke liye maintain hote hain.</p>
+        </section>
+      </div>
+
       <div className="footerBottom">
         <p>
           © {new Date().getFullYear()} HimRideG. All rights reserved.

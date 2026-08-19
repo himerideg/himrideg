@@ -2194,7 +2194,29 @@ const handleFareNegotiation =
             fareAcceptedData
           );
 
-          // Payment popup fare accept par nahi; ride completion ke baad hi.
+          io.to(
+            getUserRoom(
+              customerId
+            )
+          ).emit(
+            SOCKET_EVENTS
+              .PAYMENT_REQUESTED,
+
+            {
+              bookingId,
+
+              finalFare,
+
+              message:
+                "Ride complete hone par payment karna hoga",
+
+              paymentMethods:
+                [
+                  "online",
+                  "cash",
+                ],
+            }
+          );
 
           sendSuccess(
             callback,

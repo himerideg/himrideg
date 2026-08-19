@@ -19,14 +19,16 @@ import L from "leaflet";
 
 import "leaflet/dist/leaflet.css";
 
-import api from "../api";
+import api, { apiBaseUrl } from "../api";
 import socket from "../socket";
 
 import DriverLocationTracker from "../DriverLocationTracker";
 import DriverRideMap from "../DriverRideMap";
 import DriverWarnings from "../components/DriverWarnings";
+import DriverPaymentModal from "../components/DriverPaymentModal";
 
 import "../driver-dashboard.css";
+import "../payment-modal.css";
 
 /*
 |--------------------------------------------------------------------------
@@ -442,6 +444,118 @@ function getFinalFare(ride) {
   return Number.isFinite(numericFare)
     ? numericFare
     : 0;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Payment-aware Driver Ride State
+|--------------------------------------------------------------------------
+|
+| Backend ride `status` physical trip complete hote hi `completed` hota hai.
+| Driver UI me final Completed tab/count tabhi maana jayega jab payment paid ho.
+| Isse customer payment pending phase clearly `Waiting for Payment` dikhega.
+|
+*/
+function getRidePaymentStatus(ride) {
+  return String(
+    ride?.paymentStatus ??
+      ride?.payment?.status ??
+      "pending"
+  )
+    .trim()
+    .toLowerCase();
+}
+
+function isRidePaymentPaid(ride) {
+  return ["paid", "completed"].includes(
+    getRidePaymentStatus(ride)
+  );
+}
+
+function getLockedFinalFare(ride) {
+  const value = Number(
+    ride?.finalFare ??
+      ride?.fare?.finalFare ??
+      0
+  );
+
+  return Number.isFinite(value) ? value : 0;
+}
+
+function isFinalFareLocked(ride) {
+  return Boolean(
+    ride &&
+      ride.fareStatus === "fare_accepted" &&
+      getLockedFinalFare(ride) > 0
+  );
+}
+
+function getPaymentPlan(ride) {
+  const explicit = String(ride?.paymentPlan || "").trim();
+
+  if (["online_after_ride", "advance", "scheduled"].includes(explicit)) {
+    return explicit;
+  }
+
+  if (ride?.paymentTiming === "pay_now") {
+    return "advance";
+  }
+
+  return null;
+}
+
+function isAdvancePaymentPending(ride) {
+  return (
+    getPaymentPlan(ride) === "advance" &&
+    !isRidePaymentPaid(ride)
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Driver Action Gate
+|--------------------------------------------------------------------------
+| Incoming request ke Accept/Reject aur fare-negotiation controls exception
+| hain. Assigned ride ke pickup/arrive/OTP/start/complete actions tabhi enable
+| honge jab final fare locked ho. Advance plan ho to payment paid bhi required.
+|--------------------------------------------------------------------------
+*/
+function canUseDriverRideActions(ride) {
+  if (!isFinalFareLocked(ride)) {
+    return false;
+  }
+
+  if (isAdvancePaymentPending(ride)) {
+    return false;
+  }
+
+  return true;
+}
+
+function isWaitingForPaymentRide(ride) {
+  return (
+    ride?.status === "completed" &&
+    !isRidePaymentPaid(ride)
+  );
+}
+
+function isFinalCompletedRide(ride) {
+  return (
+    ride?.status === "completed" &&
+    isRidePaymentPaid(ride)
+  );
+}
+
+function getDriverRideStatusLabel(ride) {
+  if (isWaitingForPaymentRide(ride)) {
+    return "Waiting for Payment";
+  }
+
+  return (
+    STATUS_LABELS[ride?.status] ||
+    ride?.status ||
+    "Unknown"
+  );
 }
 
 function getCommissionPercent(ride) {
@@ -1000,9 +1114,275 @@ function createNavigationUrl(coordinates) {
 
 
 /* ==========================================================================
+   Razorpay Checkout Loader
+   ========================================================================== */
+function loadRazorpayCheckout() {
+  if (window.Razorpay) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(
+      'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+    );
+
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Razorpay checkout load nahi hua")),
+        { once: true }
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () =>
+      reject(new Error("Razorpay checkout load nahi hua"));
+
+    document.body.appendChild(script);
+  });
+}
+
+/* ==========================================================================
+   Wallet Top-up Component
+   ========================================================================== */
+function WalletTopupForm({ onSuccess }) {
+  const [amount, setAmount] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [msg, setMsg] = React.useState({ text: "", type: "" });
+
+  const startTopup = async () => {
+    const topupAmount = Math.round(Number(amount || 0));
+
+    if (
+      !Number.isFinite(topupAmount) ||
+      topupAmount < 100 ||
+      topupAmount > 50000
+    ) {
+      setMsg({
+        text: "Top-up ₹100 se ₹50,000 ke beech rakho.",
+        type: "error"
+      });
+      return;
+    }
+
+    setLoading(true);
+    setMsg({ text: "", type: "" });
+
+    try {
+      await loadRazorpayCheckout();
+
+      const { data } = await api.post(
+        "/wallet/topup/create-order",
+        { amount: topupAmount }
+      );
+
+      const order = data?.data || data || {};
+
+      if (!order?.keyId || !order?.orderId) {
+        throw new Error("Wallet top-up order details incomplete hain");
+      }
+
+      const razorpay = new window.Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency || "INR",
+        name: "HimRideG",
+        description: "Driver Wallet Top-up",
+        order_id: order.orderId,
+        prefill: {
+          name: order.driverName || "Driver",
+          contact: order.driverPhone || ""
+        },
+        theme: {
+          color: "#f5c518"
+        },
+        handler: async (response) => {
+          try {
+            const verify = await api.post(
+              "/wallet/topup/verify",
+              {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                amount: topupAmount
+              }
+            );
+
+            setMsg({
+              text:
+                verify?.data?.message ||
+                "Wallet top-up successful",
+              type: "success"
+            });
+
+            setAmount("");
+            onSuccess?.(verify?.data?.data);
+          } catch (error) {
+            setMsg({
+              text:
+                error?.response?.data?.message ||
+                error?.message ||
+                "Top-up verify nahi hua",
+              type: "error"
+            });
+          } finally {
+            setLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setLoading(false)
+        }
+      });
+
+      razorpay.on("payment.failed", (response) => {
+        setLoading(false);
+
+        setMsg({
+          text:
+            response?.error?.description ||
+            "Wallet payment fail ho gayi",
+          type: "error"
+        });
+      });
+
+      razorpay.open();
+    } catch (error) {
+      setLoading(false);
+
+      setMsg({
+        text:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Wallet top-up start nahi hua",
+        type: "error"
+      });
+    }
+  };
+
+  return (
+    <div className="withdrawalFormWrap driverWalletTopupForm">
+      <div className="withdrawalFields">
+        <input
+          type="number"
+          min={100}
+          max={50000}
+          value={amount}
+          onChange={(event) =>
+            setAmount(event.target.value)
+          }
+          placeholder="Add Money amount (₹100 - ₹50,000)"
+        />
+      </div>
+
+      {msg.text && (
+        <p className={`withdrawalMsg ${msg.type}`}>
+          {msg.text}
+        </p>
+      )}
+
+      <button
+        type="button"
+        className="withdrawalSubmitBtn"
+        onClick={startTopup}
+        disabled={loading}
+      >
+        {loading
+          ? "Payment open ho rahi hai..."
+          : "＋ Add Money to Wallet"}
+      </button>
+    </div>
+  );
+}
+
+/* ==========================================================================
    Withdrawal Form Component
    ========================================================================== */
-function WithdrawalForm({ balance, walletData, onSuccess }) {
+function WithdrawalForm({ balance, onSuccess }) {
+  const [method, setMethod] = React.useState("upi");
+  const [amount, setAmount] = React.useState("");
+  const [upiId, setUpiId] = React.useState("");
+  const [bankName, setBankName] = React.useState("");
+  const [accountNumber, setAccountNumber] = React.useState("");
+  const [ifsc, setIfsc] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+  const [msg, setMsg] = React.useState({ text: "", type: "" });
+
+  const handleSubmit = async () => {
+    setMsg({ text: "", type: "" });
+    const amt = Number(amount);
+    if (!amt || amt < 100) {
+      setMsg({ text: "Minimum \u20b9100 withdrawal hai.", type: "error" });
+      return;
+    }
+    if (amt > balance) {
+      setMsg({ text: `Balance sirf \u20b9${balance.toFixed(0)} hai.`, type: "error" });
+      return;
+    }
+    if (method === "upi" && !upiId.trim()) {
+      setMsg({ text: "UPI ID enter karo.", type: "error" });
+      return;
+    }
+    if (method === "bank" && (!accountNumber.trim() || !ifsc.trim())) {
+      setMsg({ text: "Account number aur IFSC zaroori hai.", type: "error" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const payload = {
+        amount: amt,
+        upiId: method === "upi" ? upiId.trim() : "",
+        bankName: method === "bank" ? bankName.trim() : "",
+        accountNumber: method === "bank" ? accountNumber.trim() : "",
+        ifsc: method === "bank" ? ifsc.trim() : ""
+      };
+      const { data } = await api.post("/driver/withdrawal", payload);
+      setMsg({ text: data?.message || "Request submit ho gayi!", type: "success" });
+      setAmount(""); setUpiId(""); setBankName(""); setAccountNumber(""); setIfsc("");
+      if (onSuccess) onSuccess();
+    } catch (error) {
+      setMsg({ text: error?.response?.data?.message || "Request submit nahi ho saki.", type: "error" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="withdrawalFormWrap">
+      <div className="withdrawalMethodTabs">
+        <button type="button" className={method === "upi" ? "active" : ""} onClick={() => setMethod("upi")}>UPI</button>
+        <button type="button" className={method === "bank" ? "active" : ""} onClick={() => setMethod("bank")}>Bank Transfer</button>
+      </div>
+      <div className="withdrawalFields">
+        <input type="number" placeholder={`Amount (min \u20b9100, max \u20b9${balance.toFixed(0)})`} value={amount} min={100} max={balance} onChange={e => setAmount(e.target.value)} />
+        {method === "upi" && (
+          <input type="text" placeholder="UPI ID (e.g. name@upi)" value={upiId} onChange={e => setUpiId(e.target.value)} />
+        )}
+        {method === "bank" && (<>
+          <input type="text" placeholder="Bank Name" value={bankName} onChange={e => setBankName(e.target.value)} />
+          <input type="text" placeholder="Account Number" value={accountNumber} onChange={e => setAccountNumber(e.target.value)} />
+          <input type="text" placeholder="IFSC Code" value={ifsc} onChange={e => setIfsc(e.target.value.toUpperCase())} />
+        </>)}
+      </div>
+      {msg.text && <p className={`withdrawalMsg ${msg.type}`}>{msg.text}</p>}
+      <button type="button" className="withdrawalSubmitBtn" onClick={handleSubmit} disabled={submitting || balance < 100}>
+        {submitting ? "Submit ho raha hai..." : "Withdrawal Request Bhejo"}
+      </button>
+      {balance < 100 && <p className="withdrawalMsg error">Minimum \u20b9100 balance chahiye.</p>}
+    </div>
+  );
+}
+
+
+/* ==========================================================================
+   ADD-ONLY: Real RazorpayX Instant + Scheduled Payout
+   Legacy admin withdrawal form above remains untouched.
+   ========================================================================== */
+function InstantPayoutForm({ balance, walletData, onSuccess }) {
   const saved = walletData?.savedPayout || {};
   const settings = walletData?.payoutSettings || {};
   const [method, setMethod] = React.useState(saved.preferredMethod || "upi");
@@ -1240,6 +1620,11 @@ function DriverDashboard({
   ] = useState("");
 
   const [
+    driverPaymentModalRide,
+    setDriverPaymentModalRide
+  ] = useState(null);
+
+  const [
     notice,
     setNotice
   ] = useState({
@@ -1279,6 +1664,7 @@ function DriverDashboard({
     setEarningsOpen
   ] = useState(false);
 
+  // ADD-ONLY: live wallet summary for instant payout; legacy profile wallet remains.
   const [walletData, setWalletData] = useState(null);
   const [walletLoading, setWalletLoading] = useState(false);
 
@@ -1362,13 +1748,17 @@ function DriverDashboard({
     );
   }, [bookings]);
 
+
   const loadWallet = useCallback(async () => {
     setWalletLoading(true);
     try {
       const { data } = await api.get("/driver/wallet");
       if (data?.success) setWalletData(data.data);
     } catch (error) {
-      console.error("Wallet load error:", error?.response?.data?.message || error.message);
+      console.error(
+        "Wallet load error:",
+        error?.response?.data?.message || error.message
+      );
     } finally {
       setWalletLoading(false);
     }
@@ -1378,42 +1768,52 @@ function DriverDashboard({
     if (earningsOpen) loadWallet();
   }, [earningsOpen, loadWallet]);
 
-  // NEW: Sync legalName & approval status from user prop → profileData
-  // This ensures socket updates (driver:name:updated, driver:approved) reflect immediately
+  /*
+  |--------------------------------------------------------------------------
+  | Sync Fresh Driver Profile From Parent
+  |--------------------------------------------------------------------------
+  | Parent App /driver/profile se MongoDB ka latest driver snapshot load karta
+  | hai. Yahan documents ko bhi mandatory sync karna zaroori hai. Purane code
+  | me legalName/approval same hone par early return ho jata tha, isliye admin
+  | verified documents update hone ke baad bhi profileData stale reh sakta tha.
+  */
   useEffect(() => {
     if (!user) return;
-    setProfileData(prev => {
-      if (!prev) return user;
-      const newLegalName = user?.driverProfile?.legalName;
-      const newLegalNameVerified = user?.driverProfile?.legalNameVerified;
-      const newApprovalStatus = user?.driverProfile?.approvalStatus;
-      const newIsApproved = user?.driverProfile?.isApproved;
-      if (
-        newLegalName === prev?.driverProfile?.legalName &&
-        newLegalNameVerified === prev?.driverProfile?.legalNameVerified &&
-        newApprovalStatus === prev?.driverProfile?.approvalStatus
-      ) return prev;
-      return {
-        ...prev,
-        isApproved: user?.isApproved ?? prev?.isApproved,
-        approved: user?.approved ?? prev?.approved,
+
+    setProfileData((previous) => {
+      const base = previous || {};
+
+      const merged = {
+        ...base,
+        ...user,
         driverProfile: {
-          ...(prev?.driverProfile || {}),
-          legalName: newLegalName ?? prev?.driverProfile?.legalName,
-          legalNameVerified: newLegalNameVerified ?? prev?.driverProfile?.legalNameVerified,
-          approvalStatus: newApprovalStatus ?? prev?.driverProfile?.approvalStatus,
-          isApproved: newIsApproved ?? prev?.driverProfile?.isApproved,
-          documents: user?.driverProfile?.documents || prev?.driverProfile?.documents
+          ...(base.driverProfile || {}),
+          ...(user.driverProfile || {}),
+          documents: Array.isArray(
+            user?.driverProfile?.documents
+          )
+            ? user.driverProfile.documents
+            : (
+                base?.driverProfile?.documents ||
+                []
+              )
         }
       };
+
+      try {
+        if (
+          JSON.stringify(previous) ===
+          JSON.stringify(merged)
+        ) {
+          return previous;
+        }
+      } catch (_) {
+        // Merge continue karega.
+      }
+
+      return merged;
     });
-  }, [
-    user?.driverProfile?.legalName,
-    user?.driverProfile?.legalNameVerified,
-    user?.driverProfile?.approvalStatus,
-    user?.driverProfile?.isApproved,
-    user?.driverProfile?.documents
-  ]);
+  }, [user]);
 
   /*
   |--------------------------------------------------------------------------
@@ -1421,19 +1821,53 @@ function DriverDashboard({
   |--------------------------------------------------------------------------
   */
   useEffect(() => {
-    const REQUIRED = ["aadhaar","driving_license","vehicle_rc","vehicle_photo","permit"];
-    const docs = user?.driverProfile?.documents || [];
-    const hasIssue = REQUIRED.some(type => {
-      const doc = docs.find(d => d.documentType === type && d.documentUrl);
-      if (!doc) return true; // not uploaded
-      if (doc.verificationStatus === "rejected") return true;
-      return false;
+    const REQUIRED = [
+      "aadhaar",
+      "driving_license",
+      "vehicle_rc",
+      "vehicle_photo",
+      "permit"
+    ];
+
+    const docs = Array.isArray(
+      profileData?.driverProfile?.documents
+    )
+      ? profileData.driverProfile.documents
+      : (
+          user?.driverProfile?.documents ||
+          []
+        );
+
+    const hasIssue = REQUIRED.some((type) => {
+      const doc = docs.find(
+        (item) =>
+          item.documentType === type &&
+          item.documentUrl
+      );
+
+      if (!doc) return true;
+
+      return (
+        doc.verificationStatus ===
+        "rejected"
+      );
     });
-    if (hasIssue) {
-      const timer = setTimeout(() => setDocReminderOpen(true), 1200);
-      return () => clearTimeout(timer);
+
+    if (!hasIssue) {
+      setDocReminderOpen(false);
+      return undefined;
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const timer = setTimeout(
+      () => setDocReminderOpen(true),
+      1200
+    );
+
+    return () => clearTimeout(timer);
+  }, [
+    profileData?.driverProfile?.documents,
+    user?.driverProfile?.documents
+  ]);
 
   /*
   |--------------------------------------------------------------------------
@@ -1814,16 +2248,31 @@ function DriverDashboard({
     };
 
     const handleFareAccepted = (payload = {}) => {
-      handleFareUpdate({
-        ...payload,
+      const bookingId = String(payload?.bookingId || "");
+      const currentRide = localBookings.find(
+        (ride) => getId(ride) === bookingId
+      );
+
+      const mergedRide = {
+        ...(currentRide || {}),
+        ...(payload || {}),
+        _id: currentRide?._id || payload?._id || bookingId,
         fareStatus: "fare_accepted",
-        status: "fare_accepted"
-      });
+        status: "fare_accepted",
+        finalFare: Number(
+          payload?.finalFare ||
+            getLockedFinalFare(currentRide) ||
+            0
+        )
+      };
+
+      handleFareUpdate(mergedRide);
+      setDriverPaymentModalRide(mergedRide);
 
       showNotice(
         "success",
         payload.message ||
-          "Fare final lock ho gaya."
+          "Fare final lock ho gaya. Customer payment option choose karega."
       );
     };
 
@@ -1838,6 +2287,65 @@ function DriverDashboard({
         "error",
         payload.message ||
           "Fare offer reject hua. Naya offer bhejo."
+      );
+    };
+
+    const handlePaymentUpdate = (payload = {}) => {
+      const bookingId = String(payload?.bookingId || "");
+      if (!bookingId) return;
+
+      setLocalBookings((previous) =>
+        previous.map((ride) =>
+          getId(ride) === bookingId
+            ? { ...ride, ...payload }
+            : ride
+        )
+      );
+
+      setDriverPaymentModalRide((current) => {
+        if (current && getId(current) === bookingId) {
+          return { ...current, ...payload };
+        }
+
+        const ride = localBookings.find(
+          (item) => getId(item) === bookingId
+        );
+
+        return ride ? { ...ride, ...payload } : current;
+      });
+
+      loadBookings?.();
+    };
+
+    const handlePaymentPlanUpdated = (payload = {}) => {
+      handlePaymentUpdate(payload);
+      setDriverPaymentModalRide((current) => {
+        const bookingId = String(payload?.bookingId || "");
+        if (current && getId(current) === bookingId) {
+          return { ...current, ...payload };
+        }
+        const ride = localBookings.find((item) => getId(item) === bookingId);
+        return ride ? { ...ride, ...payload } : current;
+      });
+
+      showNotice(
+        "success",
+        payload?.paymentPlan === "advance"
+          ? "Customer ne Advance Payment select ki. Payment paid hone tak ride actions locked hain."
+          : payload?.paymentPlan === "scheduled"
+            ? "Customer ne Scheduled Payment select ki. Pay Now option available hai."
+            : "Customer ne Payment Online select ki."
+      );
+    };
+
+    const handlePaymentCompleted = (payload = {}) => {
+      handlePaymentUpdate({
+        ...payload,
+        paymentStatus: "paid"
+      });
+      showNotice(
+        "success",
+        "Customer payment complete ho gayi."
       );
     };
 
@@ -1939,6 +2447,21 @@ function DriverDashboard({
       handleFareUpdate
     );
 
+    socket.on(
+      "payment:plan-updated",
+      handlePaymentPlanUpdated
+    );
+
+    socket.on(
+      "payment:method-updated",
+      handlePaymentUpdate
+    );
+
+    socket.on(
+      "payment:completed",
+      handlePaymentCompleted
+    );
+
     if (
       !socket.connected
     ) {
@@ -2034,6 +2557,21 @@ function DriverDashboard({
       socket.off(
         "fare:status:updated",
         handleFareUpdate
+      );
+
+      socket.off(
+        "payment:plan-updated",
+        handlePaymentPlanUpdated
+      );
+
+      socket.off(
+        "payment:method-updated",
+        handlePaymentUpdate
+      );
+
+      socket.off(
+        "payment:completed",
+        handlePaymentCompleted
       );
     };
   }, [
@@ -2275,6 +2813,68 @@ function DriverDashboard({
       return;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Customer counter ke baad Driver FINAL Fare
+    |--------------------------------------------------------------------------
+    |
+    | Latest HimRideG rule:
+    | Driver initial fare -> Customer counter -> Driver FINAL fare ->
+    | Customer Accept / Reject -> Accept par fare lock.
+    |
+    */
+
+    if (ride?.fareStatus === "customer_countered") {
+      setFareAction(`${bookingId}:final`);
+
+      try {
+        const { data } = await api.post(
+          `/fares/${bookingId}/driver-final`,
+          { fare }
+        );
+
+        const result = data?.data || data || {};
+
+        setLocalBookings((previous) =>
+          previous.map((item) =>
+            getId(item) === bookingId
+              ? {
+                  ...item,
+                  driverFinalFareProposal: fare,
+                  fareStatus: "driver_final",
+                  fareOfferedBy: "driver",
+                  fareOfferCount: Number(result.fareOfferCount || item.fareOfferCount || 0),
+                  status: result.rideStatus || "negotiating"
+                }
+              : item
+          )
+        );
+
+        setFareInputs((current) => ({
+          ...current,
+          [bookingId]: ""
+        }));
+
+        showNotice(
+          "success",
+          `₹${fare.toFixed(0)} final fare customer ko bhej diya. Ab customer Accept / Reject karega.`
+        );
+
+        await loadBookings?.();
+      } catch (error) {
+        showNotice(
+          "error",
+          error?.response?.data?.message ||
+            error?.message ||
+            "Final fare nahi bheja ja saka."
+        );
+      } finally {
+        setFareAction("");
+      }
+
+      return;
+    }
+
     setFareAction(`${bookingId}:offer`);
 
     socket.emit(
@@ -2473,6 +3073,133 @@ function DriverDashboard({
         setRequestExpiresAt(
           null
         );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Driver Release Accepted / Unconfirmed Ride
+  |--------------------------------------------------------------------------
+  |
+  | Customer response na de, fare lock na ho ya ride confirm na ho to driver
+  | current ride release kar sakta hai. Customer booking cancel nahi hoti;
+  | current driver free hota hai aur ride dobara dispatch hoti hai.
+  |
+  */
+
+  const releaseAcceptedRide =
+    async (ride) => {
+      const bookingId =
+        getId(ride);
+
+      if (!bookingId) {
+        showNotice(
+          "error",
+          "Booking ID nahi mili."
+        );
+
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          "Is unconfirmed ride ko release karna hai? Aap turant next ride lene ke liye available ho jayenge."
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setLoadingAction(
+        `${bookingId}:release`
+      );
+
+      try {
+        const { data } =
+          await api.patch(
+            `/rides/${bookingId}/driver-release`,
+            {
+              reason:
+                "Customer not responding / ride not confirmed"
+            }
+          );
+
+        showNotice(
+          "success",
+          data?.message ||
+            "Ride release ho gayi. Aap next ride le sakte hain."
+        );
+
+        setIncomingRide(null);
+        setRequestExpiresAt(null);
+        setSelectedRideId("");
+
+        await loadBookings?.();
+      } catch (error) {
+        showNotice(
+          "error",
+          error?.response?.data?.message ||
+            error?.message ||
+            "Ride release nahi hui."
+        );
+      } finally {
+        setLoadingAction("");
+      }
+    };
+
+  const confirmCashReceived =
+    async (ride) => {
+      const bookingId =
+        getId(ride);
+
+      if (!bookingId) {
+        return;
+      }
+
+      const fare =
+        Number(
+          getFinalFare(ride) ||
+          0
+        );
+
+      const confirmed =
+        window.confirm(
+          `Customer se ₹${fare.toFixed(0)} cash receive hua confirm karna hai?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setLoadingAction(
+        `${bookingId}:cash-confirm`
+      );
+
+      try {
+        const { data } =
+          await api.post(
+            "/payments/cash-confirm",
+            {
+              bookingId
+            }
+          );
+
+        showNotice(
+          "success",
+          data?.message ||
+            "Cash payment confirmed."
+        );
+
+        await loadBookings?.();
+      } catch (error) {
+        showNotice(
+          "error",
+          error?.response?.data?.message ||
+            error?.message ||
+            "Cash payment confirm nahi hui."
+        );
+      } finally {
+        setLoadingAction("");
       }
     };
 
@@ -2699,7 +3426,7 @@ function DriverDashboard({
             ),
 
         successMessage:
-          "Ride complete ho gayi. Aap dobara available hain."
+          "Ride destination par complete ho gayi. Ab customer payment ka wait hai."
       });
     };
 
@@ -3051,11 +3778,41 @@ function DriverDashboard({
         "started"
     ).length;
 
+  const waitingPaymentRideList =
+    displayBookings
+      .filter(
+        (ride) =>
+          isWaitingForPaymentRide(
+            ride
+          )
+      )
+      .sort(
+        (a, b) =>
+          new Date(
+            b?.completedAt ||
+              b?.updatedAt ||
+              0
+          ).getTime() -
+          new Date(
+            a?.completedAt ||
+              a?.updatedAt ||
+              0
+          ).getTime()
+      );
+
+  const waitingPaymentRides =
+    waitingPaymentRideList.length;
+
+  const latestWaitingPaymentRide =
+    waitingPaymentRideList[0] ||
+    null;
+
   const completedRides =
     displayBookings.filter(
       (ride) =>
-        ride.status ===
-        "completed"
+        isFinalCompletedRide(
+          ride
+        )
     ).length;
 
   const requestRides =
@@ -3074,16 +3831,33 @@ function DriverDashboard({
       [displayBookings]
     );
 
+  /*
+  |--------------------------------------------------------------------------
+  | Explicit Ride Selection
+  |--------------------------------------------------------------------------
+  |
+  | Incoming ride pehle LIST me aayegi. Driver jab kisi ride par tap/click
+  | karega tabhi selectedRide set hogi aur Accept / Reject detail me dikhenge.
+  | Pehli request ko automatic open nahi karna.
+  |
+  */
+
   const selectedRide =
     useMemo(
-      () =>
-        requestRides.find(
-          (ride) =>
-            getId(ride) ===
-            selectedRideId
-        ) ||
-        requestRides[0] ||
-        null,
+      () => {
+        if (!selectedRideId) {
+          return null;
+        }
+
+        return (
+          requestRides.find(
+            (ride) =>
+              getId(ride) ===
+              selectedRideId
+          ) ||
+          null
+        );
+      },
       [
         displayBookings,
         requestRides,
@@ -3093,16 +3867,19 @@ function DriverDashboard({
 
   useEffect(() => {
     if (
-      selectedRide &&
-      getId(selectedRide) !==
-        selectedRideId
+      selectedRideId &&
+      !requestRides.some(
+        (ride) =>
+          getId(ride) ===
+          selectedRideId
+      )
     ) {
       setSelectedRideId(
-        getId(selectedRide)
+        ""
       );
     }
   }, [
-    selectedRide,
+    requestRides,
     selectedRideId
   ]);
 
@@ -3113,8 +3890,20 @@ function DriverDashboard({
       ) {
         return displayBookings.filter(
           (ride) =>
-            ride.status ===
-            "completed"
+            isFinalCompletedRide(
+              ride
+            )
+        );
+      }
+
+      if (
+        activeTab === "payment"
+      ) {
+        return displayBookings.filter(
+          (ride) =>
+            isWaitingForPaymentRide(
+              ride
+            )
         );
       }
 
@@ -3134,6 +3923,7 @@ function DriverDashboard({
           (ride) =>
             [
               "pending",
+              "searching",
               "searching_driver",
               "driver_assigned"
             ].includes(
@@ -3172,11 +3962,21 @@ function DriverDashboard({
         currentUserId
     );
 
+  const selectedFareLocked =
+    isFinalFareLocked(selectedRide);
+
+  const selectedAdvancePending =
+    isAdvancePaymentPending(selectedRide);
+
+  const selectedRideActionsEnabled =
+    canUseDriverRideActions(selectedRide);
+
   const selectedIsRequest =
     Boolean(
       selectedRide &&
       [
         "pending",
+        "searching",
         "searching_driver",
         "driver_assigned"
       ].includes(
@@ -3213,18 +4013,6 @@ function DriverDashboard({
       ? countdown
       : 30;
 
-  const confirmCashPayment = useCallback(async (ride) => {
-    const bookingId = getId(ride);
-    if (!bookingId) return;
-    try {
-      const { data } = await api.post("/payments/cash-confirm", { bookingId });
-      setNotice({ type: "success", message: data?.message || "Cash payment confirm ho gaya" });
-      await Promise.all([loadBookings?.(), loadWallet()]);
-    } catch (error) {
-      setNotice({ type: "error", message: error?.response?.data?.message || "Cash confirm nahi ho saka" });
-    }
-  }, [loadBookings, loadWallet]);
-
   const driverView =
     profileData || user || {};
 
@@ -3241,7 +4029,7 @@ function DriverDashboard({
     "Driver";
 
   const driverWallet =
-    walletData?.wallet || driverView?.wallet || {};
+    driverView?.wallet || {};
 
   /*
   |--------------------------------------------------------------------------
@@ -3567,6 +4355,7 @@ function DriverDashboard({
               <article><span>⏳</span><small>Pending</small><strong>{pendingRides}</strong></article>
               <article><span>✅</span><small>Accepted</small><strong>{acceptedRides}</strong></article>
               <article><span>🛣️</span><small>Ongoing</small><strong>{startedRides}</strong></article>
+              <article><span>💳</span><small>Waiting Payment</small><strong>{waitingPaymentRides}</strong></article>
               <article><span>🏁</span><small>Completed</small><strong>{completedRides}</strong></article>
               <article><span>⭐</span><small>Rating</small><strong>{Number(user?.driverProfile?.rating || 0).toFixed(1)}</strong></article>
             </div>
@@ -3612,7 +4401,13 @@ function DriverDashboard({
               </article>
               <article>
                 <span>Pending Amount</span>
-                <strong>₹{Number(driverWallet.pendingAmount || 0).toFixed(0)}</strong>
+                <strong>
+                  ₹{Number(
+                    driverWallet.pendingAmount ??
+                      driverWallet.pendingBalance ??
+                      0
+                  ).toFixed(0)}
+                </strong>
               </article>
               <article>
                 <span>Total Earned</span>
@@ -3623,7 +4418,7 @@ function DriverDashboard({
                 <strong>₹{Number(driverWallet.totalWithdrawn || 0).toFixed(0)}</strong>
               </article>
               <article>
-                <span>Today's Earning</span>
+                <span>Today Earnings</span>
                 <strong>₹{Number(walletData?.todayEarnings || 0).toFixed(0)}</strong>
               </article>
               <article>
@@ -3632,7 +4427,11 @@ function DriverDashboard({
               </article>
               <article>
                 <span>Cash Commission Due</span>
-                <strong>₹{Number(driverWallet.cashCommissionDue || 0).toFixed(0)}</strong>
+                <strong>₹{Number(walletData?.wallet?.cashCommissionDue ?? driverWallet.commissionDue ?? 0).toFixed(0)}</strong>
+              </article>
+              <article>
+                <span>Completed Trips</span>
+                <strong>{completedRides}</strong>
               </article>
               <article>
                 <span>Platform Commission</span>
@@ -3641,15 +4440,31 @@ function DriverDashboard({
             </div>
 
             <div className="driverWithdrawalForm">
+              <h3>＋ Add Money</h3>
+              <p>
+                Cash rides ki platform commission aur wallet balance ke liye
+                secure Razorpay top-up.
+              </p>
+
+              <WalletTopupForm
+                onSuccess={(data) => {
+                  if (data?.wallet) {
+                    setProfileData((current) => ({
+                      ...(current || {}),
+                      wallet: data.wallet
+                    }));
+                  }
+                }}
+              />
+            </div>
+
+            <div className="driverWithdrawalForm">
               <h3>\U0001f4b8 Withdrawal Request</h3>
               <p>Available Balance: <strong>\u20b9{Number(driverWallet.balance || 0).toFixed(0)}</strong></p>
-              {walletLoading && !walletData ? <p>Wallet load ho raha hai...</p> : (
-                <WithdrawalForm
-                  balance={Number(driverWallet.balance || 0)}
-                  walletData={walletData}
-                  onSuccess={loadWallet}
-                />
-              )}
+              <WithdrawalForm
+                balance={Number(driverWallet.balance || 0)}
+                onSuccess={() => setEarningsOpen(false)}
+              />
             </div>
           </section>
         </div>
@@ -3996,7 +4811,11 @@ function DriverDashboard({
                           const token = sessionStorage.getItem("himrideg_token") ||
                             sessionStorage.getItem("accessToken") || "";
                           const host = window.location.hostname || "localhost";
-                          const url = `http://${host}:5001/api/v2/driver/documents/${doc._id}/file`;
+                          const legacyDevelopmentUrl = `${apiBaseUrl}/driver/documents/${doc._id}/file`;
+                          const productionDocumentUrl = `${apiBaseUrl}/driver/documents/${doc._id}/file`;
+                          const url = import.meta.env.PROD
+                            ? productionDocumentUrl
+                            : legacyDevelopmentUrl;
                           const resp = await fetch(url, { headers: token ? { Authorization:`Bearer ${token}` } : {} });
                           if (!resp.ok) throw new Error("Fetch failed " + resp.status);
                           const blob = await resp.blob();
@@ -4067,7 +4886,7 @@ function DriverDashboard({
         <nav className="driverDesktopNav">
           <button className={activeTab === "dashboard" ? "active" : ""} type="button" onClick={() => setActiveTab("dashboard")}>Dashboard</button>
           <button className={activeTab === "requests" ? "active" : ""} type="button" onClick={() => setActiveTab("requests")}>Requests</button>
-          <button className={["active", "scheduled", "completed"].includes(activeTab) ? "active" : ""} type="button" onClick={() => setActiveTab("active")}>My Rides</button>
+          <button className={["active", "scheduled", "payment", "completed"].includes(activeTab) ? "active" : ""} type="button" onClick={() => setActiveTab("active")}>My Rides</button>
           <button type="button" onClick={() => setEarningsOpen(true)}>Earnings</button>
           <button type="button" onClick={() => setProfileOpen(true)}>Profile</button>
         </nav>
@@ -4115,12 +4934,75 @@ function DriverDashboard({
                 </header>
 
                 {!selectedRide ? (
-                  <div className="driverCustomerEmpty"><span>🚖</span><strong>Waiting for New Ride</strong><p>Online raho. Nayi customer booking yahin dikhai degi.</p></div>
+                  <div className="driverRequestCompactList">
+                    {tabRides.length ? (
+                      <>
+                        <p className="driverRequestListHint">Ride request par tap karo. Accept / Reject sirf details open hone ke baad aayega.</p>
+                        {tabRides.slice(0, 8).map((ride) => {
+                          const rideId = getId(ride);
+
+                          return (
+                            <button
+                              type="button"
+                              className="driverRequestCompactItem"
+                              key={rideId}
+                              onClick={() => setSelectedRideId(rideId)}
+                            >
+                              <span className="driverRequestCompactRoute">
+                                <small>PICKUP</small>
+                                <strong>{getPickupName(ride)}</strong>
+                                <small>DROP</small>
+                                <strong>{getDropName(ride)}</strong>
+                              </span>
+
+                              <span className="driverRequestCompactMeta">
+                                <b>{formatDistance(getDistance(ride))}</b>
+                                <em>{getDriverRideStatusLabel(ride)}</em>
+                                <i>Tap to view →</i>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </>
+                    ) : latestWaitingPaymentRide ? (
+                      <div className="driverCustomerEmpty driverWaitingPaymentState">
+                        <span>💳</span>
+                        <strong>Waiting for Payment</strong>
+                        <p>Ride destination par complete hai. Customer ke payment ka wait ho raha hai.</p>
+                        <b style={{color:"#f5c518",fontSize:"24px"}}>
+                          ₹{Number(getFinalFare(latestWaitingPaymentRide) || 0).toFixed(0)}
+                        </b>
+                        {String(latestWaitingPaymentRide.paymentChoiceAfterRide || "").toLowerCase() === "cash" ? (
+                          <button
+                            type="button"
+                            className="accept"
+                            disabled={Boolean(loadingAction)}
+                            onClick={() => confirmCashReceived(latestWaitingPaymentRide)}
+                            style={{marginTop:"12px"}}
+                          >
+                            💵 Confirm Cash Received
+                          </button>
+                        ) : (
+                          <small style={{marginTop:"10px",color:"#9fb0c2"}}>
+                            {String(latestWaitingPaymentRide.paymentChoiceAfterRide || "").toLowerCase() === "online"
+                              ? "Customer online payment complete karega."
+                              : "Customer Online ya Cash payment choose karega."}
+                          </small>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="driverCustomerEmpty">
+                        <span>🚖</span>
+                        <strong>Waiting for New Ride</strong>
+                        <p>Online raho. Nayi customer booking yahin list me dikhai degi.</p>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="driverCustomerRideBody">
                     <div className="driverCustomerRow">
                       <div className="driverCustomerAvatar">{getCustomerName(selectedRide).charAt(0).toUpperCase()}</div>
-                      <div><strong>{getCustomerName(selectedRide)}</strong><small>{STATUS_LABELS[selectedRide.status] || selectedRide.status}</small></div>
+                      <div><strong>{getCustomerName(selectedRide)}</strong><small>{getDriverRideStatusLabel(selectedRide)}</small></div>
                       {getCustomerPhone(selectedRide) !== "Not available" && <a href={`tel:${getCustomerPhone(selectedRide)}`}>☎</a>}
                     </div>
 
@@ -4144,10 +5026,35 @@ function DriverDashboard({
                             <article><small>COMMISSION</small><strong>₹{getCommissionAmount(selectedRide).toFixed(0)}</strong></article>
                             <article><small>YOUR EARNING</small><strong>₹{getDriverPayable(selectedRide).toFixed(0)}</strong></article>
                           </div>
+                        ) : selectedRide.fareStatus === "driver_final" ? (
+                          <div className="driverCustomerCounter">
+                            <p>FINAL Fare Sent</p>
+                            <strong>₹{Number(selectedRide.driverFinalFareProposal || 0).toFixed(0)}</strong>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Customer ke Accept / Reject ka wait ho raha hai.</small>
+                          </div>
                         ) : selectedRide.fareStatus === "customer_countered" ? (
                           <div className="driverCustomerCounter">
-                            <p>Customer Counter Offer</p><strong>₹{Number(selectedRide.customerCounterFare || 0).toFixed(0)}</strong>
-                            <div><button type="button" className="accept" onClick={() => acceptCustomerCounter(selectedRide)} disabled={Boolean(fareAction)}>Accept</button><button type="button" className="reject" onClick={() => rejectCustomerCounter(selectedRide)} disabled={Boolean(fareAction)}>Reject</button></div>
+                            <p>Customer Negotiation Fare</p>
+                            <strong>₹{Number(selectedRide.customerCounterFare || 0).toFixed(0)}</strong>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Ab aap FINAL fare bhejein. Customer dashboard par sirf Accept / Reject aayega.</small>
+                            <div className="driverCustomerFareInput" style={{marginTop:"12px"}}>
+                              <span>₹</span>
+                              <input
+                                type="number"
+                                min="50"
+                                max="10000"
+                                placeholder="Driver FINAL fare enter kare"
+                                value={fareInputs[selectedRideIdValue] ?? ""}
+                                onChange={(event) => setFareInputs((current) => ({...current,[selectedRideIdValue]: event.target.value}))}
+                              />
+                              <button
+                                type="button"
+                                disabled={Boolean(fareAction)}
+                                onClick={() => sendDriverFare(selectedRide)}
+                              >
+                                Send Final Fare
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <>
@@ -4170,16 +5077,107 @@ function DriverDashboard({
               </aside>
 
               <section className="driverCustomerMapCard">
-                <header><div><small>LIVE ROUTE</small><h2>{selectedRide ? "Pickup to Destination" : "Route Map"}</h2></div>{selectedRide && <span>{STATUS_LABELS[selectedRide.status] || selectedRide.status}</span>}</header>
-                <div className="driverCustomerMapStage">{selectedRide ? <DriverRideMap ride={selectedRide}/> : <div className="driverCustomerEmpty"><span>🗺️</span><strong>Waiting for Ride</strong></div>}</div>
-                {selectedRide && <div className="driverCustomerMapActions"><a href={createNavigationUrl(getPickupCoordinates(selectedRide))} target="_blank" rel="noreferrer">➤ Navigate Pickup</a><a href={createNavigationUrl(getDropCoordinates(selectedRide))} target="_blank" rel="noreferrer">➤ Navigate Destination</a><button type="button" onClick={() => setSelectedRideId(selectedRideIdValue)}>₹ Fare Negotiation</button></div>}
+                <header>
+                  <div>
+                    <small>{selectedRide ? "LIVE ROUTE" : latestWaitingPaymentRide ? "PAYMENT STATUS" : "LIVE ROUTE"}</small>
+                    <h2>{selectedRide ? "Pickup to Destination" : latestWaitingPaymentRide ? "Waiting for Payment" : "Route Map"}</h2>
+                  </div>
+                  {selectedRide && <span>{getDriverRideStatusLabel(selectedRide)}</span>}
+                  {!selectedRide && latestWaitingPaymentRide && <span>Payment Pending</span>}
+                </header>
+                <div className="driverCustomerMapStage">
+                  {selectedRide ? (
+                    <DriverRideMap ride={selectedRide}/>
+                  ) : latestWaitingPaymentRide ? (
+                    <div className="driverCustomerEmpty driverWaitingPaymentState">
+                      <span>💳</span>
+                      <strong>Waiting for Payment</strong>
+                      <p>Customer ka payment complete hote hi ride Completed me chali jayegi.</p>
+                    </div>
+                  ) : (
+                    <div className="driverCustomerEmpty"><span>🗺️</span><strong>Waiting for Ride</strong></div>
+                  )}
+                </div>
+                {selectedRide && (
+                  <div className="driverCustomerMapActions">
+                    {selectedRideActionsEnabled ? (
+                      <>
+                        <a href={createNavigationUrl(getPickupCoordinates(selectedRide))} target="_blank" rel="noreferrer">➤ Navigate Pickup</a>
+                        <a href={createNavigationUrl(getDropCoordinates(selectedRide))} target="_blank" rel="noreferrer">➤ Navigate Destination</a>
+                      </>
+                    ) : (
+                      <>
+                        <span className="driverActionLinkDisabled">🔒 Navigate Pickup</span>
+                        <span className="driverActionLinkDisabled">🔒 Navigate Destination</span>
+                      </>
+                    )}
+                    <button type="button" onClick={() => setSelectedRideId(selectedRideIdValue)}>₹ Fare Negotiation</button>
+                    {selectedFareLocked && (
+                      <button type="button" onClick={() => setDriverPaymentModalRide(selectedRide)}>
+                        💳 Payment Status
+                      </button>
+                    )}
+                  </div>
+                )}
                 {selectedRide && selectedAssignedToMe && (
                   <div className="driverCustomerRideActions">
-                    {selectedRide.status === "fare_accepted" && <button type="button" onClick={() => markArriving(selectedRide)}>🚕 Go to Pickup</button>}
-                    {["accepted","fare_offered","negotiating"].includes(selectedRide.status) && <button type="button" className="waiting" disabled>🔒 Fare final hone ka wait</button>}
-                    {selectedRide.status === "driver_arriving" && <button type="button" onClick={() => markArrived(selectedRide)}>📍 I Have Arrived</button>}
-                    {selectedRide.status === "driver_arrived" && <button type="button" onClick={() => { setOtpRide(selectedRide); setOtp(""); }}>🔐 Enter Customer OTP</button>}
-                    {selectedRide.status === "started" && <button type="button" className="complete" onClick={() => completeRide(selectedRide)}>🏁 Complete Ride</button>}
+                    {!selectedFareLocked && (
+                      <>
+                        <button type="button" className="waiting" disabled>
+                          🔒 Final Fare Lock Hone Tak Ride Actions Disabled
+                        </button>
+                        <button type="button" className="danger" disabled>
+                          🔒 Cancel / Release Locked
+                        </button>
+                      </>
+                    )}
+
+                    {selectedFareLocked && selectedAdvancePending && (
+                      <button type="button" className="waiting" disabled>
+                        🔒 Advance Payment Pending — Customer Pay Now Kare
+                      </button>
+                    )}
+
+                    {selectedRide.status === "fare_accepted" && (
+                      <button
+                        type="button"
+                        disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
+                        onClick={() => markArriving(selectedRide)}
+                      >
+                        🚕 Go to Pickup
+                      </button>
+                    )}
+
+                    {selectedRide.status === "driver_arriving" && (
+                      <button
+                        type="button"
+                        disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
+                        onClick={() => markArrived(selectedRide)}
+                      >
+                        📍 I Have Arrived
+                      </button>
+                    )}
+
+                    {selectedRide.status === "driver_arrived" && (
+                      <button
+                        type="button"
+                        disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
+                        onClick={() => { setOtpRide(selectedRide); setOtp(""); }}
+                      >
+                        🔐 Enter Customer OTP
+                      </button>
+                    )}
+
+                    {selectedRide.status === "started" && (
+                      <button
+                        type="button"
+                        className="complete"
+                        disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
+                        onClick={() => completeRide(selectedRide)}
+                      >
+                        🏁 Complete Ride
+                      </button>
+                    )}
                   </div>
                 )}
               </section>
@@ -4187,6 +5185,7 @@ function DriverDashboard({
               <aside className="driverCustomerSummary">
                 <header><div><small>TODAY'S SUMMARY</small><h2>Driver Summary</h2></div><button type="button" onClick={() => setSummaryOpen(true)}>☰</button></header>
                 <article><span>🚕</span><div><small>Total Rides</small><strong>{displayBookings.length}</strong></div></article>
+                <article><span>💳</span><div><small>Waiting Payment</small><strong>{waitingPaymentRides}</strong></div></article>
                 <article><span>✅</span><div><small>Completed</small><strong>{completedRides}</strong></div></article>
                 <article><span>🛣️</span><div><small>Active</small><strong>{acceptedRides + startedRides}</strong></div></article>
                 <article><span>₹</span><div><small>Total Earnings</small><strong>₹{Number(driverWallet.totalEarned || 0).toFixed(0)}</strong></div></article>
@@ -4198,14 +5197,14 @@ function DriverDashboard({
           <section className="driverRidesPage">
             <header><div><small>DRIVER RIDES</small><h2>{activeTab === "requests" ? "New Requests" : "My Rides"}</h2></div><button type="button" onClick={() => setActiveTab("dashboard")}>← Dashboard</button></header>
             <div className="driverRideTabs">
-              {[["requests","New Requests"],["scheduled","Scheduled"],["active","Active"],["completed","Completed"]].map(([value,label]) => <button type="button" key={value} className={activeTab === value ? "active" : ""} onClick={() => setActiveTab(value)}>{label}</button>)}
+              {[["requests","New Requests"],["scheduled","Scheduled"],["active","Active"],["payment","Waiting Payment"],["completed","Completed"]].map(([value,label]) => <button type="button" key={value} className={activeTab === value ? "active" : ""} onClick={() => setActiveTab(value)}>{label}</button>)}
             </div>
             <div className="driverRidesList">
               {tabRides.length ? tabRides.map((ride) => {
                 const rideId = getId(ride);
 
                 const completedDetailsOpen =
-                  activeTab === "completed" &&
+                  ["completed", "payment"].includes(activeTab) &&
                   completedRideOpenId === rideId;
 
                 return (
@@ -4213,7 +5212,7 @@ function DriverDashboard({
                     key={rideId}
                     onClick={() => {
                       if (
-                        activeTab === "completed"
+                        ["completed", "payment"].includes(activeTab)
                       ) {
                         setCompletedRideOpenId(
                           completedDetailsOpen
@@ -4390,6 +5389,14 @@ function DriverDashboard({
 
                           <p>
                             <strong>
+                              Status:
+                            </strong>
+                            {" "}
+                            {getDriverRideStatusLabel(ride)}
+                          </p>
+
+                          <p>
+                            <strong>
                               Completed:
                             </strong>
                             {" "}
@@ -4402,25 +5409,18 @@ function DriverDashboard({
                             }
                           </p>
 
-                          <p>
-                            <strong>Payment:</strong>{" "}
-                            {ride.paymentStatus === "paid"
-                              ? `✅ Paid (${ride.paymentMethod || "online"})`
-                              : ride.cashSelectedAt && ride.paymentMethod === "cash"
-                                ? "💵 Cash selected — confirmation pending"
-                                : "⏳ Payment pending"}
-                          </p>
-
-                          {ride.cashSelectedAt && ride.paymentMethod === "cash" && ride.paymentStatus !== "paid" && (
-                            <button
-                              type="button"
-                              className="withdrawalSubmitBtn"
-                              onClick={() => confirmCashPayment(ride)}
-                              style={{marginTop:8}}
-                            >
-                              ✓ Cash Received — Confirm Payment
-                            </button>
-                          )}
+                          {(String(ride.paymentChoiceAfterRide || "").toLowerCase() === "cash") &&
+                            !(["paid", "completed"].includes(String(ride.paymentStatus || ride?.payment?.status || "").toLowerCase())) && (
+                              <button
+                                type="button"
+                                className="accept"
+                                disabled={Boolean(loadingAction)}
+                                onClick={() => confirmCashReceived(ride)}
+                                style={{marginTop:"10px"}}
+                              >
+                                💵 Confirm Cash Received
+                              </button>
+                            )}
                         </div>
                       )
                     }
@@ -4429,6 +5429,13 @@ function DriverDashboard({
               }) : <div className="driverCustomerEmpty"><span>🚖</span><strong>Is section me koi ride nahi hai</strong></div>}
             </div>
           </section>
+        )}
+
+        {driverPaymentModalRide && (
+          <DriverPaymentModal
+            ride={driverPaymentModalRide}
+            onClose={() => setDriverPaymentModalRide(null)}
+          />
         )}
 
         {selectedRide && selectedAssignedToMe && LOCATION_TRACKING_STATUSES.includes(selectedRide.status) && <DriverLocationTracker bookingId={selectedRideIdValue} rideStatus={selectedRide.status}/>} 

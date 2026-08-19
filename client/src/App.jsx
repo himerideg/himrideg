@@ -10,6 +10,9 @@ import socket from "./socket";
 
 import Home from "./pages/Home";
 import AuthPage from "./pages/AuthPage";
+import CustomerLoginPage from "./pages/CustomerLoginPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
+import GoogleBasicInfo from "./pages/GoogleBasicInfo";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import DriverDashboard from "./pages/DriverDashboard";
 import DriverOnboarding from "./pages/DriverOnboarding";
@@ -124,9 +127,38 @@ function getId(value) {
 
 /*
 |--------------------------------------------------------------------------
-| App
+| Public URL Routing
 |--------------------------------------------------------------------------
+| Customer, Driver aur Admin login pages ab public URL se separate hain.
+| App React Router dependency ke bina history API use karta hai taaki
+| existing project structure preserve rahe.
 */
+
+function getPublicPageFromLocation() {
+  const path = String(window.location.pathname || "/").toLowerCase();
+  const routeHint = new URLSearchParams(window.location.search).get("route");
+
+  if (routeHint === "adminlogin" || path.startsWith("/adminlogin")) {
+    return "adminAuth";
+  }
+
+  if (routeHint === "driverlogin" || path.startsWith("/driverlogin")) {
+    return "driverAuth";
+  }
+
+  if (routeHint === "login" || path.startsWith("/login")) {
+    return "customerAuth";
+  }
+
+  return "home";
+}
+
+function publicPathForPage(page) {
+  if (page === "adminAuth") return "/adminlogin/";
+  if (page === "driverAuth") return "/driverlogin/";
+  if (page === "customerAuth") return "/login/";
+  return "/";
+}
 
 function App() {
   const notificationTimer =
@@ -169,9 +201,23 @@ function App() {
           "himrideg_user"
         );
 
-      return savedUser
-        ? "dashboard"
-        : "home";
+      if (!savedUser) {
+        return getPublicPageFromLocation();
+      }
+
+      try {
+        const parsedUser =
+          JSON.parse(
+            savedUser
+          );
+
+        return parsedUser
+          ?.needsBasicInfo
+          ? "basicInfo"
+          : "dashboard";
+      } catch {
+        return getPublicPageFromLocation();
+      }
     });
 
   const [
@@ -181,6 +227,30 @@ function App() {
     useState(
       "register"
     );
+
+  /*
+  |-----------------------------------------------------------------------
+  | Browser URL Sync For Public Login Pages
+  |-----------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    const routeHint = new URLSearchParams(window.location.search).get("route");
+
+    if (!user && routeHint) {
+      const resolvedPage = getPublicPageFromLocation();
+      setPage(resolvedPage);
+      window.history.replaceState({}, "", publicPathForPage(resolvedPage));
+    }
+
+    const handlePopState = () => {
+      if (user) return;
+      setPage(getPublicPageFromLocation());
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [user]);
 
   const [
     booking,
@@ -315,6 +385,17 @@ function App() {
   useEffect(() => {
     const handleUnauthorized =
       () => {
+        let expiredRole = "customer";
+
+        try {
+          const storedUser = JSON.parse(
+            sessionStorage.getItem("himrideg_user") || "null"
+          );
+          expiredRole = storedUser?.role || "customer";
+        } catch {
+          expiredRole = "customer";
+        }
+
         sessionStorage.removeItem(
           "himrideg_token"
         );
@@ -364,8 +445,18 @@ function App() {
           "login"
         );
 
-        setPage(
-          "auth"
+        const expiredPage =
+          expiredRole === "admin"
+            ? "adminAuth"
+            : expiredRole === "driver"
+              ? "driverAuth"
+              : "customerAuth";
+
+        setPage(expiredPage);
+        window.history.replaceState(
+          {},
+          "",
+          publicPathForPage(expiredPage)
         );
 
         notify(
@@ -571,33 +662,41 @@ function App() {
   |--------------------------------------------------------------------------
   */
 
-  const openLogin =
-    () => {
-      setAuthMode(
-        "login"
-      );
+  const navigatePublic =
+    (nextPage, path, { replace = false } = {}) => {
+      setPage(nextPage);
 
-      setPage(
-        "auth"
-      );
+      const method = replace ? "replaceState" : "pushState";
+      window.history[method]({}, "", path);
     };
 
-  const openRegister =
+  const openCustomerLogin =
     () => {
-      setAuthMode(
-        "register"
-      );
+      setAuthMode("login");
+      navigatePublic("customerAuth", "/login/");
+    };
 
-      setPage(
-        "auth"
-      );
+  const openCustomerRegister =
+    () => {
+      setAuthMode("register");
+      navigatePublic("customerAuth", "/login/");
+    };
+
+  const openDriverLogin =
+    () => {
+      setAuthMode("login");
+      navigatePublic("driverAuth", "/driverlogin/");
+    };
+
+  const openAdminLogin =
+    () => {
+      setAuthMode("login");
+      navigatePublic("adminAuth", "/adminlogin/");
     };
 
   const goHome =
     () => {
-      setPage(
-        "home"
-      );
+      navigatePublic("home", "/");
     };
 
   /*
@@ -652,9 +751,38 @@ function App() {
         authenticatedUser
       );
 
+      const requiresBasicInfo =
+        Boolean(
+          data?.requiresBasicInfo ||
+          data?.data
+            ?.requiresBasicInfo ||
+          authenticatedUser
+            ?.needsBasicInfo
+        );
+
+      if (
+        requiresBasicInfo
+      ) {
+        setPage(
+          "basicInfo"
+        );
+
+        if (authenticatedUser?.role === "customer") {
+          window.history.replaceState({}, "", "/login/");
+        }
+
+        localStorage.removeItem(
+          "himrideg_auth_account_type"
+        );
+
+        return;
+      }
+
       setPage(
         "dashboard"
       );
+
+      window.history.replaceState({}, "", "/");
 
       if (
         "Notification" in
@@ -1042,6 +1170,57 @@ function App() {
 
   /*
   |--------------------------------------------------------------------------
+  | Google Basic Info Completed
+  |--------------------------------------------------------------------------
+  |
+  | Basic Info page ke baad same authenticated session continue hota hai.
+  | handleAuthSuccess dobara use karne se saved booking resume logic aur
+  | role-based dashboard navigation existing behavior me hi rehti hai.
+  |
+  */
+
+  const handleGoogleBasicInfoComplete =
+    async (
+      updatedUser
+    ) => {
+      const accessToken =
+        sessionStorage.getItem(
+          "himrideg_token"
+        ) ||
+        sessionStorage.getItem(
+          "accessToken"
+        ) ||
+        sessionStorage.getItem(
+          "token"
+        ) ||
+        "";
+
+      if (
+        !accessToken ||
+        !updatedUser
+      ) {
+        notify(
+          "Basic info save hui, lekin session continue nahi ho paya. Dobara login karo."
+        );
+
+        setUser(null);
+        setPage("auth");
+        return;
+      }
+
+      await handleAuthSuccess({
+        accessToken,
+        user: {
+          ...updatedUser,
+          needsBasicInfo: false
+        },
+        provider: "google",
+        requiresBasicInfo: false
+      });
+    };
+
+  /*
+  |--------------------------------------------------------------------------
   | Update One Ride In State
   |--------------------------------------------------------------------------
   */
@@ -1293,6 +1472,78 @@ function App() {
             getDriverFromResponse(
               data
             );
+
+          /*
+          |------------------------------------------------------------------
+          | Fresh Driver Snapshot -> Auth State
+          |------------------------------------------------------------------
+          | Login token me driver ka purana snapshot ho sakta hai. Admin jab
+          | documents verify karta hai, /driver/profile MongoDB ka latest
+          | driver return karta hai. Pehle yahan sirf online status uthaya ja
+          | raha tha, isliye DriverDashboard ko stale documents milte the aur
+          | 0/5 uploaded dikhta tha. Ab latest profile + documents + approval
+          | authenticated user state aur sessionStorage dono me sync honge.
+          */
+
+          if (driver) {
+            setUser((currentUser) => {
+              if (
+                !currentUser ||
+                currentUser.role !== "driver"
+              ) {
+                return currentUser;
+              }
+
+              const mergedDriver = {
+                ...currentUser,
+                ...driver,
+                driverProfile: {
+                  ...(currentUser.driverProfile || {}),
+                  ...(driver.driverProfile || {}),
+                  documents: Array.isArray(
+                    driver?.driverProfile?.documents
+                  )
+                    ? driver.driverProfile.documents
+                    : (
+                        currentUser?.driverProfile?.documents ||
+                        []
+                      )
+                }
+              };
+
+              /*
+              | React state ko same server snapshot par baar-baar replace na
+              | karo. Isse profile refresh loop avoid hota hai.
+              */
+              try {
+                if (
+                  JSON.stringify(currentUser) ===
+                  JSON.stringify(mergedDriver)
+                ) {
+                  return currentUser;
+                }
+              } catch (_) {
+                // Safe fallback: merged snapshot use karo.
+              }
+
+              try {
+                sessionStorage.setItem(
+                  "himrideg_user",
+                  JSON.stringify(mergedDriver)
+                );
+              } catch (_) {}
+
+              return mergedDriver;
+            });
+
+            setDriverApproved(
+              Boolean(
+                driver?.approved ||
+                driver?.isApproved ||
+                driver?.driverProfile?.isApproved
+              )
+            );
+          }
 
           setDriverStatus({
             isOnline:
@@ -2259,6 +2510,27 @@ function App() {
         );
 
         await loadBookings();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Booking Success -> Customer Main Dashboard
+        |--------------------------------------------------------------------------
+        |
+        | Ride successfully create hone ke baad hamesha customer ko main
+        | dashboard par rakho. Return value CustomerDashboard ko batata hai ki
+        | booking successful hui, taaki booking modal turant close ho sake.
+        |
+        */
+        setPage(
+          "dashboard"
+        );
+
+        return (
+          createdRide ||
+          {
+            success: true
+          }
+        );
       } catch (error) {
         notify(
           getErrorMessage(
@@ -2266,6 +2538,8 @@ function App() {
             "Ride book nahi hui"
           )
         );
+
+        return null;
       }
     };
 
@@ -2566,7 +2840,63 @@ function App() {
       setPage(
         "home"
       );
+
+      window.history.replaceState({}, "", "/");
     };
+
+  if (
+    page === "customerAuth" &&
+    !user
+  ) {
+    return (
+      <>
+        {message && <div className="toast">{message}</div>}
+
+        <CustomerLoginPage
+          key={`customer-${authMode}`}
+          initialMode={authMode}
+          onBack={goHome}
+          onSuccess={handleAuthSuccess}
+        />
+      </>
+    );
+  }
+
+  if (
+    page === "adminAuth" &&
+    !user
+  ) {
+    return (
+      <>
+        {message && <div className="toast">{message}</div>}
+
+        <AdminLoginPage
+          onBack={goHome}
+          onSuccess={handleAuthSuccess}
+        />
+      </>
+    );
+  }
+
+  if (
+    page === "driverAuth" &&
+    !user
+  ) {
+    return (
+      <>
+        {message && <div className="toast">{message}</div>}
+
+        <AuthPage
+          key={`driver-${authMode}`}
+          initialMode={authMode}
+          initialAccountType="driver"
+          lockAccountType
+          onBack={goHome}
+          onSuccess={handleAuthSuccess}
+        />
+      </>
+    );
+  }
 
   if (
     page ===
@@ -2599,6 +2929,39 @@ function App() {
           onSuccess={
             handleAuthSuccess
           }
+        />
+      </>
+    );
+  }
+
+  if (
+    page ===
+      "basicInfo" &&
+    user &&
+    (
+      user.role ===
+        "customer" ||
+      user.role ===
+        "driver"
+    )
+  ) {
+    return (
+      <>
+        {
+          message &&
+          (
+            <div className="toast">
+              {message}
+            </div>
+          )
+        }
+
+        <GoogleBasicInfo
+          user={user}
+          onComplete={
+            handleGoogleBasicInfoComplete
+          }
+          logout={logout}
         />
       </>
     );
@@ -2650,6 +3013,9 @@ function App() {
           }
           updateBooking={
             updateBooking
+          }
+          onUserUpdate={
+            setUser
           }
           logout={
             logout
@@ -2813,12 +3179,10 @@ function App() {
       }
 
       <Home
-        onLogin={
-          openLogin
-        }
-        onRegister={
-          openRegister
-        }
+        onLogin={openCustomerLogin}
+        onRegister={openCustomerRegister}
+        onDriverLogin={openDriverLogin}
+        onAdminLogin={openAdminLogin}
       />
     </>
   );

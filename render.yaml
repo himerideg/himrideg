@@ -56,6 +56,8 @@ services:
         sync: false
       - key: SMS_ENABLED
         value: "false"
+      - key: GEOAPIFY_API_KEY
+        sync: false
     disk:
       name: himrideg-uploads
       mountPath: /var/data/himrideg-uploads

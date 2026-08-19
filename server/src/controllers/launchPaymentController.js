@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const Booking = require("../models/Booking");
 const razorpay = require("../config/razorpay");
+const walletService = require("../services/walletService");
 const {
   ensurePaymentAccess,
   finalFareOf,
@@ -440,6 +441,7 @@ async function selectPaymentPlan(req, res) {
     booking.paymentPlanSelectedAt = new Date();
     booking.razorpayOrderId = null;
     booking.paymentChoiceAfterRide = null;
+    booking.cashSelectedAt = null;
 
     if (plan === "advance") {
       booking.paymentTiming = "pay_now";
@@ -574,6 +576,7 @@ async function selectPaymentMethod(req, res) {
     | hota hai, isliye online selection par gateway transaction create nahi karte.
     */
     if (method === "cash") {
+      booking.cashSelectedAt = new Date();
       syncPaymentFields(booking, {
         method: "cash",
         status: "pending",
@@ -839,6 +842,31 @@ async function retrySettlement(req, res) {
       return res.status(409).json({
         success: false,
         message: "Sirf paid online booking ka settlement retry ho sakta hai"
+      });
+    }
+
+    // REAL_MONEY_MODE uses internal wallet ledger + RazorpayX withdrawal.
+    // Legacy Razorpay Route direct-transfer retry yahan run karna driver ko
+    // double payout de sakta hai, isliye endpoint preserve karke safe adapter.
+    if (String(process.env.REAL_MONEY_MODE || "false").toLowerCase() === "true") {
+      if (booking.status !== "completed") {
+        return res.status(409).json({
+          success: false,
+          message: "Driver wallet settlement ride complete hone ke baad retry hoga"
+        });
+      }
+
+      await walletService.settleRidePayment(booking._id);
+      const refreshed = await Booking.findById(booking._id);
+      return res.status(200).json({
+        success: true,
+        data: {
+          settlement: {
+            status: refreshed?.walletSettlementStatus || "not_settled",
+            mode: "internal_wallet_razorpayx",
+            walletSettledAt: refreshed?.walletSettledAt || null
+          }
+        }
       });
     }
 

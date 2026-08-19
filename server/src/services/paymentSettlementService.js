@@ -335,7 +335,10 @@ async function settleCashCommission(booking) {
       idempotent: true,
       commission,
       balanceAfter: existingLedger.balanceAfter,
-      commissionDue: Number(driver.wallet?.commissionDue || 0),
+      commissionDue: Math.max(
+        Number(driver.wallet?.commissionDue || 0),
+        Number(driver.wallet?.cashCommissionDue || 0)
+      ),
       settlementStatus: populatedBooking.settlementStatus
     };
   }
@@ -382,6 +385,7 @@ async function settleCashCommission(booking) {
 
     if (shortfall > 0) {
       update.$inc["wallet.commissionDue"] = shortfall;
+      update.$inc["wallet.cashCommissionDue"] = shortfall;
       update.$set.isAvailable = false;
     }
 

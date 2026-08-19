@@ -224,6 +224,21 @@ router.post(
     .rejectAvailableRide
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| ADD-ONLY: Driver Release Accepted / Unconfirmed Ride
+|--------------------------------------------------------------------------
+*/
+router.patch(
+  "/:bookingId/driver-release",
+  driverRideFeedController.releaseAcceptedRide
+);
+router.post(
+  "/:bookingId/driver-release",
+  driverRideFeedController.releaseAcceptedRide
+);
+
 /*
 |--------------------------------------------------------------------------
 | Driver Arrival

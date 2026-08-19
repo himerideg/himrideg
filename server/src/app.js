@@ -19,6 +19,9 @@ const rideRoutes = require("./routes/rideRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const fareRoutes = require("./routes/fareRoutes");
+const walletRoutes = require("./routes/walletRoutes");
+const mapRoutes = require("./routes/mapRoutes");
+const readinessRoutes = require("./routes/readinessRoutes");
 const razorpayWebhookController = require("./controllers/razorpayWebhookController");
 
 const notFound = require("./middlewares/notFound");
@@ -203,6 +206,14 @@ app.post(
   razorpayWebhookController.payoutWebhook
 );
 
+
+// ADD-ONLY backward-compatible Razorpay dashboard webhook URL.
+app.post(
+  "/api/v2/payments/webhook",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  razorpayWebhookController.paymentWebhook
+);
+
 app.use(
   express.json({
     limit: "2mb"
@@ -255,6 +266,18 @@ if (process.env.NODE_ENV !== "test") {
 */
 
 app.get(
+  "/",
+  (req, res) => res.status(200).json({
+    success: true,
+    service: "HimRideG API",
+    health: "/api/v2/health",
+    timestamp: new Date().toISOString()
+  })
+);
+
+app.head("/", (req, res) => res.sendStatus(200));
+
+app.get(
   "/api/v2/health",
   (req, res) => {
     return res.status(200).json({
@@ -280,6 +303,8 @@ app.get(
 | API Routes
 |--------------------------------------------------------------------------
 */
+
+app.use("/api/v2/readiness", readinessRoutes);
 
 app.use(
   "/api/v2/auth",
@@ -319,6 +344,22 @@ app.use(
 app.use(
   "/api/v2/fares",
   fareRoutes
+);
+
+app.use(
+  "/api/v2/wallet",
+  walletRoutes
+);
+
+app.use(
+  "/api/v2/map",
+  mapRoutes
+);
+
+// ADD-ONLY: frontend/legacy plural path compatibility.
+app.use(
+  "/api/v2/maps",
+  mapRoutes
 );
 
 /*

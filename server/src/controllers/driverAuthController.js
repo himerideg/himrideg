@@ -36,6 +36,28 @@ const getRequestIp = (req) => {
   );
 };
 
+const normalizeSameSite = (
+  value,
+  isProduction
+) => {
+  const requested =
+    String(value || "")
+      .trim()
+      .toLowerCase();
+
+  if (
+    requested === "strict" ||
+    requested === "lax" ||
+    requested === "none"
+  ) {
+    return requested;
+  }
+
+  return isProduction
+    ? "none"
+    : "lax";
+};
+
 const setRefreshTokenCookie = (
   res,
   refreshToken
@@ -43,17 +65,25 @@ const setRefreshTokenCookie = (
   const isProduction =
     process.env.NODE_ENV === "production";
 
+  const secureCookie =
+    process.env.COOKIE_SECURE ===
+      "true" || isProduction;
+
+  const sameSite =
+    normalizeSameSite(
+      process.env.COOKIE_SAME_SITE,
+      isProduction
+    );
+
   res.cookie(
     "refreshToken",
     refreshToken,
     {
       httpOnly: true,
       secure:
-        process.env.COOKIE_SECURE ===
-          "true" || isProduction,
-      sameSite:
-        process.env.COOKIE_SAME_SITE ||
-        "lax",
+        secureCookie,
+      sameSite,
+      path: "/",
       maxAge:
         7 * 24 * 60 * 60 * 1000
     }
@@ -182,9 +212,15 @@ const sendDriverOtp = async (
   }
 
   if (!smsResult.sent && process.env.NODE_ENV === "production") {
-    console.warn(
+    console.error(
       `[DriverAuth] SMS delivery failed for ${phone}: ${smsResult.error || "disabled"}`
     );
+
+    return res.status(503).json({
+      success: false,
+      message:
+        "Driver OTP SMS deliver nahi ho saki. Thodi der baad dobara try karein."
+    });
   }
 
   res.status(200).json(

@@ -29,6 +29,7 @@ const {
 
 const {
   generateAuthTokens,
+  createAccessToken,
   verifyRefreshToken,
   hashToken
 } = require(
@@ -70,6 +71,39 @@ const getRequestIp = (
 |--------------------------------------------------------------------------
 */
 
+const normalizeSameSite = (
+  value,
+  isProduction
+) => {
+  const requested =
+    String(value || "")
+      .trim()
+      .toLowerCase();
+
+  if (
+    requested === "strict" ||
+    requested === "lax" ||
+    requested === "none"
+  ) {
+    return requested;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Production Cookie Default
+  |--------------------------------------------------------------------------
+  |
+  | Frontend himrideg.com aur API api.himrideg.com alag origins hain.
+  | Secure + SameSite=None cross-origin credential requests ke liye sabse
+  | compatible production default hai. Local development me lax rakhenge.
+  |
+  */
+
+  return isProduction
+    ? "none"
+    : "lax";
+};
+
 const setRefreshTokenCookie = (
   res,
   refreshToken
@@ -78,6 +112,19 @@ const setRefreshTokenCookie = (
     process.env.NODE_ENV ===
     "production";
 
+  const secureCookie =
+    process.env
+      .COOKIE_SECURE ===
+      "true" ||
+    isProduction;
+
+  const sameSite =
+    normalizeSameSite(
+      process.env
+        .COOKIE_SAME_SITE,
+      isProduction
+    );
+
   res.cookie(
     "refreshToken",
     refreshToken,
@@ -85,15 +132,11 @@ const setRefreshTokenCookie = (
       httpOnly: true,
 
       secure:
-        process.env
-          .COOKIE_SECURE ===
-          "true" ||
-        isProduction,
+        secureCookie,
 
-      sameSite:
-        process.env
-          .COOKIE_SAME_SITE ||
-        "lax",
+      sameSite,
+
+      path: "/",
 
       maxAge:
         7 *
@@ -448,12 +491,20 @@ const sendCustomerOtp =
         .NODE_ENV ===
         "production"
     ) {
-      console.warn(
+      console.error(
         `[Auth] SMS delivery failed for ${phone}: ${
           smsResult.error ||
           "disabled"
         }`
       );
+
+      return res
+        .status(503)
+        .json({
+          success: false,
+          message:
+            "OTP SMS deliver nahi ho saki. Thodi der baad dobara try karein."
+        });
     }
 
     /*
@@ -999,40 +1050,42 @@ const refreshAccessToken =
     ) {
       /*
       |--------------------------------------------------------------------------
-      | Possible Reused / Invalid Session
+      | Stale / Invalid Refresh Token
       |--------------------------------------------------------------------------
+      |
+      | IMPORTANT: Stored valid refreshTokenHash ko yahan NULL nahi karna.
+      | Do simultaneous tabs/requests me ek stale token aa sakta hai. Purane
+      | behavior me stale request valid current session ko bhi destroy kar deta
+      | tha, jisse payment click par unexpected logout ho sakta tha.
+      |
       */
-
-      user
-        .refreshTokenHash =
-        null;
-
-      await user.save();
 
       throw new ApiError(
         401,
-        "Session invalid ho gayi. Dobara login karo."
+        "Session token match nahi hua. Current session ko preserve kiya gaya hai; dobara try karein."
       );
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Rotate Tokens
+    | Refresh Access Token Without Refresh-Token Rotation
     |--------------------------------------------------------------------------
+    |
+    | Access token refresh par same refresh token ko rotate na karna deliberate
+    | hai. Multiple tabs / simultaneous protected requests agar ek hi expired
+    | access token ke baad refresh karein, token rotation race create kar sakti
+    | thi: first request DB hash badal deti thi aur second request old cookie se
+    | mismatch karke session invalidate kar deti thi.
+    |
+    | Login/OTP verification par fresh refresh token ab bhi generate hota hai.
+    | Yahan sirf naya short-lived access token issue hota hai.
+    |
     */
 
-    const {
-      accessToken,
-      refreshToken,
-      refreshTokenHash
-    } =
-      generateAuthTokens(
+    const accessToken =
+      createAccessToken(
         user
       );
-
-    user
-      .refreshTokenHash =
-      refreshTokenHash;
 
     user.lastLoginAt =
       new Date();
@@ -1041,13 +1094,18 @@ const refreshAccessToken =
 
     /*
     |--------------------------------------------------------------------------
-    | New Refresh Cookie
+    | Re-Apply Current Refresh Cookie Attributes
     |--------------------------------------------------------------------------
+    |
+    | Existing valid token ko hi cookie me dubara set karte hain taaki deployed
+    | cookie attributes (Secure/SameSite/Path) browser me consistently apply hon.
+    | JWT ki own expiry verifyRefreshToken se enforce hoti rahegi.
+    |
     */
 
     setRefreshTokenCookie(
       res,
-      refreshToken
+      incomingToken
     );
 
     /*

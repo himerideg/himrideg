@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "purge:customers": "node server/scripts/deleteAllCustomers.js"
+    "purge:customers": "node server/scripts/deleteAllCustomers.js",
+    "preflight:live": "node server/scripts/livePreflight.js"
   },
   "keywords": [
     "himrideg",

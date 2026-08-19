@@ -1,3 +1,4 @@
+import api from "../api";
 import React, { useEffect, useState } from "react";
 import TaxiAnimation from "./TaxiAnimation";
 import "../hero.css";
@@ -11,13 +12,12 @@ function Hero({ onBookRide }) {
   const [stats, setStats] = useState({ customers: "...", drivers: "..." });
 
   useEffect(() => {
-    fetch("/api/v2/auth/stats")
-      .then(r => r.json())
-      .then(d => {
-        if (d?.success && d?.data) {
+    api.get("/auth/stats")
+      .then(({ data }) => {
+        if (data?.success && data?.data) {
           setStats({
-            customers: fmtStat(d.data.customers),
-            drivers: fmtStat(d.data.drivers)
+            customers: fmtStat(data.data.customers),
+            drivers: fmtStat(data.data.drivers)
           });
         }
       })
