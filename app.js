@@ -50,6 +50,12 @@ app.use(
   helmet({
     crossOriginResourcePolicy: {
       policy: "cross-origin"
+    },
+
+    // Google Identity popup ko window.postMessage ke saath kaam karne do.
+    // Existing security headers baaki Helmet hi manage karta rahega.
+    crossOriginOpenerPolicy: {
+      policy: "same-origin-allow-popups"
     }
   })
 );

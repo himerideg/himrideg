@@ -819,6 +819,38 @@ const userSchema =
         default: undefined
       },
 
+      /*
+      |------------------------------------------------------------------
+      | Google Identity — additive fields
+      |------------------------------------------------------------------
+      | Google ID token backend verification ke baad ye fields persist
+      | hote hain. Existing phone/OTP/password flow unchanged rahega.
+      */
+
+      googleId: {
+        type: String,
+        trim: true,
+        default: undefined
+      },
+
+      googleEmail: {
+        type: String,
+        trim: true,
+        lowercase: true,
+        maxlength: 180,
+        default: undefined
+      },
+
+      googleLinkedAt: {
+        type: Date,
+        default: null
+      },
+
+      googleBasicInfoCompleted: {
+        type: Boolean,
+        default: false
+      },
+
       password: {
         type: String,
         select: false,
@@ -999,6 +1031,30 @@ const userSchema =
       timestamps: true
     }
   );
+
+/*
+|--------------------------------------------------------------------------
+| Google Identity Index
+|--------------------------------------------------------------------------
+| Same Google identity ek hi role ke andar duplicate account na banaye.
+| `sparse` se existing non-Google users untouched rehte hain.
+*/
+
+userSchema.index(
+  {
+    googleId: 1,
+    role: 1
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      googleId: {
+        $type: "string"
+      }
+    },
+    name: "google_identity_role_unique"
+  }
+);
 
 /*
 |--------------------------------------------------------------------------

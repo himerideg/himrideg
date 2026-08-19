@@ -1,0 +1,19 @@
+HimRideG FULL CODE RULE - ADD ONLY VERIFIED
+===========================================
+
+Base used:
+HimRideG_HMG_FARE_LOCK_PAYMENT_PLANS_FULL_REPLACE.zip
+
+Rule followed in this corrected package:
+1. Koi existing file delete nahi ki gayi.
+2. Koi existing file rename nahi ki gayi.
+3. Original paymentmodal.jsx filename preserve kiya gaya hai.
+4. Existing features/assets/root replacement files preserve hain.
+5. Real-money Razorpay/RazorpayX wallet/withdraw/webhook files sirf add ya same-path code update kiye gaye hain.
+6. Original base ke 238 file entries me se 0 missing verify ki gayi hain.
+7. Server ke 70 JavaScript files node --check se syntax-pass hain.
+
+Important:
+Real money transfer ke liye live Razorpay/RazorpayX credentials, KYC/account activation,
+webhook secrets, payout balance aur RazorpayX IP allowlisting external dashboard par required hain.
+Secrets ko ZIP me hardcode nahi kiya gaya hai.

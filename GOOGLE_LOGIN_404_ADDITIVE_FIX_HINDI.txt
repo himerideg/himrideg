@@ -1,0 +1,25 @@
+HimRideG Google Login 404 — ADD-ONLY FIX
+
+Fixed without deleting/renaming existing project files:
+1. POST /api/v2/auth/google route registered.
+2. PATCH /api/v2/auth/google/basic-info route registered.
+3. GET /api/v2/auth/google/status diagnostic route added.
+4. User schema me Google identity persistence fields add kiye.
+5. Google identity + role sparse unique index add kiya.
+6. Google GIS initialize() single page-level initialization banaya.
+7. FedCM deprecated display-moment checks hataye bina One Tap flow remove kiye.
+8. Helmet COOP same-origin-allow-popups set kiya Google popup/postMessage compatibility ke liye.
+9. Render backend GOOGLE_CLIENT_ID wired.
+
+Google Web Client ID (public):
+691367484066-udd03uov2vsf8el8v8o3d6n3503b2rja.apps.googleusercontent.com
+
+After deploy quick checks:
+- GET https://api.himrideg.com/api/v2/auth/google/status
+  Expected: routeReady=true and googleClientConfigured=true
+- Then customer login page par Google sign-in test karo.
+
+IMPORTANT: Google Cloud OAuth Web Client me Authorized JavaScript origins me at least:
+https://himrideg.com
+https://www.himrideg.com
+configured hone chahiye.

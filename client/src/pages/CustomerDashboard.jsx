@@ -10,7 +10,7 @@ import api from "../api";
 import socket from "../socket";
 import RideMap from "../RideMap";
 import CustomerBookRide from "../components/CustomerBookRide";
-import PaymentModal from "../components/PaymentModal";
+import PaymentModal from "../components/paymentmodal";
 
 import "../dashboard.css";
 import "../customer-dashboard-v2.css";

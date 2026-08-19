@@ -8,6 +8,11 @@ const {
 } = require("../controllers/authController");
 
 const {
+  googleLogin,
+  completeGoogleBasicInfo
+} = require("../controllers/googleAuthController");
+
+const {
   sendDriverOtp,
   verifyDriverOtp
 } = require("../controllers/driverAuthController");
@@ -27,6 +32,18 @@ const router = express.Router();
 |--------------------------------------------------------------------------
 | GET /api/v2/auth/stats
 */
+
+router.get("/google/status", (req, res) => {
+  return res.status(200).json({
+    success: true,
+    data: {
+      routeReady: true,
+      googleClientConfigured: Boolean(
+        String(process.env.GOOGLE_CLIENT_ID || "").trim()
+      )
+    }
+  });
+});
 
 router.get("/stats", async (req, res) => {
   try {
@@ -76,6 +93,29 @@ router.post(
 router.post(
   "/customer/verify-otp",
   verifyCustomerOtp
+);
+
+/*
+|--------------------------------------------------------------------------
+| Google Customer / Driver Authentication
+|--------------------------------------------------------------------------
+|
+| POST  /api/v2/auth/google
+| PATCH /api/v2/auth/google/basic-info
+|
+| Existing OTP routes stay untouched. Google flow is additive.
+|
+*/
+
+router.post(
+  "/google",
+  googleLogin
+);
+
+router.patch(
+  "/google/basic-info",
+  protect,
+  completeGoogleBasicInfo
 );
 
 /*

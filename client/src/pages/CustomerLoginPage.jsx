@@ -19,6 +19,11 @@ const GOOGLE_CLIENT_ID = String(
 
 let googleScriptPromise = null;
 
+// GIS initialize() page-level singleton hai. React re-render / StrictMode /
+// login-register mode switch me isko dobara initialize nahi karna.
+let googleInitializedClientId = "";
+let activeGoogleCredentialHandler = null;
+
 function loadGoogleIdentityScript() {
   if (window.google?.accounts?.id) {
     return Promise.resolve(window.google);
@@ -214,17 +219,30 @@ function CustomerLoginPage({
       return false;
     }
 
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: (response) => {
-        if (response?.credential && googleCallbackRef.current) {
-          googleCallbackRef.current(response.credential);
-        }
-      },
-      auto_select: false,
-      cancel_on_tap_outside: true,
-      ux_mode: "popup"
-    });
+    // Latest mounted CustomerLoginPage ka callback active rakho without
+    // re-running google.accounts.id.initialize().
+    activeGoogleCredentialHandler = (response) => {
+      if (response?.credential && googleCallbackRef.current) {
+        googleCallbackRef.current(response.credential);
+      }
+    };
+
+    if (googleInitializedClientId !== GOOGLE_CLIENT_ID) {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response) => {
+          if (activeGoogleCredentialHandler) {
+            activeGoogleCredentialHandler(response);
+          }
+        },
+        auto_select: false,
+        cancel_on_tap_outside: true,
+        ux_mode: "popup",
+        use_fedcm_for_button: true
+      });
+
+      googleInitializedClientId = GOOGLE_CLIENT_ID;
+    }
 
     initializedRef.current = true;
     return true;
@@ -315,23 +333,11 @@ function CustomerLoginPage({
     notify("");
     configureGoogle();
 
-    // Google One Tap / FedCM popup try. Agar browser prompt skip kare to
-    // official Google button automatically neeche visible ho jata hai.
-    window.google.accounts.id.prompt((notification) => {
-      try {
-        if (
-          notification?.isNotDisplayed?.() ||
-          notification?.isSkippedMoment?.()
-        ) {
-          notify(
-            "Google popup automatic nahi khula. Neeche Google button par click karo.",
-            "info"
-          );
-        }
-      } catch {
-        // FedCM browsers may not expose moment details.
-      }
-    });
+    // One Tap / browser FedCM prompt ko preserve rakha hai. Latest FedCM
+    // migration me display-moment status methods deprecated/removed hain,
+    // isliye prompt callback par UI depend nahi karta. Official Google
+    // button neeche parallel fallback ke roop me rendered rahega.
+    window.google.accounts.id.prompt();
   };
 
   const handleAppleLogin = () => {

@@ -28,6 +28,8 @@ services:
         sync: false
       - key: JWT_REFRESH_EXPIRES_IN
         value: 7d
+      - key: GOOGLE_CLIENT_ID
+        value: 691367484066-udd03uov2vsf8el8v8o3d6n3503b2rja.apps.googleusercontent.com
       - key: REAL_MONEY_MODE
         value: "true"
       - key: RAZORPAY_KEY_ID
