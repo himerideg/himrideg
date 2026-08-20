@@ -1,17 +1,40 @@
-HimRideG latest ZIP base: HM G(1).zip
+HimRideG REAL WALLET + DRIVER LOGIN — CHECK REPORT
+==================================================
 
-FULL CODE RULE CHECK:
-client/src/pages/CustomerDashboard.jsx: original 2783 lines -> replacement 2787 lines
-client/src/components/CustomerBookRide.jsx: original 987 lines -> replacement 1014 lines
-client/src/components/paymentmodal.jsx: original 1206 lines -> replacement 1486 lines
-client/src/pages/DriverDashboard.jsx: original 5448 lines -> replacement 5572 lines
-server/src/controllers/launchPaymentController.js: original 1015 lines -> replacement 1032 lines
+Source base: user-provided HM G(1).zip
+Full Code Rule: PASS — every changed file in this package is a complete replacement file.
+Existing .env: NOT modified / NOT included.
 
-Applied rules:
-- Customer dashboard auto payment popup disabled.
-- Payment UI/API only after ride status completed + final fare locked.
-- Schedule Payment button only when bookingMode=Schedule.
-- Customer camera scanner verifies assigned driver fixed QR.
-- UPI continues through existing Razorpay UPI-only flow.
-- Driver dashboard has fixed My QR / Wallet QR.
-- Existing code/features preserved; replacements are based on the latest uploaded files.
+Financial rules implemented:
+- Customer payment server-side allowed only after ride status = completed.
+- Payment amount source = finalFare / fare.finalFare only.
+- HimRideG commission = fixed 10%.
+- Driver earnings share = 90%.
+- Online paid ride -> 90% driver earnings wallet credit.
+- Cash ride -> driver received cash; 10% commission is debited/due from driver wallet.
+- Wallet settlement lock changed to not_settled -> settling -> settled so concurrent verify/webhook cannot double-credit the same ride.
+- RazorpayX actual payout remains fail-closed unless REAL_MONEY_MODE=true + live payout config is present.
+- Driver can save UPI/bank payout details, instant withdraw, automatic scheduled payout, and view wallet history.
+- Customer UPI checkout is labelled Paytm / UPI and uses Razorpay UPI checkout.
+- Driver Login dedicated callback preserved/fixed in Home/Navbar.
+- Existing payment popup auto-open remains disabled; customer opens payment manually after ride complete.
+
+Static syntax checks:
+- Backend changed JS files: node --check PASS.
+- Client changed JSX files: TypeScript JSX parser PASS (0 parse diagnostics).
+
+Original -> replacement line counts:
+CustomerDashboard.jsx: 2782 -> 2786
+DriverDashboard.jsx: 5447 -> 5630
+paymentmodal.jsx: 1205 -> 1488
+CustomerBookRide.jsx: 986 -> 1014
+Home.jsx: 55 -> 120
+Navbar.jsx: 48 -> 100
+launchPaymentController.js: 1014 -> 1166
+paymentController.js: 566 -> 594
+walletService.js: 865 -> 908
+razorpayXService.js: 259 -> 260
+walletController.js: 77 -> 77 (complete existing compatible file included)
+driverRoutes.js: 247 -> 247 (complete existing compatible file included)
+
+Note: Full Vite build could not be executed in the container because npm dependency installation was unavailable in this runtime. JSX parse checks passed.

@@ -11,6 +11,119 @@ const {
   sameId
 } = require("../services/paymentSettlementService");
 
+/*
+|--------------------------------------------------------------------------
+| REAL DRIVER EARNINGS WALLET MODE
+|--------------------------------------------------------------------------
+| Customer ka full locked fare Razorpay par collect hota hai. HimRideG ka
+| fixed platform commission 10% hai. Baki 90% driver ke internal earnings
+| wallet/ledger me credit hota hai, aur driver withdrawal RazorpayX payout
+| flow se karta hai. Legacy Razorpay Route direct-transfer code preserve hai
+| aur REAL_MONEY_MODE=false par fallback ke roop me available rahega.
+|
+| IMPORTANT: internal wallet ek earnings payable ledger hai; yeh bank account
+| ya RBI prepaid wallet nahi hai. Real cash-out RazorpayX payout ke through hi
+| hota hai.
+*/
+const PLATFORM_COMMISSION_PERCENT = 10;
+
+function realWalletModeEnabled() {
+  /*
+  | Driver earnings wallet is the default settlement mode for HimRideG.
+  | REAL_MONEY_MODE is intentionally NOT used here; that env controls whether
+  | RazorpayX can actually send money outside the platform. This separation
+  | lets the real paid-ride ledger remain correct even when payouts are
+  | temporarily disabled or awaiting KYC/activation.
+  */
+  const raw = String(
+    process.env.DRIVER_EARNINGS_WALLET_ENABLED ?? "true"
+  )
+    .trim()
+    .toLowerCase();
+
+  return !["false", "0", "off", "no"].includes(raw);
+}
+
+function enforceTenPercentCommission(booking) {
+  if (!booking) return booking;
+
+  const fare = Number(finalFareOf(booking) || 0);
+  const commission = Math.max(0, Math.round((fare * PLATFORM_COMMISSION_PERCENT) / 100));
+  const driverPayable = Math.max(0, fare - commission);
+
+  booking.platformCommissionPercent = PLATFORM_COMMISSION_PERCENT;
+  booking.platformCommissionAmount = commission;
+  booking.driverPayableAmount = driverPayable;
+
+  if (booking.fare) {
+    booking.fare.finalFare = fare;
+    booking.fare.platformFee = commission;
+  }
+
+  return booking;
+}
+
+async function settleOnlineForCurrentMoneyMode(booking, paymentId) {
+  enforceTenPercentCommission(booking);
+
+  if (!realWalletModeEnabled()) {
+    return settleOnlinePayment(booking, { paymentId });
+  }
+
+  /*
+  | Online payment ride complete hone se pehle paid ho sakti hai in legacy
+  | data, lekin driver earning service complete hone se pehle wallet me nahi
+  | jayegi. completeRide() paid booking ko idempotently settle karega.
+  */
+  if (String(booking?.status || "") !== "completed") {
+    return {
+      status: "pending",
+      mode: "internal_wallet_razorpayx",
+      reason: "ride_not_completed",
+      commissionPercent: PLATFORM_COMMISSION_PERCENT,
+      driverSharePercent: 100 - PLATFORM_COMMISSION_PERCENT
+    };
+  }
+
+  await walletService.settleRidePayment(booking._id);
+  const refreshed = await Booking.findById(booking._id).select(
+    "walletSettlementStatus walletSettledAt platformCommissionPercent platformCommissionAmount driverPayableAmount"
+  );
+
+  return {
+    status: refreshed?.walletSettlementStatus || "settled",
+    mode: "internal_wallet_razorpayx",
+    walletSettledAt: refreshed?.walletSettledAt || null,
+    commissionPercent: Number(refreshed?.platformCommissionPercent || PLATFORM_COMMISSION_PERCENT),
+    platformCommission: Number(refreshed?.platformCommissionAmount || 0),
+    driverPayable: Number(refreshed?.driverPayableAmount || 0),
+    driverSharePercent: 100 - PLATFORM_COMMISSION_PERCENT
+  };
+}
+
+async function settleCashForCurrentMoneyMode(booking) {
+  enforceTenPercentCommission(booking);
+
+  if (!realWalletModeEnabled()) {
+    return settleCashCommission(booking);
+  }
+
+  await walletService.settleRidePayment(booking._id);
+  const refreshed = await Booking.findById(booking._id).select(
+    "walletSettlementStatus walletSettledAt platformCommissionPercent platformCommissionAmount driverPayableAmount"
+  );
+
+  return {
+    status: refreshed?.walletSettlementStatus || "settled",
+    mode: "internal_wallet_razorpayx",
+    walletSettledAt: refreshed?.walletSettledAt || null,
+    commissionPercent: Number(refreshed?.platformCommissionPercent || PLATFORM_COMMISSION_PERCENT),
+    platformCommission: Number(refreshed?.platformCommissionAmount || 0),
+    driverPayable: Number(refreshed?.driverPayableAmount || 0),
+    driverSharePercent: 100 - PLATFORM_COMMISSION_PERCENT
+  };
+}
+
 function userId(req) {
   return req.user?._id || req.user?.id || null;
 }
@@ -192,6 +305,8 @@ async function createPaymentOrder(req, res) {
       });
     }
 
+    enforceTenPercentCommission(booking);
+
     const fare = finalFareOf(booking);
     const amountInPaise = Math.round(fare * 100);
 
@@ -289,9 +404,10 @@ async function verifyPayment(req, res) {
       booking.paymentStatus === "paid" &&
       booking.razorpayPaymentId === razorpay_payment_id
     ) {
-      const settlement = await settleOnlinePayment(booking, {
-        paymentId: razorpay_payment_id
-      });
+      const settlement = await settleOnlineForCurrentMoneyMode(
+        booking,
+        razorpay_payment_id
+      );
 
       emitPaymentUpdate(req, booking, "payment:completed");
 
@@ -348,6 +464,8 @@ async function verifyPayment(req, res) {
     booking.razorpayPaymentId = razorpay_payment_id;
     booking.razorpaySignature = razorpay_signature;
 
+    enforceTenPercentCommission(booking);
+
     const amounts = syncPaymentFields(booking, {
       method: "online",
       status: "paid",
@@ -357,9 +475,10 @@ async function verifyPayment(req, res) {
 
     await booking.save();
 
-    const settlement = await settleOnlinePayment(booking, {
-      paymentId: razorpay_payment_id
-    });
+    const settlement = await settleOnlineForCurrentMoneyMode(
+      booking,
+      razorpay_payment_id
+    );
 
     emitPaymentUpdate(req, booking, "payment:completed");
 
@@ -375,6 +494,11 @@ async function verifyPayment(req, res) {
         fare: amounts.fare,
         platformCommission: amounts.commission,
         driverPayable: amounts.driverPayable,
+        platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
+        driverSharePercent: 100 - PLATFORM_COMMISSION_PERCENT,
+        moneyMode: realWalletModeEnabled()
+          ? "internal_wallet_razorpayx"
+          : "razorpay_route",
         settlement
       }
     });
@@ -696,7 +820,7 @@ async function confirmCashPayment(req, res) {
         });
       }
 
-      const settlement = await settleCashCommission(booking);
+      const settlement = await settleCashForCurrentMoneyMode(booking);
       return res.status(200).json({
         success: true,
         message: "Cash payment already confirmed hai",
@@ -711,6 +835,8 @@ async function confirmCashPayment(req, res) {
 
     booking.paymentChoiceAfterRide = "cash";
     const paidAt = new Date();
+    enforceTenPercentCommission(booking);
+
     const amounts = syncPaymentFields(booking, {
       method: "cash",
       status: "paid",
@@ -720,7 +846,7 @@ async function confirmCashPayment(req, res) {
 
     await booking.save();
 
-    const settlement = await settleCashCommission(booking);
+    const settlement = await settleCashForCurrentMoneyMode(booking);
 
     emitPaymentUpdate(req, booking, "payment:completed");
 
@@ -735,6 +861,11 @@ async function confirmCashPayment(req, res) {
         fare: amounts.fare,
         platformCommission: amounts.commission,
         driverPayable: amounts.driverPayable,
+        platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
+        driverSharePercent: 100 - PLATFORM_COMMISSION_PERCENT,
+        moneyMode: realWalletModeEnabled()
+          ? "internal_wallet_razorpayx"
+          : "razorpay_route",
         settlement
       }
     });
@@ -865,7 +996,7 @@ async function retrySettlement(req, res) {
     // REAL_MONEY_MODE uses internal wallet ledger + RazorpayX withdrawal.
     // Legacy Razorpay Route direct-transfer retry yahan run karna driver ko
     // double payout de sakta hai, isliye endpoint preserve karke safe adapter.
-    if (String(process.env.REAL_MONEY_MODE || "false").toLowerCase() === "true") {
+    if (realWalletModeEnabled()) {
       if (booking.status !== "completed") {
         return res.status(409).json({
           success: false,
@@ -887,9 +1018,10 @@ async function retrySettlement(req, res) {
       });
     }
 
-    const settlement = await settleOnlinePayment(booking, {
-      paymentId: booking.razorpayPaymentId
-    });
+    const settlement = await settleOnlineForCurrentMoneyMode(
+      booking,
+      booking.razorpayPaymentId
+    );
 
     return res.status(200).json({
       success: true,
@@ -990,6 +1122,8 @@ async function razorpayWebhook(req, res) {
         booking.razorpayOrderId = orderId || booking.razorpayOrderId;
         booking.razorpayPaymentId = paymentId || booking.razorpayPaymentId;
 
+        enforceTenPercentCommission(booking);
+
         syncPaymentFields(booking, {
           method: "online",
           status: "paid",
@@ -999,9 +1133,10 @@ async function razorpayWebhook(req, res) {
         await booking.save();
       }
 
-      await settleOnlinePayment(booking, {
-        paymentId: paymentId || booking.razorpayPaymentId
-      });
+      await settleOnlineForCurrentMoneyMode(
+        booking,
+        paymentId || booking.razorpayPaymentId
+      );
 
       emitPaymentUpdate(req, booking, "payment:completed");
     }

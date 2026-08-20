@@ -1,10 +1,25 @@
 import React from "react";
 
-function Navbar({ onLogin, onRegister, onBookRide, onDriverLogin, onAdminLogin }) {
+function Navbar({
+  onLogin,
+  onRegister,
+  onBookRide,
+  onDriverLogin,
+  onAdminLogin
+}) {
   return (
     <header className="siteNavbar">
-      <a href="#home" className="hrgNavbarBrand" aria-label="HimRideG Home">
-        <img src="/himrideg-logo.png" alt="HimRideG" className="hrgNavbarLogo" />
+      <a
+        href="#home"
+        className="hrgNavbarBrand"
+        aria-label="HimRideG Home"
+      >
+        <img
+          src="/himrideg-logo.png"
+          alt="HimRideG"
+          className="hrgNavbarLogo"
+        />
+
         <div className="hrgNavbarBrandName">
           <span className="hrgBrandWhite">Him</span>
           <span className="hrgBrandGold">Ride</span>
@@ -14,9 +29,32 @@ function Navbar({ onLogin, onRegister, onBookRide, onDriverLogin, onAdminLogin }
 
       <nav className="navLinks">
         <a href="#home">Home</a>
-        <button type="button" onClick={onBookRide}>Book Ride</button>
-        <button type="button" onClick={onDriverLogin}>Driver</button>
+
+        <button
+          type="button"
+          onClick={onBookRide}
+        >
+          Book Ride
+        </button>
+
+        {/*
+        |--------------------------------------------------------------------
+        | Dedicated Driver Login
+        |--------------------------------------------------------------------
+        | This button now clearly says Driver Login and uses only the
+        | dedicated onDriverLogin callback supplied by Home/App.
+        */}
+        <button
+          type="button"
+          onClick={onDriverLogin}
+          title="Driver Login"
+          aria-label="Open Driver Login"
+        >
+          🚕 Driver Login
+        </button>
+
         <a href="#about">About</a>
+
         <button
           type="button"
           onClick={onAdminLogin}
@@ -34,12 +72,26 @@ function Navbar({ onLogin, onRegister, onBookRide, onDriverLogin, onAdminLogin }
         >
           🔐 Admin
         </button>
+
         <a href="#help">Help</a>
       </nav>
 
       <div className="navActions">
-        <button className="loginButton" type="button" onClick={onLogin}>Login</button>
-        <button className="signupButton" type="button" onClick={onRegister}>Sign Up</button>
+        <button
+          className="loginButton"
+          type="button"
+          onClick={onLogin}
+        >
+          Login
+        </button>
+
+        <button
+          className="signupButton"
+          type="button"
+          onClick={onRegister}
+        >
+          Sign Up
+        </button>
       </div>
     </header>
   );

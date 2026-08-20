@@ -676,6 +676,9 @@ function PaymentModal({
           platform: "HimRideG",
           paymentPlan: plan,
           paymentContext: paymentContext || "post_ride",
+          platformCommissionPercent: "10",
+          driverWalletSharePercent: "90",
+          settlementMode: "driver_earnings_wallet",
         },
 
         theme: {
@@ -686,7 +689,7 @@ function PaymentModal({
           display: {
             blocks: {
               himrideg_upi: {
-                name: "Pay via UPI",
+                name: "Pay via Paytm / UPI",
                 instruments: [{ method: "upi" }],
               },
             },
@@ -1201,7 +1204,7 @@ function PaymentModal({
                 <div className="paymentMethodIcon">📱</div>
                 <div className="paymentMethodInfo">
                   <strong>Pay Online — UPI</strong>
-                  <small>UPI App / QR Scanner</small>
+                  <small>Paytm / UPI App / QR Scanner</small>
                 </div>
                 <div className="paymentMethodCheck">
                   {paymentMethod === METHOD.ONLINE ? "✅" : "○"}

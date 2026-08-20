@@ -3,6 +3,9 @@ const razorpay = require("../config/razorpay");
 const Booking = require("../models/Booking");
 const walletService = require("../services/walletService");
 
+const PLATFORM_COMMISSION_PERCENT = 10;
+const DRIVER_SHARE_PERCENT = 100 - PLATFORM_COMMISSION_PERCENT;
+
 const getFare = (booking) =>
   Number(booking?.finalFare ?? booking?.fare?.finalFare ?? 0) || 0;
 
@@ -14,11 +17,19 @@ function paymentPlanOf(booking) {
 }
 
 function canPayOnlineNow(booking) {
-  const fareLocked = booking?.fareStatus === "fare_accepted" && getFare(booking) > 0;
+  /*
+  | HARD MONEY GATE:
+  | - payment only after driver completes the ride
+  | - amount only final locked fare
+  | Legacy advance/scheduled fields are preserved as data, but they cannot
+  | bypass this server-side completed-ride gate.
+  */
+  const fareLocked =
+    booking?.fareStatus === "fare_accepted" &&
+    getFare(booking) > 0;
+
   if (!fareLocked) return false;
-  if (["cancelled", "expired"].includes(String(booking?.status || ""))) return false;
-  const plan = paymentPlanOf(booking);
-  if (plan === "advance" || plan === "scheduled") return true;
+
   return String(booking?.status || "") === "completed";
 }
 
@@ -127,9 +138,12 @@ async function applyCapturedPayment(booking, paymentEntity, { signature = "" } =
     return booking;
   }
 
-  const commissionPercent = Number(booking.platformCommissionPercent || 10);
-  booking.platformCommissionAmount = Math.round(((fare * commissionPercent) / 100) * 100) / 100;
-  booking.driverPayableAmount = Math.max(0, fare - booking.platformCommissionAmount);
+  const commissionPercent = PLATFORM_COMMISSION_PERCENT;
+  booking.platformCommissionPercent = PLATFORM_COMMISSION_PERCENT;
+  booking.platformCommissionAmount =
+    Math.round(((fare * commissionPercent) / 100) * 100) / 100;
+  booking.driverPayableAmount =
+    Math.max(0, fare - booking.platformCommissionAmount);
   booking.paymentMethod = "online";
   booking.paymentStatus = "paid";
   booking.razorpayOrderId = orderId;
@@ -203,7 +217,10 @@ exports.createPaymentOrder = async (req, res) => {
         bookingId: String(booking._id),
         customerId: String(req.user?._id || ""),
         paymentPlan: paymentPlanOf(booking) || "online_after_ride",
-        paymentContext: booking.status === "completed" ? "post_ride" : "pre_ride_pay_now"
+        paymentContext: "post_ride",
+        platformCommissionPercent: String(PLATFORM_COMMISSION_PERCENT),
+        driverWalletSharePercent: String(DRIVER_SHARE_PERCENT),
+        settlementMode: "driver_earnings_wallet"
       }
     });
 
@@ -230,7 +247,9 @@ exports.createPaymentOrder = async (req, res) => {
         customerPhone: req.user?.phone || "",
         customerEmail: req.user?.email || "",
         paymentPlan: paymentPlanOf(booking),
-        paymentContext: booking.status === "completed" ? "post_ride" : "pre_ride_pay_now"
+        paymentContext: "post_ride",
+        platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
+        driverSharePercent: DRIVER_SHARE_PERCENT
       }
     });
   } catch (error) {
@@ -329,7 +348,11 @@ exports.verifyPayment = async (req, res) => {
         paymentId: booking.razorpayPaymentId,
         paidAt: booking.paidAt,
         fare,
-        driverPayable: booking.driverPayableAmount
+        platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
+        platformCommission: booking.platformCommissionAmount,
+        driverSharePercent: DRIVER_SHARE_PERCENT,
+        driverPayable: booking.driverPayableAmount,
+        walletSettlementStatus: booking.walletSettlementStatus || "not_settled"
       }
     });
   } catch (error) {
@@ -451,8 +474,10 @@ exports.confirmCashPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: "Final fare valid nahi hai" });
     }
 
-    const commissionPercent = Number(booking.platformCommissionPercent || 10);
-    const commissionAmount = Math.round(((fare * commissionPercent) / 100) * 100) / 100;
+    const commissionPercent = PLATFORM_COMMISSION_PERCENT;
+    const commissionAmount =
+      Math.round(((fare * commissionPercent) / 100) * 100) / 100;
+    booking.platformCommissionPercent = PLATFORM_COMMISSION_PERCENT;
     booking.paymentMethod = "cash";
     booking.paymentChoiceAfterRide = "cash";
     booking.paymentStatus = "paid";
@@ -485,7 +510,10 @@ exports.confirmCashPayment = async (req, res) => {
         paidAt: booking.paidAt,
         fare,
         commission: booking.platformCommissionAmount,
-        driverPayable: booking.driverPayableAmount
+        platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
+        driverSharePercent: DRIVER_SHARE_PERCENT,
+        driverPayable: booking.driverPayableAmount,
+        walletSettlementStatus: booking.walletSettlementStatus || "not_settled"
       }
     });
   } catch (error) {

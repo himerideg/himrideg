@@ -1,0 +1,52 @@
+HimRideG Real Driver Earnings Wallet
+===================================
+
+IMPLEMENTED FLOW
+1. Customer ride complete hone ke baad Customer Dashboard se Pay Online choose karta hai.
+2. Razorpay UPI Checkout open hota hai; customer Paytm ya kisi supported UPI app/QR se pay kar sakta hai.
+3. Server Razorpay signature verify karta hai aur sirf FINAL LOCKED FARE accept karta hai.
+4. HimRideG commission FIXED 10% calculate hoti hai.
+5. Remaining 90% assigned driver ke internal REAL EARNINGS WALLET ledger me credit hota hai.
+6. Driver Wallet page par Balance, Today/Month Earnings, history aur payout details dikhti hain.
+7. Driver saved UPI/bank par RazorpayX se instant/scheduled withdrawal kar sakta hai.
+
+IMPORTANT MONEY MEANING
+- Customer ka 100% payment pehle aapke Razorpay merchant collection me receive hota hai.
+- System accounting me 10% HimRideG revenue retain karta hai aur 90% driver payable wallet balance banta hai.
+- Driver ka 90% real bank/UPI transfer RazorpayX withdrawal ke waqt hota hai.
+- Agar aap chahte ho ki 90% payment ke turant baad direct driver ke linked bank account me settle ho, uske liye Razorpay Route Linked Accounts use hote hain; internal wallet flow alag hai.
+
+SECURITY / FINANCIAL RULES
+- Payment sirf completed ride ke baad.
+- Payment amount sirf finalFare / fare.finalFare.
+- Commission exactly 10%; driver share 90%.
+- One booking ko concurrent verify/webhook calls se double wallet-credit nahi kiya ja sakta.
+- Real RazorpayX payout default OFF/fail-closed hai jab tak explicitly enable na ho.
+- Original .env ko replace/delete MAT KARNA. Neeche variables existing .env me ADD karne hain.
+
+EXISTING .env ME ADD / VERIFY
+DRIVER_EARNINGS_WALLET_ENABLED=true
+REAL_MONEY_MODE=true
+RAZORPAYX_PAYOUTS_ENABLED=true
+RAZORPAYX_ACCOUNT_NUMBER=YOUR_RAZORPAYX_ACCOUNT_NUMBER
+RAZORPAYX_KEY_ID=YOUR_LIVE_RAZORPAYX_KEY_ID
+RAZORPAYX_KEY_SECRET=YOUR_LIVE_RAZORPAYX_KEY_SECRET
+RAZORPAYX_WEBHOOK_SECRET=YOUR_RAZORPAYX_WEBHOOK_SECRET
+
+RAZORPAY LIVE COLLECTION
+RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET existing live keys hi use honge.
+
+RAZORPAYX REQUIREMENTS
+- RazorpayX account activated + KYC complete hona chahiye.
+- Payout API access enabled hona chahiye.
+- Business/payout account me payout ke liye sufficient available funds hone chahiye.
+- Saved UPI ya bank details valid honi chahiye.
+
+DRIVER LOGIN FIX
+Home.jsx + Navbar.jsx me dedicated Driver Login callback included hai.
+
+PAYTM
+Razorpay UPI Intent/QR flow use hota hai. Mobile par Paytm supported UPI app ho sakta hai; desktop QR ko Paytm se scan kiya ja sakta hai.
+
+FULL CODE RULE
+ZIP ke andar har changed file complete replacement file hai, snippet nahi. Existing project features preserve kiye gaye hain.

@@ -4042,6 +4042,23 @@ function DriverDashboard({
     driverView?.wallet || {};
 
   /*
+  | Real earnings wallet balance API se prefer karo. Profile snapshot fallback
+  | preserve hai taaki wallet endpoint temporarily unavailable ho to UI na toote.
+  */
+  const realDriverWalletBalance = Number(
+    walletData?.wallet?.balance ??
+      driverWallet.balance ??
+      0
+  );
+
+  const realDriverPendingAmount = Number(
+    walletData?.wallet?.pendingAmount ??
+      driverWallet.pendingAmount ??
+      driverWallet.pendingBalance ??
+      0
+  );
+
+  /*
   |--------------------------------------------------------------------------
   | Fixed Driver Wallet QR
   |--------------------------------------------------------------------------
@@ -4519,18 +4536,12 @@ function DriverDashboard({
 
             <div className="driverEarningsGrid">
               <article>
-                <span>Wallet Balance</span>
-                <strong>₹{Number(driverWallet.balance || 0).toFixed(0)}</strong>
+                <span>Real Wallet Balance</span>
+                <strong>₹{realDriverWalletBalance.toFixed(0)}</strong>
               </article>
               <article>
                 <span>Pending Amount</span>
-                <strong>
-                  ₹{Number(
-                    driverWallet.pendingAmount ??
-                      driverWallet.pendingBalance ??
-                      0
-                  ).toFixed(0)}
-                </strong>
+                <strong>₹{realDriverPendingAmount.toFixed(0)}</strong>
               </article>
               <article>
                 <span>Total Earned</span>
@@ -4557,16 +4568,47 @@ function DriverDashboard({
                 <strong>{completedRides}</strong>
               </article>
               <article>
-                <span>Platform Commission</span>
-                <strong>{driverView?.driverProfile?.commissionPercentage || 10}%</strong>
+                <span>HimRideG Commission</span>
+                <strong>10%</strong>
+              </article>
+              <article>
+                <span>Driver Online Share</span>
+                <strong>90%</strong>
               </article>
             </div>
 
-            <div className="driverWithdrawalForm">
-              <h3>＋ Add Money</h3>
+            <div
+              className="driverWithdrawalForm"
+              style={{
+                border: "1px solid rgba(34,197,94,0.35)",
+                background: "rgba(34,197,94,0.06)"
+              }}
+            >
+              <h3>💰 Real Driver Earnings Wallet</h3>
               <p>
-                Cash rides ki platform commission aur wallet balance ke liye
-                secure Razorpay top-up.
+                Customer Paytm / UPI se locked fare pay karega. Ride complete +
+                payment verify hone ke baad <strong>10% HimRideG commission</strong>
+                platform Razorpay collection me retain hogi aur <strong>90% driver
+                share</strong> is earnings wallet me credit hoga. Withdrawal live
+                RazorpayX payout se saved UPI ya bank account par jayega.
+              </p>
+              <button
+                type="button"
+                className="withdrawalSubmitBtn"
+                onClick={loadWallet}
+                disabled={walletLoading}
+              >
+                {walletLoading ? "Refreshing Wallet..." : "↻ Refresh Real Wallet"}
+              </button>
+            </div>
+
+            <div className="driverWithdrawalForm">
+              <h3>＋ Cash Commission Top-up</h3>
+              <p>
+                Existing add-money code preserve hai. Iska use cash rides ki
+                pending HimRideG commission clear karne ke liye rakha gaya hai.
+                Customer online ride earning ka 90% is top-up se alag real
+                earnings wallet credit hota hai.
               </p>
 
               <WalletTopupForm
@@ -4582,12 +4624,29 @@ function DriverDashboard({
             </div>
 
             <div className="driverWithdrawalForm">
-              <h3>\U0001f4b8 Withdrawal Request</h3>
-              <p>Available Balance: <strong>\u20b9{Number(driverWallet.balance || 0).toFixed(0)}</strong></p>
-              <WithdrawalForm
-                balance={Number(driverWallet.balance || 0)}
-                onSuccess={() => setEarningsOpen(false)}
+              <h3>💸 Real Wallet Withdrawal</h3>
+              <p>
+                Available Earnings Balance: <strong>₹{realDriverWalletBalance.toFixed(0)}</strong>
+              </p>
+
+              <InstantPayoutForm
+                balance={realDriverWalletBalance}
+                walletData={walletData}
+                onSuccess={async () => {
+                  await loadWallet();
+                }}
               />
+
+              {/*
+              | Legacy admin withdrawal UI/code preserve kiya gaya hai. Real money
+              | mode me duplicate withdrawal request create na ho isliye render off.
+              */}
+              {false && (
+                <WithdrawalForm
+                  balance={realDriverWalletBalance}
+                  onSuccess={() => setEarningsOpen(false)}
+                />
+              )}
             </div>
           </section>
         </div>

@@ -5,6 +5,9 @@ const WithdrawalRequest = require("../models/WithdrawalRequest");
 const razorpayX = require("./razorpayXService");
 
 const SUCCESS_PAYOUT_STATUSES = new Set(["processed"]);
+const PLATFORM_COMMISSION_PERCENT = 10;
+const DRIVER_SHARE_PERCENT = 100 - PLATFORM_COMMISSION_PERCENT;
+
 const FAILED_PAYOUT_STATUSES = new Set(["failed", "reversed", "cancelled", "rejected"]);
 
 function money(value) {
@@ -53,17 +56,28 @@ async function settleRidePayment(bookingOrId) {
   if (settlementGate.status !== "completed") {
     return settlementGate;
   }
+  /*
+  | Financial idempotency lock:
+  | only not_settled -> settling is allowed. A second concurrent verify/webhook
+  | request cannot lock the same booking again, so driver wallet cannot be
+  | double-credited for one ride.
+  */
   const locked = await Booking.findOneAndUpdate(
     {
       _id: bookingId,
       paymentStatus: "paid",
-      walletSettlementStatus: { $ne: "settled" }
+      status: "completed",
+      walletSettlementStatus: "not_settled"
     },
     { $set: { walletSettlementStatus: "settling" } },
     { new: true }
   );
 
   if (!locked) {
+    /*
+    | settled => already done; settling => another request is currently doing
+    | the credit. Return current booking without touching wallet again.
+    */
     return Booking.findById(bookingId);
   }
 
@@ -71,18 +85,33 @@ async function settleRidePayment(bookingOrId) {
     const driverId = locked.driver?._id || locked.driver;
     if (!driverId) throw new Error("Booking me assigned driver nahi hai");
 
+    /*
+    | REAL WALLET RULE:
+    | Payment settlement me sirf FINAL LOCKED FARE valid hai. Estimated fare,
+    | initial driver offer ya kisi aur fallback amount ko driver wallet credit
+    | banane ke liye use nahi karna. HimRideG commission exactly 10% hai.
+    */
     const fare = money(
-      locked.finalFare || locked.driverOfferedFare || locked.fare?.finalFare || locked.fare?.totalFare || locked.estimatedFare
+      locked.finalFare ?? locked.fare?.finalFare ?? 0
     );
-    const commissionPercent = Number(locked.platformCommissionPercent || 10);
+    const commissionPercent = PLATFORM_COMMISSION_PERCENT;
     const commission = money(
-      locked.platformCommissionAmount || (fare * commissionPercent) / 100
+      (fare * commissionPercent) / 100
     );
     const driverEarning = money(
-      locked.driverPayableAmount || fare - commission
+      fare - commission
     );
 
-    if (fare <= 0) throw new Error("Final fare valid nahi hai");
+    if (fare <= 0) throw new Error("Final locked fare valid nahi hai");
+
+    locked.platformCommissionPercent = commissionPercent;
+    locked.platformCommissionAmount = commission;
+    locked.driverPayableAmount = driverEarning;
+
+    if (locked.fare) {
+      locked.fare.finalFare = fare;
+      locked.fare.platformFee = commission;
+    }
 
     let updatedDriver;
 
@@ -132,7 +161,16 @@ async function settleRidePayment(bookingOrId) {
         description: recoveredDue > 0
           ? `Online earning ₹${driverEarning.toFixed(2)}; ₹${recoveredDue.toFixed(2)} old cash commission recover hua, ₹${walletCredit.toFixed(2)} wallet credit`
           : `Online ride earning ₹${driverEarning.toFixed(2)} credited`,
-        metadata: { driverEarning, recoveredDue, walletCredit }
+        metadata: {
+          fare,
+          commissionPercent,
+          platformCommission: commission,
+          driverSharePercent: DRIVER_SHARE_PERCENT,
+          driverEarning,
+          recoveredDue,
+          walletCredit,
+          moneyMode: "internal_wallet_razorpayx"
+        }
       });
     } else {
       const driver = await User.findOne({ _id: driverId, role: "driver" });
@@ -731,6 +769,11 @@ async function getWalletSummary(driverId) {
 
   return {
     wallet: driver.wallet || {},
+    walletMode: "real_driver_earnings_ledger",
+    moneyMode: "internal_wallet_razorpayx",
+    commissionPercent: PLATFORM_COMMISSION_PERCENT,
+    driverSharePercent: DRIVER_SHARE_PERCENT,
+    walletRule: "Customer paid final fare ka 10% HimRideG commission; 90% driver earnings wallet credit after ride completion",
     todayEarnings: money(todayAgg[0]?.amount),
     monthEarnings: money(monthAgg[0]?.amount),
     payoutsEnabled: payoutReadiness.ready && payoutLiveAccess.ok,

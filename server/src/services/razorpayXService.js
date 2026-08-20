@@ -21,6 +21,7 @@ function accountNumber() {
 }
 
 function realMoneyMode() {
+  /* Real payout must be explicitly enabled. Never default to sending money. */
   return String(process.env.REAL_MONEY_MODE || "false").toLowerCase() === "true";
 }
 
