@@ -166,9 +166,74 @@ const toSafeUserObject = (
   delete safeUser
     .refreshTokenHash;
 
+  delete safeUser
+    .refreshTokenHashes;
+
   return safeUser;
 };
 
+/*
+|--------------------------------------------------------------------------
+| Remember Refresh Session
+|--------------------------------------------------------------------------
+|
+| HimRideG website ek hi customer/driver account ko laptop, phone ya doosre
+| browser me legitimately use kar sakti hai. Purane single hash behavior me
+| har naya login previous device ka refresh session replace kar deta tha.
+| Access token expire hote hi /auth/refresh par "Session token match nahi
+| hua" aata tha aur payment create-order 401 fail ho jata tha.
+|
+| Raw refresh token store nahi hota. Sirf SHA-256 hash remember hota hai.
+| Latest 10 session hashes hi preserve kiye jaate hain.
+|--------------------------------------------------------------------------
+*/
+const buildRefreshSessionHashes = async (
+  userId,
+  newRefreshTokenHash
+) => {
+  const cleanNewHash =
+    String(
+      newRefreshTokenHash || ""
+    ).trim();
+
+  if (!userId || !cleanNewHash) {
+    return [];
+  }
+
+  /*
+  | Existing single-hash session ko NAYE login se pehle read karo. Isse
+  | deployment ke time already logged-in device bhi preserve ho sakta hai.
+  */
+  const tokenState =
+    await User.findById(
+      userId
+    )
+      .select(
+        "+refreshTokenHash +refreshTokenHashes"
+      )
+      .lean();
+
+  const existingHashes =
+    Array.isArray(
+      tokenState?.refreshTokenHashes
+    )
+      ? tokenState.refreshTokenHashes
+      : [];
+
+  return Array.from(
+    new Set(
+      [
+        ...existingHashes,
+        tokenState?.refreshTokenHash,
+        cleanNewHash
+      ]
+        .map((value) =>
+          String(value || "").trim()
+        )
+        .filter(Boolean)
+    )
+  ).slice(-10);
+};
 /*
 |--------------------------------------------------------------------------
 | Optional Email Validation
@@ -811,9 +876,18 @@ const verifyCustomerOtp =
     |--------------------------------------------------------------------------
     */
 
+    const refreshTokenHashes =
+      await buildRefreshSessionHashes(
+        user._id,
+        refreshTokenHash
+      );
+
     user
       .refreshTokenHash =
       refreshTokenHash;
+
+    user.refreshTokenHashes =
+      refreshTokenHashes;
 
     await user.save();
 
@@ -978,7 +1052,7 @@ const refreshAccessToken =
           payload.sub
         )
         .select(
-          "+refreshTokenHash"
+          "+refreshTokenHash +refreshTokenHashes"
         );
 
     if (!user) {
@@ -1022,9 +1096,20 @@ const refreshAccessToken =
     |--------------------------------------------------------------------------
     */
 
+    const rememberedRefreshHashes =
+      Array.isArray(
+        user.refreshTokenHashes
+      )
+        ? user.refreshTokenHashes
+            .map((value) =>
+              String(value || "").trim()
+            )
+            .filter(Boolean)
+        : [];
+
     if (
-      !user
-        .refreshTokenHash
+      !user.refreshTokenHash &&
+      rememberedRefreshHashes.length === 0
     ) {
       throw new ApiError(
         401,
@@ -1034,7 +1119,7 @@ const refreshAccessToken =
 
     /*
     |--------------------------------------------------------------------------
-    | Compare Refresh Token Hash
+    | Compare Refresh Token Hash — Multi Session Safe
     |--------------------------------------------------------------------------
     */
 
@@ -1043,27 +1128,55 @@ const refreshAccessToken =
         incomingToken
       );
 
+    const matchesLegacyHash =
+      String(
+        user.refreshTokenHash || ""
+      ) === incomingHash;
+
+    const matchesRememberedSession =
+      rememberedRefreshHashes.includes(
+        incomingHash
+      );
+
     if (
-      user
-        .refreshTokenHash !==
-      incomingHash
+      !matchesLegacyHash &&
+      !matchesRememberedSession
     ) {
       /*
       |--------------------------------------------------------------------------
-      | Stale / Invalid Refresh Token
+      | Unknown / Revoked Refresh Token
       |--------------------------------------------------------------------------
       |
-      | IMPORTANT: Stored valid refreshTokenHash ko yahan NULL nahi karna.
-      | Do simultaneous tabs/requests me ek stale token aa sakta hai. Purane
-      | behavior me stale request valid current session ko bhi destroy kar deta
-      | tha, jisse payment click par unexpected logout ho sakta tha.
-      |
+      | Security weaken nahi karni: sirf valid JWT hona enough nahi hai. Token
+      | ka hash user ke remembered active sessions me bhi hona chahiye.
+      |--------------------------------------------------------------------------
       */
 
       throw new ApiError(
         401,
-        "Session token match nahi hua. Current session ko preserve kiya gaya hai; dobara try karein."
+        "Session token match nahi hua. Ek baar dobara login karo; uske baad multi-device session preserve rahega."
       );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Legacy Session Migration
+    |--------------------------------------------------------------------------
+    |
+    | Old deployment ka current single hash agar valid hai to use remembered
+    | sessions array me migrate kar do. Iske baad next login ise replace nahi
+    | karega.
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      matchesLegacyHash &&
+      !matchesRememberedSession
+    ) {
+      user.refreshTokenHashes = [
+        ...rememberedRefreshHashes,
+        incomingHash
+      ].slice(-10);
     }
 
     /*

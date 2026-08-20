@@ -334,6 +334,9 @@ const toSafeUserObject = (
   delete safeUser
     .refreshTokenHash;
 
+  delete safeUser
+    .refreshTokenHashes;
+
   const pendingBasicInfo =
     needsGoogleBasicInfo(
       user
@@ -364,6 +367,61 @@ const toSafeUserObject = (
 |--------------------------------------------------------------------------
 */
 
+/*
+|--------------------------------------------------------------------------
+| Remember Google Refresh Session
+|--------------------------------------------------------------------------
+| Google se customer/driver login karne par previous valid device session ko
+| overwrite nahi karte. Raw token nahi, sirf SHA-256 hash remember hota hai.
+|--------------------------------------------------------------------------
+*/
+const buildRefreshSessionHashes = async (
+  userId,
+  newRefreshTokenHash
+) => {
+  const cleanNewHash =
+    String(
+      newRefreshTokenHash || ""
+    ).trim();
+
+  if (!userId || !cleanNewHash) {
+    return [];
+  }
+
+  /*
+  | Existing single-hash session ko NAYE login se pehle read karo. Isse
+  | deployment ke time already logged-in device bhi preserve ho sakta hai.
+  */
+  const tokenState =
+    await User.findById(
+      userId
+    )
+      .select(
+        "+refreshTokenHash +refreshTokenHashes"
+      )
+      .lean();
+
+  const existingHashes =
+    Array.isArray(
+      tokenState?.refreshTokenHashes
+    )
+      ? tokenState.refreshTokenHashes
+      : [];
+
+  return Array.from(
+    new Set(
+      [
+        ...existingHashes,
+        tokenState?.refreshTokenHash,
+        cleanNewHash
+      ]
+        .map((value) =>
+          String(value || "").trim()
+        )
+        .filter(Boolean)
+    )
+  ).slice(-10);
+};
 const assertAccountCanLogin = (
   user
 ) => {
@@ -811,8 +869,17 @@ const googleLogin =
       user
     );
 
+    const refreshTokenHashes =
+      await buildRefreshSessionHashes(
+        user._id,
+        refreshTokenHash
+      );
+
     user.refreshTokenHash =
       refreshTokenHash;
+
+    user.refreshTokenHashes =
+      refreshTokenHashes;
 
     await user.save();
 

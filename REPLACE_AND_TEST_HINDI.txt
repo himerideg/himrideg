@@ -1,0 +1,51 @@
+HimRideG — PAYMENT 401 / SESSION TOKEN MATCH FIX
+=================================================
+
+Screenshot problem:
+1) POST /api/v2/payments/create-order -> 401
+2) POST /api/v2/auth/refresh -> 401
+3) Server message: Session token match nahi hua
+
+ROOT CAUSE
+----------
+User model pehle sirf ek refreshTokenHash rakhta tha. Same customer/driver account
+ka naya login hone par purane browser/device ka hash replace ho jata tha. Access token
+expire hone ke baad purana browser /auth/refresh karta tha to DB hash match nahi hota,
+isliye payment create-order 401 fail hota tha.
+
+FIX
+---
+- Existing refreshTokenHash delete nahi kiya; backward compatibility ke liye preserve hai.
+- User model me refreshTokenHashes array ADD kiya.
+- Latest 10 valid browser/device session hashes preserve honge.
+- Raw refresh tokens DB me store nahi honge; SHA-256 hashes hi rahenge.
+- Customer OTP login, Driver OTP login aur Google login sab multi-session list update karte hain.
+- /auth/refresh legacy single-hash aur remembered sessions dono validate karta hai.
+- Unknown/revoked token ko accept nahi kiya jata. Security bypass nahi ki gayi.
+- Safe user response se dono internal token fields remove hain.
+
+FULL REPLACEMENT FILES
+----------------------
+server/src/models/User.js
+server/src/controllers/authController.js
+server/src/controllers/driverAuthController.js
+server/src/controllers/googleAuthController.js
+
+IMPORTANT AFTER DEPLOY
+----------------------
+Current browser screenshot wala refresh token already mismatch state me hai.
+Files deploy + backend restart ke baad CUSTOMER ko EK BAAR logout/login karna hai.
+Us fresh login ke baad current session DB me remembered ho jayega.
+Future me same account dusre browser/device me login kare to latest 10 sessions preserve rahenge.
+
+PAYMENT TEST
+------------
+1) Backend deploy/restart.
+2) Browser me customer logout/login once.
+3) Completed ride open karo.
+4) Pay button click karo.
+5) Console me /payments/create-order 401 nahi aana chahiye.
+6) Razorpay checkout open hona chahiye.
+7) Successful verify ke baad existing real-wallet settlement flow 10% commission / 90% driver wallet use karega.
+
+NO ENV CHANGE REQUIRED FOR THIS AUTH FIX.

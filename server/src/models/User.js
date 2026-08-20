@@ -1043,6 +1043,27 @@ const userSchema =
         select: false
       },
 
+      /*
+      |------------------------------------------------------------------
+      | Multi-Session Refresh Token Hashes
+      |------------------------------------------------------------------
+      |
+      | Purana single refreshTokenHash backward compatibility ke liye
+      | preserve hai. Ye array latest valid browser/device sessions ke
+      | SHA-256 hashes rakhta hai. Isse same customer/driver ka doosre
+      | browser/device par login hona pehle wale valid session ko turant
+      | invalidate nahi karega. JWT ki own expiry phir bhi enforce hogi.
+      |
+      | Maximum active remembered sessions controllers 10 par cap karte hain.
+      | Raw refresh token kabhi MongoDB me store nahi hota.
+      |------------------------------------------------------------------
+      */
+      refreshTokenHashes: {
+        type: [String],
+        default: [],
+        select: false
+      },
+
       fcmTokens: {
         type: [String],
         default: []
@@ -1233,6 +1254,8 @@ userSchema.methods
     delete userObject
       .accountLockedUntil;
     delete userObject.deletedAt;
+    delete userObject.refreshTokenHash;
+    delete userObject.refreshTokenHashes;
 
     return userObject;
   };
