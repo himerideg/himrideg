@@ -2,6 +2,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -50,6 +51,9 @@ const METHOD = Object.freeze({
   CASH: "cash",
 });
 
+/* Legacy advance-plan code preserve hai; latest flow me pre-ride payment off hai. */
+const ALLOW_ADVANCE_PAYMENT = false;
+
 function bookingIdOf(booking) {
   return String(
     booking?._id ||
@@ -78,6 +82,62 @@ function isFareLocked(booking) {
 
 function isRideCompleted(booking) {
   return String(booking?.status || "").toLowerCase() === "completed";
+}
+
+function isScheduledBooking(booking) {
+  if (String(booking?.bookingMode || "").toLowerCase() === "schedule") {
+    return true;
+  }
+
+  const travelTime = new Date(
+    booking?.travelDate || booking?.scheduledAt || 0
+  ).getTime();
+
+  const createdTime = new Date(
+    booking?.createdAt || booking?.bookedAt || 0
+  ).getTime();
+
+  if (!travelTime || !createdTime) {
+    return false;
+  }
+
+  return travelTime - createdTime > 5 * 60 * 1000;
+}
+
+function assignedDriverIdOf(booking) {
+  return String(
+    booking?.driver?._id ||
+      booking?.driver?.id ||
+      booking?.driver ||
+      booking?.assignedDriver?._id ||
+      booking?.assignedDriver?.id ||
+      booking?.assignedDriver ||
+      ""
+  );
+}
+
+function parseDriverWalletQr(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  try {
+    const json = JSON.parse(raw);
+    return String(json?.driverId || json?.driver || json?.id || "").trim();
+  } catch {
+    // Non-JSON payload can still be a HimRideG wallet URI.
+  }
+
+  try {
+    const normalized = raw.replace(/^himrideg:\/\//i, "https://himrideg.local/");
+    const url = new URL(normalized);
+    return String(
+      url.searchParams.get("driverId") ||
+        url.searchParams.get("driver") ||
+        ""
+    ).trim();
+  } catch {
+    return "";
+  }
 }
 
 function isAlreadyPaid(booking) {
@@ -197,20 +257,12 @@ function initialStep(booking) {
     return STEP.SUCCESS;
   }
 
-  const plan = paymentPlanOf(booking);
-
-  if (!plan) {
-    return STEP.PLAN;
+  /* Payment options sirf completed ride ke baad. */
+  if (!isRideCompleted(booking)) {
+    return STEP.LOCKED;
   }
 
-  if (
-    plan === PLAN.ONLINE_AFTER_RIDE &&
-    isRideCompleted(booking)
-  ) {
-    return STEP.METHOD;
-  }
-
-  return STEP.PLAN_STATUS;
+  return STEP.METHOD;
 }
 
 function PaymentModal({
@@ -248,6 +300,22 @@ function PaymentModal({
     booking?.paymentScheduledAt || booking?.travelDate || null
   );
 
+  const scheduledBooking = useMemo(
+    () => isScheduledBooking(booking),
+    [booking]
+  );
+
+  const assignedDriverId = useMemo(
+    () => assignedDriverIdOf(booking),
+    [booking]
+  );
+
+  const [showQrScanner, setShowQrScanner] = useState(false);
+  const [qrVerified, setQrVerified] = useState(false);
+  const [qrMessage, setQrMessage] = useState("");
+  const scannerRef = useRef(null);
+  const qrVideoRef = useRef(null);
+
   // ADD-ONLY: payment failure audit so real-money failures remain traceable.
   const reportPaymentFailure = useCallback(async (reason, details = {}) => {
     try {
@@ -283,14 +351,145 @@ function PaymentModal({
     setScheduledAt(
       booking?.paymentScheduledAt || booking?.travelDate || null
     );
+    setShowQrScanner(false);
+    setQrVerified(false);
+    setQrMessage("");
   }, [bookingId, booking]);
 
+  useEffect(() => {
+    if (!showQrScanner) {
+      return undefined;
+    }
+
+    let active = true;
+    let animationFrame = 0;
+    let mediaStream = null;
+
+    const stopScanner = () => {
+      active = false;
+
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+
+      if (mediaStream) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+      }
+
+      if (qrVideoRef.current) {
+        try {
+          qrVideoRef.current.pause();
+          qrVideoRef.current.srcObject = null;
+        } catch {
+          // Browser cleanup fallback.
+        }
+      }
+
+      scannerRef.current = null;
+    };
+
+    const startScanner = async () => {
+      try {
+        if (typeof window.BarcodeDetector !== "function") {
+          throw new Error(
+            "Is browser me built-in QR camera scanner support nahi hai. Latest Chrome/Android Chrome use karein."
+          );
+        }
+
+        if (!navigator?.mediaDevices?.getUserMedia) {
+          throw new Error(
+            "Camera access available nahi hai. HTTPS site aur camera permission required hai."
+          );
+        }
+
+        const detector = new window.BarcodeDetector({
+          formats: ["qr_code"],
+        });
+
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+
+        scannerRef.current = { mediaStream };
+
+        const video = qrVideoRef.current;
+        if (!video) {
+          throw new Error("Camera preview ready nahi hua.");
+        }
+
+        video.srcObject = mediaStream;
+        video.setAttribute("playsinline", "true");
+        await video.play();
+
+        const scanFrame = async () => {
+          if (!active) return;
+
+          try {
+            if (video.readyState >= 2) {
+              const barcodes = await detector.detect(video);
+              const decodedText = barcodes?.[0]?.rawValue || "";
+
+              if (decodedText) {
+                const scannedDriverId = parseDriverWalletQr(decodedText);
+
+                if (!assignedDriverId) {
+                  setQrMessage(
+                    "Assigned driver ID ride me available nahi hai. Ride refresh karke dobara try karein."
+                  );
+                } else if (!scannedDriverId) {
+                  setQrMessage("Yeh valid HimRideG Driver Wallet QR nahi hai.");
+                } else if (scannedDriverId !== assignedDriverId) {
+                  setQrMessage(
+                    "Yeh QR is ride ke assigned driver ka nahi hai. Payment roki gayi."
+                  );
+                } else {
+                  setQrVerified(true);
+                  setQrMessage(
+                    "✅ Driver Wallet QR verified. Ab locked fare UPI se pay karein."
+                  );
+                  setPaymentMethod(METHOD.ONLINE);
+                  stopScanner();
+                  setShowQrScanner(false);
+                  return;
+                }
+              }
+            }
+          } catch {
+            // Frame decode miss ko ignore karke scanner continue rakho.
+          }
+
+          animationFrame = window.requestAnimationFrame(scanFrame);
+        };
+
+        animationFrame = window.requestAnimationFrame(scanFrame);
+      } catch (scannerError) {
+        setQrMessage(
+          scannerError?.message ||
+            "Camera QR scanner start nahi ho saka. Camera permission check karein."
+        );
+        stopScanner();
+      }
+    };
+
+    startScanner();
+
+    return () => {
+      stopScanner();
+    };
+  }, [assignedDriverId, showQrScanner]);
+
   const planTitle = useMemo(() => {
+    if (completed) return "Ride Payment";
     if (plan === PLAN.ADVANCE) return "Advance Payment";
     if (plan === PLAN.SCHEDULED) return "Scheduled Payment";
     if (plan === PLAN.ONLINE_AFTER_RIDE) return "Payment Online";
     return "Choose Payment Option";
-  }, [plan]);
+  }, [completed, plan]);
 
   const paymentLockMessage = useMemo(() => {
     if (!bookingId) {
@@ -301,8 +500,12 @@ function PaymentModal({
       return "Final fare lock hone ke baad payment page enable hoga.";
     }
 
+    if (!completed) {
+      return "Payment options driver ke ride complete karne ke baad hi enable honge.";
+    }
+
     return "Payment abhi available nahi hai.";
-  }, [bookingId, fareLocked]);
+  }, [bookingId, completed, fareLocked]);
 
   const selectPlan = useCallback(
     async (nextPlan) => {
@@ -374,18 +577,13 @@ function PaymentModal({
       return;
     }
 
-    if (!plan) {
-      setStep(STEP.PLAN);
+    if (!completed) {
+      setError("Payment driver ke ride complete karne ke baad hi start hogi.");
+      setStep(STEP.LOCKED);
       return;
     }
 
-    if (
-      plan === PLAN.ONLINE_AFTER_RIDE &&
-      !completed
-    ) {
-      setStep(STEP.PLAN_STATUS);
-      return;
-    }
+    /* Legacy plan data preserve hai; completed ride par direct UPI allowed. */
 
     setLoading(true);
     setError("");
@@ -618,11 +816,10 @@ function PaymentModal({
   const handleCashPayment = useCallback(async () => {
     if (
       !fareLocked ||
-      !completed ||
-      plan !== PLAN.ONLINE_AFTER_RIDE
+      !completed
     ) {
       setError(
-        "Cash payment sirf normal post-ride payment me available hai."
+        "Cash payment sirf completed ride ke baad available hai."
       );
       setStep(STEP.ERROR);
       return;
@@ -698,22 +895,12 @@ function PaymentModal({
   const retryStep = () => {
     setError("");
 
-    if (!fareLocked) {
+    if (!fareLocked || !completed) {
       setStep(STEP.LOCKED);
       return;
     }
 
-    if (!plan) {
-      setStep(STEP.PLAN);
-      return;
-    }
-
-    if (plan === PLAN.ONLINE_AFTER_RIDE && completed) {
-      setStep(STEP.METHOD);
-      return;
-    }
-
-    setStep(STEP.PLAN_STATUS);
+    setStep(STEP.METHOD);
   };
 
   return (
@@ -803,6 +990,10 @@ function PaymentModal({
                 {finalFare > 0 ? "✅" : "○"}
                 Locked fare available ho
               </span>
+              <span>
+                {completed ? "✅" : "○"}
+                Driver ride complete kare
+              </span>
             </div>
             <button
               type="button"
@@ -835,6 +1026,7 @@ function PaymentModal({
                 <em>After Ride →</em>
               </button>
 
+              {ALLOW_ADVANCE_PAYMENT && (
               <button
                 type="button"
                 className="paymentPlanCard advance"
@@ -848,7 +1040,9 @@ function PaymentModal({
                 </small>
                 <em>Pay Before Ride →</em>
               </button>
+              )}
 
+              {scheduledBooking && (
               <button
                 type="button"
                 className="paymentPlanCard scheduled"
@@ -862,6 +1056,7 @@ function PaymentModal({
                 </small>
                 <em>Schedule + Pay Now →</em>
               </button>
+              )}
             </div>
 
             {loading && (
@@ -1030,6 +1225,91 @@ function PaymentModal({
                 </div>
               </button>
             </div>
+
+            <div
+              style={{
+                marginTop: 12,
+                padding: 12,
+                border: "1px solid #d6d9df",
+                borderRadius: 12,
+                background: "#f8fafc",
+              }}
+            >
+              <button
+                type="button"
+                className="paymentMethodCard"
+                style={{ width: "100%" }}
+                disabled={loading || !completed}
+                onClick={() => {
+                  setQrMessage("");
+                  setShowQrScanner((current) => !current);
+                }}
+              >
+                <div className="paymentMethodIcon">📷</div>
+                <div className="paymentMethodInfo">
+                  <strong>Camera Scanner — Driver QR</strong>
+                  <small>Assigned driver ka fixed Wallet QR scan karein</small>
+                </div>
+                <div className="paymentMethodCheck">
+                  {qrVerified ? "✅" : "▦"}
+                </div>
+              </button>
+
+              {showQrScanner && (
+                <div style={{ marginTop: 12, padding: 10, borderRadius: 10, background: "#fff" }}>
+                  <video
+                    ref={qrVideoRef}
+                    muted
+                    playsInline
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      minHeight: 240,
+                      maxHeight: 360,
+                      objectFit: "cover",
+                      borderRadius: 10,
+                      background: "#111827",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="paymentCancelBtn"
+                    style={{ width: "100%", marginTop: 8 }}
+                    onClick={() => setShowQrScanner(false)}
+                  >
+                    Close Camera
+                  </button>
+                </div>
+              )}
+
+              {qrMessage && (
+                <div
+                  className={qrVerified ? "paymentAmountLockedNote" : "paymentError"}
+                  style={{ marginTop: 10 }}
+                >
+                  {qrMessage}
+                </div>
+              )}
+            </div>
+
+            {scheduledBooking && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: 11,
+                  borderRadius: 10,
+                  border: "1px solid #fde68a",
+                  background: "#fffbeb",
+                  color: "#713f12",
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                }}
+              >
+                📅 <strong>Scheduled booking:</strong> Schedule Payment option sirf
+                scheduled booking ke liye rakha gaya hai. Actual payment ride
+                complete hone ke baad hi enable hota hai.
+              </div>
+            )}
 
             {paymentMethod === METHOD.ONLINE && (
               <div className="paymentUpiHelp">

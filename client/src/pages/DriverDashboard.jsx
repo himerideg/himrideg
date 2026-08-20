@@ -525,7 +525,12 @@ function canUseDriverRideActions(ride) {
     return false;
   }
 
-  if (isAdvancePaymentPending(ride)) {
+  /*
+  | Legacy advance-payment data preserve hai. Latest rule me customer payment
+  | ride complete hone se pehle required nahi hai, isliye driver actions lock
+  | nahi honge.
+  */
+  if (false && isAdvancePaymentPending(ride)) {
     return false;
   }
 
@@ -1662,6 +1667,11 @@ function DriverDashboard({
   const [
     earningsOpen,
     setEarningsOpen
+  ] = useState(false);
+
+  const [
+    walletQrOpen,
+    setWalletQrOpen
   ] = useState(false);
 
   // ADD-ONLY: live wallet summary for instant payout; legacy profile wallet remains.
@@ -4033,6 +4043,24 @@ function DriverDashboard({
 
   /*
   |--------------------------------------------------------------------------
+  | Fixed Driver Wallet QR
+  |--------------------------------------------------------------------------
+  | QR me amount nahi hota. Sirf driver identity hoti hai. Customer scanner
+  | assigned driver verify karta hai; amount booking ka final locked fare hai.
+  */
+  const driverWalletQrValue = JSON.stringify({
+    type: "himrideg_driver_wallet",
+    version: 1,
+    driverId: currentUserId,
+  });
+
+  const driverWalletQrImageUrl =
+    `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&data=${encodeURIComponent(
+      driverWalletQrValue
+    )}`;
+
+  /*
+  |--------------------------------------------------------------------------
   | Document Gate — Required docs check
   |--------------------------------------------------------------------------
   */
@@ -4366,6 +4394,92 @@ function DriverDashboard({
         </div>
       )}
 
+      {!showDocGate && !showUnderReview && walletQrOpen && (
+        <div
+          className="driverSummaryOverlay"
+          onClick={() => setWalletQrOpen(false)}
+        >
+          <section
+            className="driverSummaryModal"
+            onClick={(event) => event.stopPropagation()}
+            style={{ maxWidth: 520 }}
+          >
+            <header>
+              <div>
+                <small>DRIVER WALLET QR</small>
+                <h2>Fixed Payment QR</h2>
+              </div>
+              <button type="button" onClick={() => setWalletQrOpen(false)}>
+                ×
+              </button>
+            </header>
+
+            <div
+              style={{
+                display: "grid",
+                placeItems: "center",
+                gap: 14,
+                padding: "24px 10px 12px",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  padding: 18,
+                  borderRadius: 18,
+                  background: "#ffffff",
+                  boxShadow: "0 16px 45px rgba(0,0,0,.25)",
+                }}
+              >
+                <img
+                  src={driverWalletQrImageUrl}
+                  alt={`HimRideG Driver Wallet QR - ${displayDriverName}`}
+                  width="250"
+                  height="250"
+                  style={{ display: "block" }}
+                />
+              </div>
+
+              <div>
+                <strong style={{ display: "block", fontSize: 18 }}>
+                  {displayDriverName}
+                </strong>
+                <small style={{ color: "#8a8f98" }}>
+                  Driver ID: {currentUserId || "Unavailable"}
+                </small>
+              </div>
+
+              <p
+                style={{
+                  margin: 0,
+                  color: "#b8bdc7",
+                  lineHeight: 1.6,
+                  maxWidth: 430,
+                }}
+              >
+                Customer completed ride ke payment screen se Camera Scanner open
+                karke is QR ko scan karega. QR driver identity verify karta hai;
+                payment amount hamesha final locked fare rahega.
+              </p>
+
+              <div
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 10,
+                  background: "rgba(245,197,24,.08)",
+                  border: "1px solid rgba(245,197,24,.25)",
+                  color: "#f5c518",
+                  fontSize: 12,
+                }}
+              >
+                🔒 Fixed QR · No editable amount · Assigned-driver verification
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
       {!showDocGate && !showUnderReview && earningsOpen && (
         <div
           className="driverSummaryOverlay"
@@ -4393,6 +4507,15 @@ function DriverDashboard({
                 ×
               </button>
             </header>
+
+            <button
+              type="button"
+              className="driverCustomerSummaryBtn"
+              style={{ width: "100%", marginBottom: 16, minHeight: 46 }}
+              onClick={() => setWalletQrOpen(true)}
+            >
+              ▦ Show My Fixed Driver Wallet QR
+            </button>
 
             <div className="driverEarningsGrid">
               <article>
@@ -4888,6 +5011,7 @@ function DriverDashboard({
           <button className={activeTab === "requests" ? "active" : ""} type="button" onClick={() => setActiveTab("requests")}>Requests</button>
           <button className={["active", "scheduled", "payment", "completed"].includes(activeTab) ? "active" : ""} type="button" onClick={() => setActiveTab("active")}>My Rides</button>
           <button type="button" onClick={() => setEarningsOpen(true)}>Earnings</button>
+          <button type="button" onClick={() => setWalletQrOpen(true)}>My QR</button>
           <button type="button" onClick={() => setProfileOpen(true)}>Profile</button>
         </nav>
 

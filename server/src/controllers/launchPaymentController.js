@@ -104,14 +104,26 @@ function canPayOnlineNow(booking) {
     };
   }
 
-  // Advance = fare lock ke baad immediately full online payment.
+  /*
+  | HARD GATE: customer payment sirf completed ride ke baad.
+  | Legacy advance/scheduled plan fields preserve hain, lekin direct API call
+  | bhi ride complete hone se pehle Razorpay order create nahi kar sakti.
+  */
+  if (status !== "completed") {
+    return {
+      allowed: false,
+      message: "Payment driver ke ride complete karne ke baad hi start hogi"
+    };
+  }
+
+  // Legacy Advance plan: completed ride par normal online payment ki tarah.
   if (plan === "advance") {
     return { allowed: true, paymentContext: "advance" };
   }
 
-  // Scheduled = later due, lekin customer ka Pay Now hamesha available.
+  // Scheduled plan legacy-compatible hai; actual Pay Now completed ride par hi.
   if (plan === "scheduled") {
-    return { allowed: true, paymentContext: "scheduled_pay_now" };
+    return { allowed: true, paymentContext: "scheduled_post_ride" };
   }
 
   // Legacy pay_now without paymentPlan.
@@ -423,6 +435,13 @@ async function selectPaymentPlan(req, res) {
       return res.status(409).json({ success: false, message: "Is ride par payment option change nahi ho sakta" });
     }
 
+    if (String(booking.status || "") !== "completed") {
+      return res.status(409).json({
+        success: false,
+        message: "Payment option ride complete hone ke baad hi choose ho sakta hai"
+      });
+    }
+
     if (booking.paymentStatus === "paid") {
       return res.status(409).json({ success: false, message: "Payment already complete hai" });
     }
@@ -467,8 +486,6 @@ async function selectPaymentPlan(req, res) {
     emitPaymentUpdate(req, booking, "payment:plan-updated");
 
     const canPayNow =
-      plan === "advance" ||
-      plan === "scheduled" ||
       booking.status === "completed";
 
     return res.status(200).json({

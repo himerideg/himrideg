@@ -643,6 +643,12 @@ function CustomerBookRide({
                           ? ""
                           : booking.travelDate ||
                             "",
+
+                      paymentTiming:
+                        bookingMode === "now" &&
+                        booking.paymentTiming === "scheduled"
+                          ? "pay_later"
+                          : booking.paymentTiming || "pay_later",
                     });
                   }}
                 >
@@ -827,6 +833,27 @@ function CustomerBookRide({
                     UPI payment ride complete hone ke baad
                   </small>
                 </button>
+
+                {booking.bookingMode === "schedule" && (
+                  <button
+                    type="button"
+                    className={
+                      booking.paymentTiming === "scheduled"
+                        ? "active"
+                        : ""
+                    }
+                    onClick={() => {
+                      changeBooking({
+                        paymentTiming: "scheduled",
+                      });
+                    }}
+                  >
+                    Schedule Payment
+                    <small>
+                      Sirf scheduled booking ke liye — actual payment ride complete hone ke baad
+                    </small>
+                  </button>
+                )}
               </div>
 
               <p

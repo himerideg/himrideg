@@ -91,6 +91,15 @@ const paymentPlanOf = (ride) => {
   return null;
 };
 
+/*
+|--------------------------------------------------------------------------
+| Full-code safety switch: no automatic payment popup on dashboard load
+|--------------------------------------------------------------------------
+| Payment modal sirf customer ke explicit Pay/Wallet action se khulega.
+| Existing socket/hydration auto-popup code preserve hai, bas disabled hai.
+*/
+const AUTO_PAYMENT_MODAL_ENABLED = false;
+
 const isFinalFareLocked = (ride) =>
   Boolean(
     ride &&
@@ -100,34 +109,20 @@ const isFinalFareLocked = (ride) =>
 
 /*
 |--------------------------------------------------------------------------
-| Customer Payment Page Gate
+| Customer Payment Page Gate — HARD COMPLETED-RIDE RULE
 |--------------------------------------------------------------------------
-| Fare lock hote hi plan page khul sakta hai. Online-after-ride plan me real
-| payment ride complete ke baad; Advance/Scheduled me Pay Now pehle bhi.
+| 1) Ride COMPLETED honi chahiye.
+| 2) Final fare locked hona chahiye.
+| 3) Already-paid ride dobara payment ke liye open nahi hogi.
+| Legacy paymentPlan/paymentTiming fields preserve hain.
 |--------------------------------------------------------------------------
 */
 const canCustomerPayRide = (ride, paidBookingIds = new Set()) => {
-  if (
-    !ride ||
-    !isFinalFareLocked(ride) ||
-    isRidePaid(ride, paidBookingIds)
-  ) {
-    return false;
-  }
-
-  const plan = paymentPlanOf(ride);
-
-  if (!plan) {
-    return true;
-  }
-
-  if (["advance", "scheduled"].includes(plan)) {
-    return true;
-  }
-
-  return (
-    plan === "online_after_ride" &&
-    ride.status === "completed"
+  return Boolean(
+    ride &&
+      String(ride.status || "").toLowerCase() === "completed" &&
+      isFinalFareLocked(ride) &&
+      !isRidePaid(ride, paidBookingIds)
   );
 };
 
@@ -1445,7 +1440,7 @@ function CustomerDashboard({
         })
       );
 
-      if (bid) {
+      if (AUTO_PAYMENT_MODAL_ENABLED && bid) {
         const currentRide = localBookings.find((ride) => idOf(ride) === bid);
         const paymentRide = {
           ...(currentRide || {}),
@@ -1481,6 +1476,11 @@ function CustomerDashboard({
       const bid = String(data?.bookingId || "");
 
       if (!bid) {
+        return;
+      }
+
+      // Dashboard/socket se payment popup auto-open nahi karna.
+      if (!AUTO_PAYMENT_MODAL_ENABLED) {
         return;
       }
 
@@ -1573,6 +1573,10 @@ function CustomerDashboard({
      Auto Payment Modal — Fare Lock + Waiting Payment
   ────────────────────────────────────────────────────────────────── */
   useEffect(() => {
+    if (!AUTO_PAYMENT_MODAL_ENABLED) {
+      return undefined;
+    }
+
     const paymentFlowRide = localBookings.find((ride) =>
       canCustomerPayRide(ride, paidBookingIds)
     );

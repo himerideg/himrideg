@@ -1,0 +1,17 @@
+HimRideG latest ZIP base: HM G(1).zip
+
+FULL CODE RULE CHECK:
+client/src/pages/CustomerDashboard.jsx: original 2783 lines -> replacement 2787 lines
+client/src/components/CustomerBookRide.jsx: original 987 lines -> replacement 1014 lines
+client/src/components/paymentmodal.jsx: original 1206 lines -> replacement 1486 lines
+client/src/pages/DriverDashboard.jsx: original 5448 lines -> replacement 5572 lines
+server/src/controllers/launchPaymentController.js: original 1015 lines -> replacement 1032 lines
+
+Applied rules:
+- Customer dashboard auto payment popup disabled.
+- Payment UI/API only after ride status completed + final fare locked.
+- Schedule Payment button only when bookingMode=Schedule.
+- Customer camera scanner verifies assigned driver fixed QR.
+- UPI continues through existing Razorpay UPI-only flow.
+- Driver dashboard has fixed My QR / Wallet QR.
+- Existing code/features preserved; replacements are based on the latest uploaded files.
