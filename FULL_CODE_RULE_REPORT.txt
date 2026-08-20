@@ -1,0 +1,7 @@
+HimRideG FULL CODE RULE - CLEAN PROJECT REPORT
+
+1. Active/canonical client and server source files were preserved unchanged from the maintained project.
+2. Only the _PRESERVED_ROOT_DUPLICATES backup copies were removed.
+3. No canonical file under client/ or server/ was deleted for duplicate cleanup.
+4. Driver login, payment/QR flow, wallet/commission work and session fixes remain in their canonical paths.
+5. Project size may be smaller because duplicate backup copies were removed; this does not mean active code was reduced.
