@@ -78,6 +78,36 @@ async function requestJson(url, signal) {
   return response.json();
 }
 
+function looksLikePlusCode(value) {
+  return /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}(?:\b|,)/i.test(
+    String(value || "").trim()
+  );
+}
+
+function cleanPlaceName(item = {}) {
+  const candidates = [
+    item.village,
+    item.hamlet,
+    item.suburb,
+    item.neighbourhood,
+    item.district,
+    item.town,
+    item.city,
+    item.municipality,
+    item.county,
+    item.name,
+    item.address_line1
+  ];
+
+  for (const value of candidates) {
+    const text = String(value || "").trim();
+    if (!text || looksLikePlusCode(text)) continue;
+    return text.split(",")[0].trim();
+  }
+
+  return "Location";
+}
+
 function toLocation(item = {}) {
   const latitude = Number(item.lat);
   const longitude = Number(item.lon);
@@ -99,12 +129,11 @@ function toLocation(item = {}) {
       item.name ||
       "Selected location",
     shortName:
-      item.name ||
-      item.address_line1 ||
-      item.city ||
-      item.village ||
-      item.county ||
-      "Location",
+      cleanPlaceName(item),
+    village: item.village || item.hamlet || "",
+    suburb: item.suburb || item.neighbourhood || "",
+    district: item.district || "",
+    town: item.town || item.municipality || "",
     latitude,
     longitude,
     city:
