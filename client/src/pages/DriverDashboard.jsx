@@ -1403,6 +1403,10 @@ function InstantPayoutForm({ balance, walletData, onSuccess }) {
   const [submitting, setSubmitting] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState({ text: "", type: "" });
+  const savedUpiReady = Boolean(String(saved.upiId || "").trim());
+  const savedBankReady = Boolean(saved.maskedAccount && saved.ifsc);
+  const hasSavedPayoutDetails = savedUpiReady || savedBankReady;
+  const [detailsOpen, setDetailsOpen] = React.useState(!hasSavedPayoutDetails);
 
   React.useEffect(() => {
     setMethod(saved.preferredMethod || "upi");
@@ -1414,6 +1418,12 @@ function InstantPayoutForm({ balance, walletData, onSuccess }) {
     setFrequency(settings.autoPayoutFrequency || "weekly");
     setAutoMinimum(String(settings.autoPayoutMinimum || 500));
   }, [saved.preferredMethod, saved.upiId, saved.bankName, saved.accountHolderName, saved.ifsc, settings.autoPayoutEnabled, settings.autoPayoutFrequency, settings.autoPayoutMinimum]);
+
+  React.useEffect(() => {
+    if (hasSavedPayoutDetails) {
+      setDetailsOpen(false);
+    }
+  }, [hasSavedPayoutDetails, saved.preferredMethod]);
 
   const saveSettings = async () => {
     setMsg({ text: "", type: "" });
@@ -1441,7 +1451,8 @@ function InstantPayoutForm({ balance, walletData, onSuccess }) {
       const { data } = await api.patch("/driver/wallet/payout-settings", payload);
       setMsg({ text: data?.message || "Payout details save ho gayi.", type: "success" });
       setAccountNumber("");
-      onSuccess?.();
+      await onSuccess?.();
+      setDetailsOpen(false);
     } catch (error) {
       setMsg({ text: error?.response?.data?.message || "Payout details save nahi ho saki.", type: "error" });
     } finally {
@@ -1500,48 +1511,73 @@ function InstantPayoutForm({ balance, walletData, onSuccess }) {
       <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
         <strong>Saved payout details</strong>
         <span style={{fontSize:12,color:walletData?.payoutsEnabled ? "#22c55e" : "#f59e0b"}}>
-          {walletData?.payoutsEnabled ? "● Live RazorpayX API verified" : "● RazorpayX live check failed"}
+          {walletData?.payoutsEnabled ? "● Withdrawals ready" : "● Withdrawal setup pending"}
         </span>
       </div>
       {!walletData?.payoutsEnabled && walletData?.payoutLiveAccess?.message && (
-        <p className="withdrawalMsg error" style={{marginTop:0}}>
-          {walletData.payoutLiveAccess.message}
-        </p>
+        <>
+          <p className="withdrawalMsg error" style={{marginTop:0}}>
+            Instant withdrawal abhi available nahi hai. Wallet earning safe rahegi.
+          </p>
+          <details className="walletTechnicalStatus">
+            <summary>Technical status</summary>
+            <small>{walletData.payoutLiveAccess.message}</small>
+          </details>
+        </>
       )}
 
-      <div className="withdrawalMethodTabs">
-        <button type="button" className={method === "upi" ? "active" : ""} onClick={() => setMethod("upi")}>UPI</button>
-        <button type="button" className={method === "bank" ? "active" : ""} onClick={() => setMethod("bank")}>Bank / IMPS</button>
-      </div>
+      {hasSavedPayoutDetails && !detailsOpen && (
+        <div className="savedPayoutSummary">
+          <div>
+            <small>PAYOUT ACCOUNT SAVED</small>
+            <strong>{saved.preferredMethod === "bank" ? "Bank / IMPS" : "UPI"}</strong>
+            <span>
+              {saved.preferredMethod === "bank"
+                ? `Account ${saved.maskedAccount || "saved"}`
+                : `UPI ${saved.upiId ? `${saved.upiId.slice(0, 3)}•••${saved.upiId.includes("@") ? `@${saved.upiId.split("@").pop()}` : ""}` : "saved"}`}
+            </span>
+          </div>
+          <button type="button" className="savedPayoutEditBtn" onClick={() => setDetailsOpen(true)}>
+            Edit Details
+          </button>
+        </div>
+      )}
 
-      <div className="withdrawalFields">
-        {method === "upi" ? (
-          <input type="text" placeholder="UPI ID (e.g. name@upi)" value={upiId} onChange={e => setUpiId(e.target.value)} />
-        ) : (<>
-          <input type="text" placeholder="Account Holder Name" value={accountHolderName} onChange={e => setAccountHolderName(e.target.value)} />
-          <input type="text" placeholder="Bank Name" value={bankName} onChange={e => setBankName(e.target.value)} />
-          {saved.maskedAccount && <small style={{color:"#aaa"}}>Saved account: {saved.maskedAccount}</small>}
-          <input type="text" placeholder={saved.maskedAccount ? "New Account Number (blank = saved)" : "Account Number"} value={accountNumber} onChange={e => setAccountNumber(e.target.value.replace(/\D/g,""))} />
-          <input type="text" placeholder="IFSC Code" value={ifsc} onChange={e => setIfsc(e.target.value.toUpperCase())} />
-        </>)}
-      </div>
+      {detailsOpen && (<>
+        <div className="withdrawalMethodTabs">
+          <button type="button" className={method === "upi" ? "active" : ""} onClick={() => setMethod("upi")}>UPI</button>
+          <button type="button" className={method === "bank" ? "active" : ""} onClick={() => setMethod("bank")}>Bank / IMPS</button>
+        </div>
 
-      <div style={{margin:"14px 0",padding:12,border:"1px solid rgba(255,255,255,.12)",borderRadius:12}}>
-        <label style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center"}}>
-          <span><strong>Automatic transfer</strong><br/><small style={{color:"#aaa"}}>Wallet minimum cross kare to scheduled payout</small></span>
-          <input type="checkbox" checked={autoEnabled} onChange={e => setAutoEnabled(e.target.checked)} />
-        </label>
-        {autoEnabled && <div className="withdrawalFields" style={{marginTop:10}}>
-          <select value={frequency} onChange={e => setFrequency(e.target.value)}>
-            <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
-          </select>
-          <input type="number" min="100" value={autoMinimum} onChange={e => setAutoMinimum(e.target.value)} placeholder="Minimum auto payout" />
-        </div>}
-      </div>
+        <div className="withdrawalFields">
+          {method === "upi" ? (
+            <input type="text" placeholder="UPI ID (e.g. name@upi)" value={upiId} onChange={e => setUpiId(e.target.value)} />
+          ) : (<>
+            <input type="text" placeholder="Account Holder Name" value={accountHolderName} onChange={e => setAccountHolderName(e.target.value)} />
+            <input type="text" placeholder="Bank Name" value={bankName} onChange={e => setBankName(e.target.value)} />
+            {saved.maskedAccount && <small style={{color:"#aaa"}}>Saved account: {saved.maskedAccount}</small>}
+            <input type="text" placeholder={saved.maskedAccount ? "New Account Number (blank = saved)" : "Account Number"} value={accountNumber} onChange={e => setAccountNumber(e.target.value.replace(/\D/g,""))} />
+            <input type="text" placeholder="IFSC Code" value={ifsc} onChange={e => setIfsc(e.target.value.toUpperCase())} />
+          </>)}
+        </div>
 
-      <button type="button" className="withdrawalSubmitBtn" onClick={saveSettings} disabled={saving}>
-        {saving ? "Saving..." : "Save UPI / Bank & Schedule"}
-      </button>
+        <div style={{margin:"14px 0",padding:12,border:"1px solid rgba(255,255,255,.12)",borderRadius:12}}>
+          <label style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center"}}>
+            <span><strong>Automatic transfer</strong><br/><small style={{color:"#aaa"}}>Wallet minimum cross kare to scheduled payout</small></span>
+            <input type="checkbox" checked={autoEnabled} onChange={e => setAutoEnabled(e.target.checked)} />
+          </label>
+          {autoEnabled && <div className="withdrawalFields" style={{marginTop:10}}>
+            <select value={frequency} onChange={e => setFrequency(e.target.value)}>
+              <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+            </select>
+            <input type="number" min="100" value={autoMinimum} onChange={e => setAutoMinimum(e.target.value)} placeholder="Minimum auto payout" />
+          </div>}
+        </div>
+
+        <button type="button" className="withdrawalSubmitBtn" onClick={saveSettings} disabled={saving}>
+          {saving ? "Saving..." : "Save UPI / Bank & Schedule"}
+        </button>
+      </>)}
 
       <hr style={{border:0,borderTop:"1px solid rgba(255,255,255,.1)",margin:"18px 0"}} />
       <strong>Instant Withdraw</strong>
@@ -4578,7 +4614,7 @@ function DriverDashboard({
             </div>
 
             <div
-              className="driverWithdrawalForm"
+              className="driverWithdrawalForm realWalletInfoPanel"
               style={{
                 border: "1px solid rgba(34,197,94,0.35)",
                 background: "rgba(34,197,94,0.06)"
@@ -4602,29 +4638,59 @@ function DriverDashboard({
               </button>
             </div>
 
-            <div className="driverWithdrawalForm">
-              <h3>＋ Cash Commission Top-up</h3>
-              <p>
-                Existing add-money code preserve hai. Iska use cash rides ki
-                pending HimRideG commission clear karne ke liye rakha gaya hai.
-                Customer online ride earning ka 90% is top-up se alag real
-                earnings wallet credit hota hai.
-              </p>
-
-              <WalletTopupForm
-                onSuccess={(data) => {
-                  if (data?.wallet) {
-                    setProfileData((current) => ({
-                      ...(current || {}),
-                      wallet: data.wallet
-                    }));
-                  }
-                }}
-              />
+            <div className="driverWithdrawalForm walletActivityPanel">
+              <h3>🧾 Recent Wallet Activity</h3>
+              <p>Latest ride credits, cash commission aur withdrawals yahan clearly dikhte hain.</p>
+              {Array.isArray(walletData?.transactions) && walletData.transactions.length > 0 ? (
+                <div className="walletActivityList">
+                  {walletData.transactions.slice(0, 6).map((transaction, index) => {
+                    const direction = String(transaction?.direction || "").toLowerCase();
+                    const prefix = direction === "credit" ? "+" : direction === "debit" ? "−" : "";
+                    return (
+                      <article key={transaction?._id || `${transaction?.referenceId || "wallet"}-${transaction?.createdAt || index}`}>
+                        <div>
+                          <strong>{transaction?.description || "Wallet activity"}</strong>
+                          <small>{formatDate(transaction?.createdAt)}</small>
+                        </div>
+                        <b className={direction}>{prefix}₹{Number(transaction?.amount || 0).toFixed(0)}</b>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="walletActivityEmpty">Abhi wallet transaction history nahi hai.</div>
+              )}
             </div>
+
+            {Number(walletData?.wallet?.cashCommissionDue ?? driverWallet.commissionDue ?? 0) > 0 && (
+              <div className="driverWithdrawalForm">
+                <h3>＋ Cash Commission Top-up</h3>
+                <p>
+                  Existing add-money code preserve hai. Iska use cash rides ki
+                  pending HimRideG commission clear karne ke liye rakha gaya hai.
+                  Customer online ride earning ka 90% is top-up se alag real
+                  earnings wallet credit hota hai.
+                </p>
+
+                <WalletTopupForm
+                  onSuccess={(data) => {
+                    if (data?.wallet) {
+                      setProfileData((current) => ({
+                        ...(current || {}),
+                        wallet: data.wallet
+                      }));
+                    }
+                  }}
+                />
+              </div>
+            )}
 
             <div className="driverWithdrawalForm">
               <h3>💸 Real Wallet Withdrawal</h3>
+              <div className="walletAvailableBalance">
+                <small>AVAILABLE TO WITHDRAW</small>
+                <strong>₹{realDriverWalletBalance.toFixed(0)}</strong>
+              </div>
               <p>
                 Available Earnings Balance: <strong>₹{realDriverWalletBalance.toFixed(0)}</strong>
               </p>

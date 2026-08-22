@@ -1,0 +1,18 @@
+HimRideG PAYMENT RECEIVER NAME — IMPORTANT
+
+Code audit:
+- Website Razorpay Checkout name is already: HimRideG
+- Mobile Razorpay Checkout name is already: HimRideG
+- Order/payment verification remains on HimRideG production backend.
+
+Why Paytm screenshot can still show a personal name:
+The "To" beneficiary shown inside Paytm/Google Pay/PhonePe is resolved by the UPI PSP/bank/Razorpay merchant VPA. It is not controlled by React/React Native checkout text.
+
+Required Razorpay account action:
+1. Razorpay Dashboard -> Account & Settings.
+2. Business Settings -> Account details.
+3. Update Display Name / business brand to HimRideG where Razorpay permits it.
+4. Ensure the activated/KYC business profile and UPI merchant identity are HimRideG.
+5. If the rzp@rxaxis VPA still resolves to the personal name after the display-name update, raise a Razorpay support request to update the merchant/UPI beneficiary display name for the live account.
+
+Do not change payment verification or use an unverified custom UPI deep link just to force a name. That can break secure Razorpay verification and wallet settlement.

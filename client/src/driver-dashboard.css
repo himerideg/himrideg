@@ -2131,3 +2131,258 @@ body:has(.driverDashboardPage) {
   cursor: not-allowed;
   filter: saturate(.6);
 }
+
+
+/* ========================================================================== 
+   DRIVER WALLET CLEAN + SAFE UI — additive only
+   - Prevent narrow-screen horizontal overflow in earnings modal.
+   - Keep saved payout details hidden until driver taps Edit Details.
+   - Make real wallet balance/activity readable on the white modal shell.
+   ========================================================================== */
+.driverEarningsModal {
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.driverEarningsModal *,
+.driverEarningsModal *::before,
+.driverEarningsModal *::after {
+  box-sizing: border-box;
+}
+
+.driverEarningsModal .driverWithdrawalForm {
+  width: 100%;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #29343d;
+  border-radius: 14px;
+  background: #0d1117;
+  color: #fff;
+}
+
+.driverEarningsModal .driverWithdrawalForm > p {
+  color: #aeb7c2;
+  line-height: 1.5;
+}
+
+.driverEarningsModal .driverWithdrawalForm strong {
+  color: #fff;
+}
+
+.driverEarningsModal .withdrawalFields,
+.driverEarningsModal .withdrawalMethodTabs,
+.driverEarningsModal .withdrawalSubmitBtn,
+.driverEarningsModal .withdrawalFields input,
+.driverEarningsModal .withdrawalFields select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.driverEarningsModal .withdrawalFields select {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  outline: 0;
+  background: #1f2937;
+  color: #fff;
+}
+
+.savedPayoutSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.savedPayoutSummary > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.savedPayoutSummary small {
+  color: #6ee7a0;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.savedPayoutSummary strong {
+  font-size: 15px;
+}
+
+.savedPayoutSummary span {
+  overflow: hidden;
+  color: #aeb7c2;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savedPayoutEditBtn {
+  min-width: 104px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #d6b000;
+  border-radius: 9px;
+  background: transparent;
+  color: #ffc400;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.walletActivityList {
+  display: grid;
+  gap: 8px;
+}
+
+.walletActivityList article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid #26313b;
+  border-radius: 10px;
+  background: #111820;
+}
+
+.walletActivityList article > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.walletActivityList article strong {
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.walletActivityList article small {
+  color: #82909d;
+  font-size: 10px;
+}
+
+.walletActivityList article b {
+  color: #d5dbe1;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.walletActivityList article b.credit {
+  color: #4ade80;
+}
+
+.walletActivityList article b.debit {
+  color: #fb7185;
+}
+
+.walletActivityEmpty {
+  padding: 14px;
+  border: 1px dashed #35414c;
+  border-radius: 10px;
+  color: #8f9aa5;
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .driverSummaryOverlay {
+    padding: 10px;
+  }
+
+  .driverEarningsModal {
+    width: 100%;
+    max-height: calc(100vh - 20px);
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .driverEarningsModal .driverWithdrawalForm {
+    padding: 13px;
+  }
+
+  .savedPayoutSummary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .savedPayoutEditBtn {
+    width: 100%;
+  }
+
+  .walletActivityList article strong {
+    white-space: normal;
+  }
+}
+
+
+/* Driver wallet readability refinements — additive only */
+.driverEarningsModal .driverWithdrawalForm {
+  background: #0d1117 !important;
+  border-color: #29343d !important;
+}
+
+.driverEarningsModal .realWalletInfoPanel {
+  border-color: rgba(34, 197, 94, 0.38) !important;
+  background: linear-gradient(145deg, #0d1712, #0d1117) !important;
+}
+
+.walletAvailableBalance {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 0 12px;
+  padding: 14px;
+  border: 1px solid rgba(245, 197, 24, .28);
+  border-radius: 12px;
+  background: rgba(245, 197, 24, .07);
+}
+
+.walletAvailableBalance small {
+  color: #b7c0c9;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.walletAvailableBalance strong {
+  color: #ffc400 !important;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.walletTechnicalStatus {
+  margin-top: -2px;
+  padding: 8px 10px;
+  border: 1px solid #2d3741;
+  border-radius: 8px;
+  color: #8f9aa5;
+  font-size: 11px;
+}
+
+.walletTechnicalStatus summary {
+  color: #aeb7c2;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.walletTechnicalStatus small {
+  display: block;
+  margin-top: 7px;
+  color: #7f8b96;
+  line-height: 1.4;
+  word-break: break-word;
+}

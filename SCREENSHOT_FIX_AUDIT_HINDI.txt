@@ -1,0 +1,39 @@
+HimRideG Screenshot Fix Audit — 22 Aug 2026
+
+1) PAYMENT / DRIVER WALLET MATH
+- Customer paid example: ₹250.
+- HimRideG commission: 10% = ₹25.
+- Driver share: 90% = ₹225.
+- Screenshot wallet ₹225 is mathematically correct.
+- Recent Wallet Activity UI added so each ride credit/debit becomes visible with amount and date.
+
+2) DRIVER WALLET CLEAN UI
+- Saved Bank/UPI details are hidden after successful save.
+- A compact saved payout card is shown instead.
+- Driver can tap Edit Details to reopen the existing form.
+- Existing bank/UPI/scheduled payout code remains present.
+- Cash Commission Top-up UI is shown only when cash commission due is greater than zero.
+- Available withdrawal balance is highlighted clearly.
+- Technical RazorpayX error is moved under collapsed Technical status; driver sees a clean setup-pending message.
+- Horizontal overflow/white-on-white wallet text issue fixed with additive CSS.
+
+3) MOBILE RECEIPT CRASH
+- Screenshot error: React tried to render pickup/dropoff object directly in <Text>.
+- ReceiptScreen now converts address/location objects to safe display text before rendering/sharing.
+- This fixes the shown "Objects are not valid as a React child" crash path.
+
+4) PAYMENT RECEIVER NAME
+- Website Razorpay Checkout already sends name: HimRideG.
+- Mobile Razorpay Checkout already sends name: HimRideG.
+- Paytm/Google Pay/PhonePe beneficiary "To" name for the rzp@rxaxis VPA is resolved by Razorpay/UPI PSP and merchant account identity, not by React checkout text.
+- Razorpay Dashboard business Display Name / activated merchant identity must be HimRideG. If the UPI beneficiary still shows a personal name, Razorpay support/KYC merchant identity update is required.
+
+5) TARGETED VALIDATION
+- Website JSX parser check: PASS.
+- Mobile runtime JS/JSX parser check: PASS (105 src files).
+- Mobile runtime missing relative imports: 0.
+- Website client missing relative imports: 0.
+- Mobile runtime missing package dependencies: 0.
+- Website client missing package dependencies: 0.
+- Server JS node --check: 73 files, 0 syntax failures.
+- No original files deleted.
