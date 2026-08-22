@@ -1,0 +1,29 @@
+HimRideG WEBSITE + MOBILE SERVER COMPATIBILITY AUDIT
+Date: 22-08-2026
+
+RESULT
+- Website API URL: https://api.himrideg.com/api/v2
+- Website Socket URL: https://api.himrideg.com
+- Mobile API URL: https://api.himrideg.com/api/v2
+- Mobile Socket URL: https://api.himrideg.com
+- Same production backend/server: PASS
+
+SERVER FIXES (existing logic preserved)
+1. GET /api/v2/auth/me added for mobile customer profile reload.
+2. GET/PATCH /api/v2/auth/preferences added for app theme/preferences sync.
+3. User appPreferences schema added safely.
+4. Mobile-only refreshToken response support added when header X-HimRideG-Client: mobile is present.
+   Browser website keeps its httpOnly refresh-token cookie behavior.
+5. CORS allowed headers include X-HimRideG-Client and Idempotency-Key.
+6. Online Razorpay verify now emits payment:success to assigned driver once when payment becomes paid.
+7. Cash-selected Socket.IO notification is emitted once to driver room to prevent duplicate driver popups.
+
+STATIC CHECKS
+- Server JavaScript files checked with node --check: 73, all passed.
+- Website/mobile production API and Socket URL parity: PASS.
+- Mobile literal API route patterns were compared against server routes; dynamic ride accept/reject route is also present in both POST/PATCH forms.
+
+IMPORTANT
+- Do not merge the mobile ZIP's old backend-patch over this server. This website/server copy is the canonical backend.
+- Deploy this server version before testing the fixed mobile build, because the app compatibility routes/session response are server-side.
+- Real production behavior still depends on valid Render/env/MongoDB/Razorpay/Google configuration and live network availability.

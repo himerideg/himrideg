@@ -24,6 +24,23 @@ const {
   "../services/googleIdTokenService"
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| Native Mobile Client Detection
+|--------------------------------------------------------------------------
+| Browser keeps refresh token httpOnly-only. The native app identifies itself
+| with X-HimRideG-Client: mobile and may store the refresh token in SecureStore.
+|--------------------------------------------------------------------------
+*/
+
+const shouldReturnMobileRefreshToken = (req) =>
+  String(
+    req.headers?.["x-himrideg-client"] || ""
+  )
+    .trim()
+    .toLowerCase() === "mobile";
+
 /*
 |--------------------------------------------------------------------------
 | Google Auth Constants
@@ -911,6 +928,9 @@ const googleLogin =
               (hasRealIndianPhone(user.phone) ? user.phone : ""),
             requiresBasicInfo,
             accessToken,
+            ...(shouldReturnMobileRefreshToken(req)
+              ? { refreshToken }
+              : {}),
             user:
               toSafeUserObject(
                 user

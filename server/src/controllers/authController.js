@@ -44,6 +44,23 @@ const {
   "../validators/authValidator"
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| Native Mobile Client Detection
+|--------------------------------------------------------------------------
+| Browser keeps refresh token httpOnly-only. The native app identifies itself
+| with X-HimRideG-Client: mobile and may store the refresh token in SecureStore.
+|--------------------------------------------------------------------------
+*/
+
+const shouldReturnMobileRefreshToken = (req) =>
+  String(
+    req.headers?.["x-himrideg-client"] || ""
+  )
+    .trim()
+    .toLowerCase() === "mobile";
+
 /*
 |--------------------------------------------------------------------------
 | Request IP
@@ -953,6 +970,10 @@ const verifyCustomerOtp =
 
             accessToken,
 
+            ...(shouldReturnMobileRefreshToken(req)
+              ? { refreshToken }
+              : {}),
+
             user:
               toSafeUserObject(
                 user
@@ -1241,6 +1262,10 @@ const refreshAccessToken =
           token:
             accessToken,
 
+          ...(shouldReturnMobileRefreshToken(req)
+            ? { refreshToken: incomingToken }
+            : {}),
+
           user:
             toSafeUserObject(
               user
@@ -1435,6 +1460,219 @@ const updateCustomerProfile =
 
 /*
 |--------------------------------------------------------------------------
+| Current Authenticated App User — Mobile + Website Compatibility
+|--------------------------------------------------------------------------
+| GET /api/v2/auth/me
+|
+| Customer/driver app ko same website backend se fresh safe profile milta hai.
+|--------------------------------------------------------------------------
+*/
+
+const getCurrentAuthenticatedUser =
+  async (
+    req,
+    res
+  ) => {
+    if (!req.user) {
+      throw new ApiError(
+        401,
+        "Authentication required"
+      );
+    }
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          {
+            user:
+              toSafeUserObject(
+                req.user
+              )
+          },
+          "Current account fetched"
+        )
+      );
+  };
+
+/*
+|--------------------------------------------------------------------------
+| Account Preferences — Mobile + Website
+|--------------------------------------------------------------------------
+| GET/PATCH /api/v2/auth/preferences
+|
+| Preferences are intentionally small and non-sensitive. Payment credentials,
+| UPI PINs, bank secrets or card details are never stored here.
+|--------------------------------------------------------------------------
+*/
+
+const normalizeAccountPreferences = (value = {}) => {
+  const theme =
+    String(value?.theme || "dark").toLowerCase() === "light"
+      ? "light"
+      : "dark";
+
+  const preferredUpiApp =
+    String(value?.preferredUpiApp || "any").toLowerCase() === "paytm"
+      ? "paytm"
+      : "any";
+
+  return {
+    theme,
+    preferredUpiApp,
+    betaFeatures: Boolean(value?.betaFeatures),
+    updatedAt: value?.updatedAt || null
+  };
+};
+
+const getAccountPreferences =
+  async (
+    req,
+    res
+  ) => {
+    const user = req.user;
+
+    if (!user) {
+      throw new ApiError(
+        401,
+        "Authentication required"
+      );
+    }
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          {
+            preferences:
+              normalizeAccountPreferences(
+                user.appPreferences || {}
+              )
+          },
+          "Account preferences fetched"
+        )
+      );
+  };
+
+const updateAccountPreferences =
+  async (
+    req,
+    res
+  ) => {
+    const user = req.user;
+
+    if (!user) {
+      throw new ApiError(
+        401,
+        "Authentication required"
+      );
+    }
+
+    const current =
+      normalizeAccountPreferences(
+        user.appPreferences || {}
+      );
+
+    const next = {
+      ...current
+    };
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        req.body || {},
+        "theme"
+      )
+    ) {
+      const incomingTheme =
+        String(req.body?.theme || "")
+          .trim()
+          .toLowerCase();
+
+      if (
+        ![
+          "dark",
+          "light"
+        ].includes(incomingTheme)
+      ) {
+        throw new ApiError(
+          400,
+          "Theme dark ya light hona chahiye"
+        );
+      }
+
+      next.theme =
+        incomingTheme;
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        req.body || {},
+        "preferredUpiApp"
+      )
+    ) {
+      const incomingUpi =
+        String(
+          req.body?.preferredUpiApp || ""
+        )
+          .trim()
+          .toLowerCase();
+
+      if (
+        ![
+          "any",
+          "paytm"
+        ].includes(incomingUpi)
+      ) {
+        throw new ApiError(
+          400,
+          "Preferred UPI app any ya paytm hona chahiye"
+        );
+      }
+
+      next.preferredUpiApp =
+        incomingUpi;
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        req.body || {},
+        "betaFeatures"
+      )
+    ) {
+      next.betaFeatures =
+        Boolean(
+          req.body?.betaFeatures
+        );
+    }
+
+    next.updatedAt =
+      new Date();
+
+    user.appPreferences =
+      next;
+
+    await user.save();
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          {
+            preferences:
+              normalizeAccountPreferences(
+                user.appPreferences || {}
+              )
+          },
+          "Account preferences saved"
+        )
+      );
+  };
+
+/*
+|--------------------------------------------------------------------------
 | Exports
 |--------------------------------------------------------------------------
 */
@@ -1443,5 +1681,8 @@ module.exports = {
   sendCustomerOtp,
   verifyCustomerOtp,
   refreshAccessToken,
-  updateCustomerProfile
+  updateCustomerProfile,
+  getCurrentAuthenticatedUser,
+  getAccountPreferences,
+  updateAccountPreferences
 };

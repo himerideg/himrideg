@@ -168,7 +168,9 @@ const corsOptions = {
 
   allowedHeaders: [
     "Content-Type",
-    "Authorization"
+    "Authorization",
+    "X-HimRideG-Client",
+    "Idempotency-Key"
   ],
 
   optionsSuccessStatus: 204

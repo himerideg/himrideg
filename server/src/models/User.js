@@ -916,6 +916,43 @@ const userSchema =
         default: ""
       },
 
+      /*
+      |------------------------------------------------------------------
+      | Cross-platform App / Website Preferences — additive
+      |------------------------------------------------------------------
+      | Same account preference is consumed by HimRideG mobile and web.
+      */
+
+      appPreferences: {
+        theme: {
+          type: String,
+          enum: [
+            "dark",
+            "light"
+          ],
+          default: "dark"
+        },
+
+        preferredUpiApp: {
+          type: String,
+          enum: [
+            "any",
+            "paytm"
+          ],
+          default: "any"
+        },
+
+        betaFeatures: {
+          type: Boolean,
+          default: false
+        },
+
+        updatedAt: {
+          type: Date,
+          default: null
+        }
+      },
+
       warnings: {
         type: [
           driverWarningSchema

@@ -64,7 +64,9 @@ function createCorsOptions() {
 
     allowedHeaders: [
       "Content-Type",
-      "Authorization"
+      "Authorization",
+      "X-HimRideG-Client",
+      "Idempotency-Key"
     ]
   };
 }

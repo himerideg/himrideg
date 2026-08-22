@@ -4,7 +4,10 @@ const {
   sendCustomerOtp,
   verifyCustomerOtp,
   refreshAccessToken,
-  updateCustomerProfile
+  updateCustomerProfile,
+  getCurrentAuthenticatedUser,
+  getAccountPreferences,
+  updateAccountPreferences
 } = require("../controllers/authController");
 
 const {
@@ -189,6 +192,44 @@ router.patch(
     "driver"
   ),
   completeGoogleBasicInfo
+);
+
+/*
+|--------------------------------------------------------------------------
+| Current App User + Account Preferences — Mobile + Website
+|--------------------------------------------------------------------------
+| Same protected customer/driver account is shared by the mobile app and web.
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/me",
+  protect,
+  allowRoles(
+    "customer",
+    "driver"
+  ),
+  getCurrentAuthenticatedUser
+);
+
+router.get(
+  "/preferences",
+  protect,
+  allowRoles(
+    "customer",
+    "driver"
+  ),
+  getAccountPreferences
+);
+
+router.patch(
+  "/preferences",
+  protect,
+  allowRoles(
+    "customer",
+    "driver"
+  ),
+  updateAccountPreferences
 );
 
 /*

@@ -336,7 +336,28 @@ exports.verifyPayment = async (req, res) => {
       }
     }
 
+    const wasAlreadyPaid = booking.paymentStatus === "paid";
+
     await applyCapturedPayment(booking, payment, { signature: razorpay_signature });
+
+    // Native/web driver clients use the same production Socket.IO server.
+    // Emit once only when this verification actually transitions the ride to paid.
+    if (!wasAlreadyPaid) {
+      const io = req.app.get("io");
+      const driverId = getDriverId(booking);
+
+      if (io && driverId) {
+        io.to(`driver:${driverId}`).emit("payment:success", {
+          bookingId: String(booking._id),
+          fare,
+          amount: fare,
+          paymentMethod: "online",
+          paymentStatus: "paid",
+          paymentId: booking.razorpayPaymentId,
+          paidAt: booking.paidAt
+        });
+      }
+    }
 
     return res.status(200).json({
       success: true,
@@ -410,14 +431,11 @@ exports.selectCashPayment = async (req, res) => {
     const io = req.app.get("io");
     const driverId = getDriverId(booking);
     if (io && driverId) {
-      io.to(`user:${driverId}`).emit("payment:cash-selected", {
+      // Driver already joins driver:<id>; one room = one cash alert (no duplicate popup).
+      io.to(`driver:${driverId}`).emit("payment:cash-selected", {
         bookingId: String(booking._id),
         fare: getFare(booking),
         message: "Customer ne cash payment select ki hai. Cash receive karke confirm karein."
-      });
-      io.to(`driver:${driverId}`).emit("payment:cash-selected", {
-        bookingId: String(booking._id),
-        fare: getFare(booking)
       });
     }
 

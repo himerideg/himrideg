@@ -90,6 +90,23 @@ const setRefreshTokenCookie = (
   );
 };
 
+
+/*
+|--------------------------------------------------------------------------
+| Native Mobile Client Detection
+|--------------------------------------------------------------------------
+| Browser keeps refresh token httpOnly-only. The native app identifies itself
+| with X-HimRideG-Client: mobile and may store the refresh token in SecureStore.
+|--------------------------------------------------------------------------
+*/
+
+const shouldReturnMobileRefreshToken = (req) =>
+  String(
+    req.headers?.["x-himrideg-client"] || ""
+  )
+    .trim()
+    .toLowerCase() === "mobile";
+
 /*
 |--------------------------------------------------------------------------
 | Remember Driver Refresh Session
@@ -474,6 +491,9 @@ const verifyDriverOtp = async (
       {
         isNewUser,
         accessToken,
+        ...(shouldReturnMobileRefreshToken(req)
+          ? { refreshToken }
+          : {}),
         user: user.toSafeObject()
       },
       isNewUser
