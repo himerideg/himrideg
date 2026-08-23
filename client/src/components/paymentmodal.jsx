@@ -1464,8 +1464,22 @@ function PaymentModal({
                 className="paymentRetryBtn"
                 onClick={retryStep}
               >
-                Dobara Try Karo
+                Dobara Pay Online Try Karo
               </button>
+
+              {completed && fareLocked && !alreadyPaid && (
+                <button
+                  type="button"
+                  className="paymentConfirmBtn"
+                  disabled={loading}
+                  onClick={handleCashPayment}
+                >
+                  {loading
+                    ? "Processing..."
+                    : `Cash Payment · ${formatMoney(finalFare)}`}
+                </button>
+              )}
+
               <button
                 type="button"
                 className="paymentCancelBtn"
@@ -1474,6 +1488,12 @@ function PaymentModal({
                 Cancel
               </button>
             </div>
+
+            {completed && fareLocked && !alreadyPaid && (
+              <small style={{display:"block",marginTop:"10px",color:"#aab0b8",lineHeight:1.5}}>
+                Online transaction fail hone par Cash Payment choose kar sakte hain. Driver cash receive confirm karega.
+              </small>
+            )}
           </div>
         )}
 

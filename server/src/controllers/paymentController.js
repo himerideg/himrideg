@@ -514,7 +514,7 @@ exports.confirmCashPayment = async (req, res) => {
     if (!cashWasSelected) {
       return res.status(409).json({
         success: false,
-        message: "Customer ne abhi cash payment confirm nahi ki hai"
+        message: "Customer ne abhi cash payment select nahi ki hai"
       });
     }
 
@@ -545,7 +545,11 @@ exports.confirmCashPayment = async (req, res) => {
       io.to(`user:${customerId}`).emit("payment:confirmed", {
         bookingId: String(booking._id),
         paymentMethod: "cash",
-        paymentStatus: "paid"
+        paymentStatus: "paid",
+        fare,
+        amount: fare,
+        paidAt: booking.paidAt,
+        message: "Cash Payment Successful"
       });
     }
 

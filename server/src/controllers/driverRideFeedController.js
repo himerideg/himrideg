@@ -34,6 +34,9 @@ const AVAILABLE_RIDE_STATUSES = [
   "searching_driver"
 ];
 
+/* Latest rule: commission due is informational/recoverable, not a next-ride gate. */
+const COMMISSION_DUE_BLOCKS_NEW_RIDES = false;
+
 /*
 |--------------------------------------------------------------------------
 | Helpers
@@ -455,7 +458,45 @@ async function getDriverRideFeed(
         driver.isOnline &&
           driver.isAvailable &&
           !driver.currentRide &&
-          commissionDue <= 0
+          (
+            !COMMISSION_DUE_BLOCKS_NEW_RIDES ||
+            commissionDue <= 0
+          )
+      );
+
+    const driverHasActiveRide =
+      Boolean(
+        driver.isOnline &&
+          driver.currentRide
+      );
+
+    const driverGeoCoordinates =
+      Array.isArray(
+        driver.currentLocation
+          ?.geo
+          ?.coordinates
+      )
+        ? driver.currentLocation.geo.coordinates
+        : [];
+
+    const canLoadPreviewRides =
+      Boolean(
+        driverHasActiveRide &&
+          driverGeoCoordinates.length === 2 &&
+          Number.isFinite(
+            Number(
+              driverGeoCoordinates[0]
+            )
+          ) &&
+          Number.isFinite(
+            Number(
+              driverGeoCoordinates[1]
+            )
+          ) &&
+          (!requestedStatus ||
+            AVAILABLE_RIDE_STATUSES.includes(
+              requestedStatus
+            ))
       );
 
     const availableRideFilter =
@@ -574,6 +615,153 @@ async function getDriverRideFeed(
         )
       ]);
 
+    /*
+    |------------------------------------------------------------------------
+    | Preview-only nearby rides while current ride is active
+    |------------------------------------------------------------------------
+    | Busy driver ko next nearby requests list me dikhen, lekin ye records
+    | dispatch queue authority nahi dete. Accept/Reject endpoint bhi current
+    | ride ke dauran server-side blocked rahega.
+    |------------------------------------------------------------------------
+    */
+
+    let previewBookings = [];
+
+    if (canLoadPreviewRides) {
+      const previewDocs =
+        await Booking.find({
+          driver: null,
+          status: {
+            $in:
+              AVAILABLE_RIDE_STATUSES
+          },
+          rejectedDrivers: {
+            $ne:
+              driver._id
+          },
+          "pickup.coordinates.geo": {
+            $near: {
+              $geometry: {
+                type: "Point",
+                coordinates: [
+                  Number(
+                    driverGeoCoordinates[0]
+                  ),
+                  Number(
+                    driverGeoCoordinates[1]
+                  )
+                ]
+              },
+              $maxDistance:
+                15000
+            }
+          }
+        })
+          .limit(
+            Math.min(
+              limit,
+              25
+            )
+          )
+          .populate(
+            "customer",
+            [
+              "name",
+              "phone",
+              "alternativePhone",
+              "profileImage"
+            ].join(" ")
+          )
+          .populate(
+            "driver",
+            [
+              "name",
+              "phone",
+              "alternativePhone",
+              "profileImage",
+              "driverProfile",
+              "currentLocation",
+              "isOnline",
+              "isAvailable"
+            ].join(" ")
+          );
+
+      previewBookings =
+        previewDocs.map(
+          (ride) => ({
+            ...ride.toObject(),
+            requestPreviewOnly: true,
+            actionsLocked: true,
+            actionLockReason:
+              "Current ride active. Ride complete hone ke baad Accept / Reject available hoga."
+          })
+        );
+    }
+
+    const mergedBookingsMap =
+      new Map();
+
+    bookings.forEach(
+      (ride) => {
+        const object =
+          typeof ride?.toObject ===
+            "function"
+            ? ride.toObject()
+            : ride;
+
+        mergedBookingsMap.set(
+          String(object?._id || ""),
+          object
+        );
+      }
+    );
+
+    previewBookings.forEach(
+      (ride) => {
+        const rideId =
+          String(
+            ride?._id ||
+              ""
+          );
+
+        if (
+          rideId &&
+          !mergedBookingsMap.has(
+            rideId
+          )
+        ) {
+          mergedBookingsMap.set(
+            rideId,
+            ride
+          );
+        }
+      }
+    );
+
+    const responseBookings =
+      Array.from(
+        mergedBookingsMap.values()
+      ).sort(
+        (firstRide, secondRide) =>
+          new Date(
+            secondRide.updatedAt ||
+              secondRide.createdAt ||
+              0
+          ).getTime() -
+          new Date(
+            firstRide.updatedAt ||
+              firstRide.createdAt ||
+              0
+          ).getTime()
+      );
+
+    const previewCount =
+      responseBookings.filter(
+        (ride) =>
+          ride?.requestPreviewOnly ===
+          true
+      ).length;
+
     return res
       .status(200)
       .json({
@@ -588,10 +776,12 @@ async function getDriverRideFeed(
         |--------------------------------------------------------------------------
         */
 
-        bookings,
+        bookings:
+          responseBookings,
 
         data: {
-          bookings,
+          bookings:
+            responseBookings,
 
           driver: {
             _id:
@@ -629,7 +819,12 @@ async function getDriverRideFeed(
               ),
 
             canReceiveRequests:
-              driverCanReceiveRequests
+              driverCanReceiveRequests,
+
+            canPreviewRequests:
+              driverHasActiveRide,
+
+            previewCount
           },
 
           pagination: {
@@ -637,11 +832,16 @@ async function getDriverRideFeed(
 
             limit,
 
-            total,
+            total:
+              total +
+              previewCount,
 
             totalPages:
               Math.ceil(
-                total /
+                (
+                  total +
+                  previewCount
+                ) /
                   limit
               )
           }

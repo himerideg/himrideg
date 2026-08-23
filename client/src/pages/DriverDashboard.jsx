@@ -2131,37 +2131,76 @@ function DriverDashboard({
           return;
         }
 
-        setIncomingRide(
-          ride
-        );
+        const previewOnly =
+          Boolean(
+            payload?.previewOnly ||
+            payload?.actionsLocked ||
+            payload?.data?.previewOnly ||
+            payload?.data?.actionsLocked
+          );
+
+        const nextRide =
+          previewOnly
+            ? {
+                ...ride,
+                requestPreviewOnly:
+                  true,
+                actionsLocked:
+                  true,
+                actionLockReason:
+                  payload?.actionLockReason ||
+                  payload?.lockReason ||
+                  payload?.data?.actionLockReason ||
+                  payload?.data?.lockReason ||
+                  "Current ride active. Ride complete hone ke baad Accept / Reject available hoga."
+              }
+            : ride;
+
+        /*
+        |--------------------------------------------------------------------
+        | Busy-driver preview requests
+        |--------------------------------------------------------------------
+        | Preview ko list/local state me rakho, lekin incoming action timer
+        | mat banao. Current ride complete hone tak Accept/Reject locked hai.
+        |--------------------------------------------------------------------
+        */
+        if (!previewOnly) {
+          setIncomingRide(
+            nextRide
+          );
+        }
 
         updateLocalBooking(
-          ride
+          nextRide
         );
 
-        const expiry =
-          getRequestExpiry(
-            payload
-          );
+        if (!previewOnly) {
+          const expiry =
+            getRequestExpiry(
+              payload
+            );
 
-        if (expiry) {
-          setRequestExpiresAt(
-            expiry
-          );
-        } else {
-          setRequestExpiresAt(
-            new Date(
-              Date.now() +
-                30000
-            ).toISOString()
-          );
+          if (expiry) {
+            setRequestExpiresAt(
+              expiry
+            );
+          } else {
+            setRequestExpiresAt(
+              new Date(
+                Date.now() +
+                  30000
+              ).toISOString()
+            );
+          }
         }
 
         playRequestSound();
 
         showNotice(
           "success",
-          "Nayi ride request aayi hai."
+          previewOnly
+            ? "Nayi nearby ride aayi hai. Current ride active hone ki wajah se ye preview-only hai."
+            : "Nayi ride request aayi hai."
         );
       };
 
@@ -3993,6 +4032,20 @@ function DriverDashboard({
       displayBookings
     ]);
 
+  const blockingCurrentRide =
+    displayBookings.find(
+      (ride) =>
+        ACTIVE_RIDE_STATUSES.includes(
+          String(
+            ride?.status ||
+              ""
+          ).toLowerCase()
+        ) &&
+        getAssignedDriverId(
+          ride
+        ) === currentUserId
+    ) || null;
+
   const selectedRideIdValue =
     getId(selectedRide);
 
@@ -4030,10 +4083,30 @@ function DriverDashboard({
       )
     );
 
+  const selectedPreviewLocked =
+    Boolean(
+      selectedRide &&
+      (
+        selectedRide?.requestPreviewOnly ===
+          true ||
+        selectedRide?.actionsLocked ===
+          true ||
+        (
+          blockingCurrentRide &&
+          getId(
+            blockingCurrentRide
+          ) !==
+            selectedRideIdValue &&
+          selectedIsRequest
+        )
+      )
+    );
+
   const selectedCanAccept =
     Boolean(
       approved &&
       selectedIsRequest &&
+      !selectedPreviewLocked &&
       (
         !selectedAssignedDriverId ||
         selectedAssignedToMe ||
@@ -4045,6 +4118,7 @@ function DriverDashboard({
   const selectedCanReject =
     Boolean(
       selectedIsRequest &&
+      !selectedPreviewLocked &&
       (
         !selectedAssignedDriverId ||
         selectedAssignedToMe ||
@@ -5207,7 +5281,11 @@ function DriverDashboard({
                               <span className="driverRequestCompactMeta">
                                 <b>{formatDistance(getDistance(ride))}</b>
                                 <em>{getDriverRideStatusLabel(ride)}</em>
-                                <i>Tap to view →</i>
+                                {(ride?.requestPreviewOnly === true || ride?.actionsLocked === true) ? (
+                                  <i style={{color:"#f5c518"}}>🔒 Preview only</i>
+                                ) : (
+                                  <i>Tap to view →</i>
+                                )}
                               </span>
                             </button>
                           );
@@ -5313,6 +5391,23 @@ function DriverDashboard({
                         )}
                         {selectedRide.status !== "fare_accepted" && <div className="driverFareWaitLarge">🔒 Fare final hone ka wait</div>}
                       </section>
+                    )}
+
+                    {selectedPreviewLocked && (
+                      <div
+                        style={{
+                          marginTop:"14px",
+                          padding:"12px 14px",
+                          borderRadius:"12px",
+                          border:"1px solid rgba(245,197,24,.34)",
+                          background:"rgba(245,197,24,.07)",
+                          color:"#f5c518",
+                          fontWeight:800,
+                          fontSize:"12px"
+                        }}
+                      >
+                        🔒 Current ride active hai. Ye next ride preview hai; current ride complete hone ke baad hi Accept / Reject available hoga.
+                      </div>
                     )}
 
                     {(selectedCanAccept || selectedCanReject) && (

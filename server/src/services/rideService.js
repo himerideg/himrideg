@@ -31,6 +31,9 @@ const DEFAULT_RIDE_EXPIRY_MINUTES = 15;
 const DEFAULT_OTP_EXPIRY_MINUTES = 10;
 const MAX_OTP_ATTEMPTS = 5;
 
+/* Cash commission due ledger me rahega, par next ride acceptance ko block nahi karega. */
+const COMMISSION_DUE_BLOCKS_NEW_RIDES = false;
+
 const ACTIVE_RIDE_STATUSES = [
   "pending",
   "searching_driver",
@@ -1269,6 +1272,129 @@ async function findNearestDrivers({
   );
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Find Nearby Busy Drivers For Preview-Only Notifications
+|--------------------------------------------------------------------------
+| Active ride ke time driver ko next nearby ride ki notification/list preview
+| mil sakti hai, lekin ye drivers dispatchQueue me add nahi hote aur Accept /
+| Reject authority nahi paate. Actual acceptance server-side availability gate
+| se hi possible rahegi.
+|--------------------------------------------------------------------------
+*/
+
+async function findNearbyBusyDriversForPreview({
+  bookingId,
+  radiusMeters =
+    DEFAULT_DRIVER_SEARCH_RADIUS_METERS,
+  limit =
+    DEFAULT_DRIVER_LIMIT
+}) {
+  const booking =
+    await getBookingOrThrow(
+      bookingId
+    );
+
+  const geo =
+    pickupGeo(booking);
+
+  const radius =
+    Math.max(
+      Number(radiusMeters) ||
+        DEFAULT_DRIVER_SEARCH_RADIUS_METERS,
+      100
+    );
+
+  const driverLimit =
+    Math.min(
+      Math.max(
+        Number(limit) ||
+          DEFAULT_DRIVER_LIMIT,
+        1
+      ),
+      50
+    );
+
+  const rejectedIds =
+    booking.rejectedDrivers ||
+    [];
+
+  const drivers =
+    await User.aggregate([
+      {
+        $geoNear: {
+          near: geo,
+          distanceField:
+            "distanceMeters",
+          spherical: true,
+          maxDistance:
+            radius,
+          key:
+            "currentLocation.geo",
+          query: {
+            role: "driver",
+            isActive: true,
+            accountStatus:
+              "active",
+            isOnline: true,
+            "driverProfile.isApproved":
+              true,
+            _id: {
+              $nin:
+                rejectedIds
+            },
+            currentRide: {
+              $ne: null
+            }
+          }
+        }
+      },
+      {
+        $limit:
+          driverLimit
+      },
+      {
+        $project: {
+          name: 1,
+          phone: 1,
+          profileImage: 1,
+          driverProfile: 1,
+          currentLocation: 1,
+          currentRide: 1,
+          isAvailable: 1,
+          distanceMeters: 1,
+          distanceKm: {
+            $divide: [
+              "$distanceMeters",
+              1000
+            ]
+          }
+        }
+      }
+    ]);
+
+  return drivers.map(
+    (driver) => ({
+      ...driver,
+      previewOnly: true,
+      actionsLocked: true,
+      lockReason:
+        "Current ride active. Ride complete hone ke baad action available hoga.",
+      etaMinutes:
+        Math.max(
+          Math.ceil(
+            Number(
+              driver.distanceKm ||
+                0
+            ) * 3
+          ),
+          1
+        )
+    })
+  );
+}
+
 /*
 |--------------------------------------------------------------------------
 | Dispatch Ride
@@ -1313,6 +1439,42 @@ async function dispatchRide({
       limit
     });
 
+  const previewDrivers =
+    await findNearbyBusyDriversForPreview({
+      bookingId:
+        booking._id,
+      radiusMeters,
+      limit
+    }).catch(
+      () => []
+    );
+
+  const emitPreviewRequests = () => {
+    for (const driver of previewDrivers) {
+      safeEmit(
+        emitRideRequest,
+        {
+          booking,
+          driverId:
+            driver._id,
+          driver,
+          data: {
+            previewOnly: true,
+            actionsLocked: true,
+            lockReason:
+              "Current ride active. Ride complete hone ke baad Accept / Reject available hoga.",
+            distanceKm:
+              driver.distanceKm ||
+              0,
+            etaMinutes:
+              driver.etaMinutes ||
+              0
+          }
+        }
+      );
+    }
+  };
+
   if (!drivers.length) {
     booking.status =
       "searching_driver";
@@ -1328,9 +1490,14 @@ async function dispatchRide({
       }
     );
 
+    emitPreviewRequests();
+
     return {
       booking,
       drivers: [],
+      previewDrivers,
+      previewCount:
+        previewDrivers.length,
       count: 0,
 
       message:
@@ -1395,6 +1562,8 @@ async function dispatchRide({
     );
   }
 
+  emitPreviewRequests();
+
   safeEmit(
     emitRideStatusUpdated,
     {
@@ -1407,6 +1576,9 @@ async function dispatchRide({
   return {
     booking,
     drivers,
+    previewDrivers,
+    previewCount:
+      previewDrivers.length,
     count:
       drivers.length,
 
@@ -3700,7 +3872,10 @@ async function driverCanAcceptNewRide(
       )
     );
 
-  if (commissionDue > 0) {
+  if (
+    COMMISSION_DUE_BLOCKS_NEW_RIDES &&
+    commissionDue > 0
+  ) {
     return {
       allowed:
         false,
@@ -3720,8 +3895,7 @@ async function driverCanAcceptNewRide(
           !driver.currentRide
       ),
 
-    commissionDue:
-      0
+    commissionDue
   };
 }
 
@@ -3736,6 +3910,7 @@ module.exports = {
   getDriverActiveRide,
 
   findNearestDrivers,
+  findNearbyBusyDriversForPreview,
   dispatchRide,
   acceptRide,
   acceptRideAtomic,

@@ -13,6 +13,18 @@ const ACTIVE_RIDE_STATUSES = [
 
 /*
 |--------------------------------------------------------------------------
+| Cash Commission Due Ride Gate
+|--------------------------------------------------------------------------
+| Latest production rule: cash commission due wallet me ledger ke roop me
+| rahega aur future wallet/online earning se recover ho sakta hai, lekin ek
+| completed cash ride ke baad driver ko next ride lene se block nahi karega.
+| Original gate code preserve hai aur flag se disabled rakha gaya hai.
+|--------------------------------------------------------------------------
+*/
+const COMMISSION_DUE_BLOCKS_NEW_RIDES = false;
+
+/*
+|--------------------------------------------------------------------------
 | Get Driver By ID
 |--------------------------------------------------------------------------
 */
@@ -292,7 +304,10 @@ async function setDriverOnline(driverId) {
 
   driver.isAvailable =
     !currentRide &&
-    commissionDue <= 0;
+    (
+      !COMMISSION_DUE_BLOCKS_NEW_RIDES ||
+      commissionDue <= 0
+    );
 
   driver.lastSeenAt =
     new Date();
@@ -369,7 +384,10 @@ async function setDriverAvailable(
         0
     );
 
-  if (commissionDue > 0) {
+  if (
+    COMMISSION_DUE_BLOCKS_NEW_RIDES &&
+    commissionDue > 0
+  ) {
     throw new ApiError(
       409,
       `₹${commissionDue} platform commission due hai. Wallet top-up karke due clear karo.`

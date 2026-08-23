@@ -718,6 +718,8 @@ async function selectPaymentMethod(req, res) {
     */
     if (method === "cash") {
       booking.cashSelectedAt = new Date();
+      booking.paymentFailedAt = null;
+      booking.paymentFailureReason = "";
       syncPaymentFields(booking, {
         method: "cash",
         status: "pending",
