@@ -63,6 +63,45 @@ function ensureOwner(req, booking) {
   }
 }
 
+const LEGACY_CASH_CONFIRMATION_CUTOFF =
+  new Date("2026-08-23T07:30:00.000Z").getTime();
+
+function isLegacyCashPendingBooking(booking) {
+  if (!booking) return false;
+
+  if (String(booking.status || "").toLowerCase() !== "completed") {
+    return false;
+  }
+
+  if (String(booking.paymentStatus || "pending").toLowerCase() === "paid") {
+    return false;
+  }
+
+  if (String(booking.paymentMethod || "").toLowerCase() !== "cash") {
+    return false;
+  }
+
+  if (
+    booking.cashSelectedAt ||
+    String(booking.paymentChoiceAfterRide || "").trim()
+  ) {
+    return false;
+  }
+
+  const legacyTime = new Date(
+    booking.completedAt ||
+      booking.updatedAt ||
+      booking.createdAt ||
+      0
+  ).getTime();
+
+  return (
+    Number.isFinite(legacyTime) &&
+    legacyTime > 0 &&
+    legacyTime <= LEGACY_CASH_CONFIRMATION_CUTOFF
+  );
+}
+
 function syncEmbeddedPayment(booking) {
   if (!booking.payment) booking.payment = {};
   booking.payment.method = booking.paymentMethod;
@@ -495,7 +534,7 @@ exports.confirmCashPayment = async (req, res) => {
       await walletService.settleRidePayment(booking._id);
       return res.status(200).json({
         success: true,
-        message: "Cash payment already confirmed hai",
+        message: "Payment already confirmed hai",
         data: {
           bookingId: booking._id,
           paymentStatus: "paid",
@@ -511,11 +550,30 @@ exports.confirmCashPayment = async (req, res) => {
       String(booking.paymentChoiceAfterRide || "").toLowerCase() === "cash"
     );
 
-    if (!cashWasSelected) {
-      return res.status(409).json({
-        success: false,
-        message: "Customer ne abhi cash payment select nahi ki hai"
-      });
+    const legacyCashPending =
+      isLegacyCashPendingBooking(booking);
+
+    /*
+    |--------------------------------------------------------------------------
+    | FINAL DRIVER CASH RULE
+    |--------------------------------------------------------------------------
+    | Ride complete hote hi assigned driver physical cash receive karke payment
+    | confirm kar sakta hai. Customer ka Cash Payment tap optional signal hai;
+    | server-side gate nahi hai. Isse customer phone band/close kar de to driver
+    | waiting-payment state me block nahi rahega.
+    |
+    | Online payment successful ho chuki ho to upar paymentStatus === "paid"
+    | branch idempotently return karti hai aur cash me overwrite nahi hota.
+    |--------------------------------------------------------------------------
+    */
+    if (!cashWasSelected && !legacyCashPending) {
+      booking.cashSelectedAt = new Date();
+      booking.paymentChoiceAfterRide = "cash";
+    }
+
+    if (legacyCashPending) {
+      booking.cashSelectedAt = booking.cashSelectedAt || new Date();
+      booking.paymentChoiceAfterRide = "cash";
     }
 
     const fare = getFare(booking);
