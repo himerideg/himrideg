@@ -432,11 +432,28 @@ exports.selectCashPayment = async (req, res) => {
     const driverId = getDriverId(booking);
     if (io && driverId) {
       // Driver already joins driver:<id>; one room = one cash alert (no duplicate popup).
-      io.to(`driver:${driverId}`).emit("payment:cash-selected", {
+      const cashSelectedPayload = {
         bookingId: String(booking._id),
         fare: getFare(booking),
+        paymentMethod: "cash",
+        paymentStatus: "pending",
+        paymentChoiceAfterRide: "cash",
+        cashSelectedAt: booking.cashSelectedAt,
         message: "Customer ne cash payment select ki hai. Cash receive karke confirm karein."
-      });
+      };
+
+      io.to(`driver:${driverId}`).emit(
+        "payment:cash-selected",
+        cashSelectedPayload
+      );
+
+      const customerId = getCustomerId(booking);
+      if (customerId) {
+        io.to(`user:${customerId}`).emit(
+          "payment:cash-selected",
+          cashSelectedPayload
+        );
+      }
     }
 
     return res.status(200).json({
@@ -446,6 +463,8 @@ exports.selectCashPayment = async (req, res) => {
         bookingId: booking._id,
         paymentMethod: "cash",
         paymentStatus: "pending",
+        paymentChoiceAfterRide: "cash",
+        cashSelectedAt: booking.cashSelectedAt,
         fare: getFare(booking)
       }
     });
@@ -484,6 +503,18 @@ exports.confirmCashPayment = async (req, res) => {
           fare: getFare(booking),
           driverPayable: booking.driverPayableAmount
         }
+      });
+    }
+
+    const cashWasSelected = Boolean(
+      booking.cashSelectedAt ||
+      String(booking.paymentChoiceAfterRide || "").toLowerCase() === "cash"
+    );
+
+    if (!cashWasSelected) {
+      return res.status(409).json({
+        success: false,
+        message: "Customer ne abhi cash payment confirm nahi ki hai"
       });
     }
 
@@ -542,7 +573,7 @@ exports.confirmCashPayment = async (req, res) => {
 exports.getPaymentStatus = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.bookingId).select(
-      "customer driver payment paymentMethod paymentStatus razorpayOrderId razorpayPaymentId paidAt paymentFailedAt paymentFailureReason paymentAttemptCount cashSelectedAt finalFare driverOfferedFare estimatedFare fare platformCommissionAmount driverPayableAmount walletSettlementStatus walletSettledAt status"
+      "customer driver payment paymentMethod paymentStatus paymentChoiceAfterRide razorpayOrderId razorpayPaymentId paidAt paymentFailedAt paymentFailureReason paymentAttemptCount cashSelectedAt finalFare driverOfferedFare estimatedFare fare platformCommissionAmount driverPayableAmount walletSettlementStatus walletSettledAt status"
     );
     if (!booking) return res.status(404).json({ success: false, message: "Booking nahi mili" });
 
