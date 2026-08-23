@@ -2386,3 +2386,95 @@ body:has(.driverDashboardPage) {
   line-height: 1.4;
   word-break: break-word;
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| V7.4 Driver Cash + Header Reliability
+|--------------------------------------------------------------------------
+*/
+.driverCashReceivedPrimary {
+  margin-top: 14px;
+  min-width: 220px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid #16a85a;
+  border-radius: 11px;
+  background: #16a85a;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.driverCashReceivedPrimary:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+.driverCustomerStyleTopbar .driverHeaderProfile {
+  min-width: 0;
+}
+
+.driverCustomerStyleTopbar .driverLogoutButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  border-color: rgba(255,196,0,.45);
+  color: #ffc400;
+}
+
+@media (max-width: 1450px) {
+  .driverCustomerStyleTopbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .driverCustomerStyleTopbar .driverDesktopNav {
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .driverCustomerStyleTopbar .driverDesktopNav button {
+    padding-left: 9px;
+    padding-right: 9px;
+    font-size: 12px;
+  }
+
+  .driverCustomerStyleTopbar .driverHeaderUser {
+    display: none;
+  }
+
+  .driverCustomerStyleTopbar .driverHeaderProfile {
+    gap: 6px;
+  }
+
+  .driverCustomerStyleTopbar .driverOnlineControl {
+    gap: 7px;
+    font-size: 12px;
+  }
+
+  .driverCustomerStyleTopbar .driverLogoutButton {
+    height: 38px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .driverCustomerStyleTopbar .driverLogoutButton {
+    display: inline-flex !important;
+    min-width: 38px;
+    padding: 0 8px;
+    font-size: 0;
+  }
+
+  .driverCustomerStyleTopbar .driverLogoutButton::before {
+    content: "↪";
+    font-size: 18px;
+  }
+}

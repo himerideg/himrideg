@@ -544,6 +544,28 @@ function isWaitingForPaymentRide(ride) {
   );
 }
 
+/*
+|--------------------------------------------------------------------------
+| Cash Selection State
+|--------------------------------------------------------------------------
+| paymentMethod ka default legacy value cash ho sakta hai, isliye sirf us
+| field par depend nahi karte. Customer ki actual post-ride cash selection
+| cashSelectedAt ya paymentChoiceAfterRide se confirm hoti hai.
+|--------------------------------------------------------------------------
+*/
+function isCashSelectedForRide(ride) {
+  return Boolean(
+    ride?.cashSelectedAt ||
+      String(
+        ride?.paymentChoiceAfterRide ||
+          ride?.payment?.choiceAfterRide ||
+          ""
+      )
+        .trim()
+        .toLowerCase() === "cash"
+  );
+}
+
 function isFinalCompletedRide(ride) {
   return (
     ride?.status === "completed" &&
@@ -3888,9 +3910,53 @@ function DriverDashboard({
   const waitingPaymentRides =
     waitingPaymentRideList.length;
 
+  const cashSelectedWaitingRide =
+    waitingPaymentRideList.find(
+      (ride) =>
+        isCashSelectedForRide(
+          ride
+        )
+    ) ||
+    null;
+
   const latestWaitingPaymentRide =
+    cashSelectedWaitingRide ||
     waitingPaymentRideList[0] ||
     null;
+
+  /*
+  |------------------------------------------------------------------------
+  | Payment Fallback Poll
+  |------------------------------------------------------------------------
+  | payment:cash-selected socket miss ho jaye tab bhi driver ko 4 sec ke
+  | andar Cash Received action mil jaye. Sirf waiting-payment phase me poll.
+  |------------------------------------------------------------------------
+  */
+  useEffect(() => {
+    if (
+      waitingPaymentRides <= 0 ||
+      typeof loadBookings !== "function"
+    ) {
+      return undefined;
+    }
+
+    const timer =
+      window.setInterval(
+        () => {
+          loadBookings?.();
+        },
+        4000
+      );
+
+    return () => {
+      window.clearInterval(
+        timer
+      );
+    };
+  }, [
+    loadBookings,
+    waitingPaymentRides
+  ]);
 
   const completedRides =
     displayBookings.filter(
@@ -5294,12 +5360,16 @@ function DriverDashboard({
                     ) : latestWaitingPaymentRide ? (
                       <div className="driverCustomerEmpty driverWaitingPaymentState">
                         <span>💳</span>
-                        <strong>Waiting for Payment</strong>
-                        <p>Ride destination par complete hai. Customer ke payment ka wait ho raha hai.</p>
+                        <strong>{isCashSelectedForRide(latestWaitingPaymentRide) ? "Cash Payment Selected" : "Waiting for Payment"}</strong>
+                        <p>
+                          {isCashSelectedForRide(latestWaitingPaymentRide)
+                            ? "Customer ne cash payment select ki hai. Cash receive hone ke baad confirm karein."
+                            : "Ride destination par complete hai. Customer ke payment ka wait ho raha hai."}
+                        </p>
                         <b style={{color:"#f5c518",fontSize:"24px"}}>
                           ₹{Number(getFinalFare(latestWaitingPaymentRide) || 0).toFixed(0)}
                         </b>
-                        {String(latestWaitingPaymentRide.paymentChoiceAfterRide || "").toLowerCase() === "cash" ? (
+                        {isCashSelectedForRide(latestWaitingPaymentRide) ? (
                           <button
                             type="button"
                             className="accept"
@@ -5307,7 +5377,7 @@ function DriverDashboard({
                             onClick={() => confirmCashReceived(latestWaitingPaymentRide)}
                             style={{marginTop:"12px"}}
                           >
-                            💵 Confirm Cash Received
+                            💵 Cash Received ₹{Number(getFinalFare(latestWaitingPaymentRide) || 0).toFixed(0)}
                           </button>
                         ) : (
                           <small style={{marginTop:"10px",color:"#9fb0c2"}}>
@@ -5424,19 +5494,35 @@ function DriverDashboard({
                 <header>
                   <div>
                     <small>{selectedRide ? "LIVE ROUTE" : latestWaitingPaymentRide ? "PAYMENT STATUS" : "LIVE ROUTE"}</small>
-                    <h2>{selectedRide ? "Pickup to Destination" : latestWaitingPaymentRide ? "Waiting for Payment" : "Route Map"}</h2>
+                    <h2>{selectedRide ? "Pickup to Destination" : latestWaitingPaymentRide ? (isCashSelectedForRide(latestWaitingPaymentRide) ? "Cash Payment Selected" : "Waiting for Payment") : "Route Map"}</h2>
                   </div>
                   {selectedRide && <span>{getDriverRideStatusLabel(selectedRide)}</span>}
-                  {!selectedRide && latestWaitingPaymentRide && <span>Payment Pending</span>}
+                  {!selectedRide && latestWaitingPaymentRide && <span>{isCashSelectedForRide(latestWaitingPaymentRide) ? "Cash Selected" : "Payment Pending"}</span>}
                 </header>
                 <div className="driverCustomerMapStage">
                   {selectedRide ? (
                     <DriverRideMap ride={selectedRide}/>
                   ) : latestWaitingPaymentRide ? (
                     <div className="driverCustomerEmpty driverWaitingPaymentState">
-                      <span>💳</span>
-                      <strong>Waiting for Payment</strong>
-                      <p>Customer ka payment complete hote hi ride Completed me chali jayegi.</p>
+                      <span>{isCashSelectedForRide(latestWaitingPaymentRide) ? "💵" : "💳"}</span>
+                      <strong>{isCashSelectedForRide(latestWaitingPaymentRide) ? "Cash Payment Selected" : "Waiting for Payment"}</strong>
+                      <p>
+                        {isCashSelectedForRide(latestWaitingPaymentRide)
+                          ? `Customer ne ₹${Number(getFinalFare(latestWaitingPaymentRide) || 0).toFixed(0)} cash select kiya hai.`
+                          : "Customer ka payment complete hote hi ride Completed me chali jayegi."}
+                      </p>
+                      {isCashSelectedForRide(latestWaitingPaymentRide) ? (
+                        <button
+                          type="button"
+                          className="driverCashReceivedPrimary"
+                          disabled={Boolean(loadingAction)}
+                          onClick={() => confirmCashReceived(latestWaitingPaymentRide)}
+                        >
+                          {loadingAction === `${getId(latestWaitingPaymentRide)}:cash-confirm`
+                            ? "Confirming..."
+                            : `💵 Cash Received ₹${Number(getFinalFare(latestWaitingPaymentRide) || 0).toFixed(0)}`}
+                        </button>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="driverCustomerEmpty"><span>🗺️</span><strong>Waiting for Ride</strong></div>
@@ -5753,7 +5839,7 @@ function DriverDashboard({
                             }
                           </p>
 
-                          {(String(ride.paymentChoiceAfterRide || "").toLowerCase() === "cash") &&
+                          {isCashSelectedForRide(ride) &&
                             !(["paid", "completed"].includes(String(ride.paymentStatus || ride?.payment?.status || "").toLowerCase())) && (
                               <button
                                 type="button"
@@ -5762,7 +5848,7 @@ function DriverDashboard({
                                 onClick={() => confirmCashReceived(ride)}
                                 style={{marginTop:"10px"}}
                               >
-                                💵 Confirm Cash Received
+                                💵 Cash Received ₹{Number(getFinalFare(ride) || 0).toFixed(0)}
                               </button>
                             )}
                         </div>

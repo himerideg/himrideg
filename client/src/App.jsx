@@ -1934,6 +1934,44 @@ function App() {
         }
       };
 
+    const handleCashPaymentSelected =
+      (payload) => {
+        const bookingId =
+          payload?.bookingId;
+
+        if (!bookingId) {
+          return;
+        }
+
+        setBookings(
+          (currentBookings) =>
+            currentBookings.map(
+              (ride) =>
+                getId(ride) === getId(bookingId)
+                  ? {
+                      ...ride,
+                      paymentMethod: "cash",
+                      paymentStatus: "pending",
+                      paymentChoiceAfterRide: "cash",
+                      cashSelectedAt:
+                        payload?.cashSelectedAt ||
+                        new Date().toISOString()
+                    }
+                  : ride
+            )
+        );
+
+        if (user.role === "driver") {
+          realtimeNotify(
+            payload?.message ||
+              `Customer ne ₹${Number(payload?.fare || 0).toFixed(0)} cash payment select ki hai.`,
+            true
+          );
+        }
+
+        loadBookings();
+      };
+
     /*
     |------------------------------------------------------------------
     | Driver approval status — realtime update karo user state mein
@@ -2191,6 +2229,11 @@ function App() {
     );
 
     socket.on(
+      "payment:cash-selected",
+      handleCashPaymentSelected
+    );
+
+    socket.on(
       "driver:location:updated",
       handleLocationUpdated
     );
@@ -2306,6 +2349,11 @@ function App() {
       socket.off(
         "ride:status-updated",
         handleRideStatus
+      );
+
+      socket.off(
+        "payment:cash-selected",
+        handleCashPaymentSelected
       );
 
       socket.off(
