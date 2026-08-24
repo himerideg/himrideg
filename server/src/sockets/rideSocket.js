@@ -1612,16 +1612,39 @@ const handleFareNegotiation =
           }
 
           if (
-            (
+            booking.fareStatus !==
+              "not_offered" ||
+            Number(
               booking.fareOfferCount ||
               0
-            ) >= 6
+            ) !== 0 ||
+            Number(
+              booking.driverOfferedFare ||
+              0
+            ) > 0
           ) {
             return sendFailure(
               callback,
               {
                 message:
-                  "Zyada baar offer nahi kar sakte. Final decision karo.",
+                  "Initial driver fare already sent. Customer ke one-time counter ka wait karo.",
+              }
+            );
+          }
+
+          if (
+            ![
+              "accepted",
+              "driver_assigned",
+            ].includes(
+              booking.status
+            )
+          ) {
+            return sendFailure(
+              callback,
+              {
+                message:
+                  "Initial fare sirf accepted ride par bhej sakte ho.",
               }
             );
           }
@@ -1636,10 +1659,7 @@ const handleFareNegotiation =
             "driver";
 
           booking.fareOfferCount =
-            (
-              booking.fareOfferCount ||
-              0
-            ) + 1;
+            1;
 
           booking.fareOfferedAt =
             new Date();
@@ -1842,16 +1862,39 @@ const handleFareNegotiation =
           }
 
           if (
-            (
-              booking.fareOfferCount ||
+            booking.fareStatus !==
+              "driver_offered" ||
+            booking.fareOfferedBy !==
+              "driver" ||
+            !Number(
+              booking.driverOfferedFare ||
               0
-            ) >= 6
+            )
           ) {
             return sendFailure(
               callback,
               {
                 message:
-                  "Negotiation limit khatam. Accept ya reject karo.",
+                  "Counter sirf driver ke initial fare ke baad bhej sakte ho.",
+              }
+            );
+          }
+
+          if (
+            Number(
+              booking.customerCounterFare ||
+              0
+            ) > 0 ||
+            Number(
+              booking.fareOfferCount ||
+              0
+            ) !== 1
+          ) {
+            return sendFailure(
+              callback,
+              {
+                message:
+                  "Customer ka one-time counter already use ho chuka hai.",
               }
             );
           }
@@ -1866,10 +1909,7 @@ const handleFareNegotiation =
             "customer";
 
           booking.fareOfferCount =
-            (
-              booking.fareOfferCount ||
-              0
-            ) + 1;
+            2;
 
           booking.fareOfferedAt =
             new Date();
@@ -1997,6 +2037,26 @@ const handleFareNegotiation =
               }
             );
           }
+
+          /*
+          |------------------------------------------------------------------
+          | Legacy socket accept is intentionally blocked
+          |------------------------------------------------------------------
+          | Final production flow uses /customer-accept-final after driver
+          | sends driver_final. This prevents old clients from accepting the
+          | initial fare or driver accepting the customer counter.
+          |------------------------------------------------------------------
+          */
+
+          return sendFailure(
+            callback,
+            {
+              message:
+                "Updated fare flow required: customer final fare ko Accept karega; initial/counter direct accept nahi hoga.",
+              code:
+                "FINAL_FARE_FLOW_REQUIRED",
+            }
+          );
 
           const booking =
             await getBookingById(
@@ -2272,6 +2332,25 @@ const handleFareNegotiation =
               }
             );
           }
+
+          /*
+          |------------------------------------------------------------------
+          | Legacy socket reject is intentionally blocked
+          |------------------------------------------------------------------
+          | Reject is valid only for customer's decision on driver FINAL fare
+          | and canonical REST endpoint releases/re-dispatches the ride.
+          |------------------------------------------------------------------
+          */
+
+          return sendFailure(
+            callback,
+            {
+              message:
+                "Updated fare flow required: Reject sirf driver FINAL fare par customer karega.",
+              code:
+                "FINAL_FARE_FLOW_REQUIRED",
+            }
+          );
 
           const booking =
             await getBookingById(

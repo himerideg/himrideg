@@ -1,0 +1,44 @@
+HimRideG V21 — WEBSITE / APP RIDE + FARE SYNC
+
+ROOT CAUSE FOUND
+- Website depended too much on feed/mine + realtime event timing.
+- A ride accepted in mobile app could exist on backend as the driver's/customer's active ride but website could miss it when the socket event was missed or room/event names differed.
+- Fare event names were not fully canonical between REST/backend, mobile and website.
+
+RIDE SYNC FIX
+- Website now merges list/feed with authoritative /rides/driver/active or /rides/customer/active.
+- Driver/customer tabs refresh more frequently and refresh immediately on browser focus/visibility return.
+- Accepted ride from app should therefore reappear on website even if a realtime event was missed.
+
+FINAL FARE FLOW
+1) Driver accepts ride.
+2) Driver sends ONE initial fare.
+3) Customer sends ONE counter fare.
+4) Driver sends ONE FINAL fare.
+5) Customer sees only Accept / Reject for final fare.
+6) Accept -> fare locked and driver ride process can proceed.
+7) Driver Send Fare UI disappears after final fare and remains gone after fare acceptance.
+8) Reject -> current driver released and booking re-dispatched.
+
+BACKEND REALTIME SYNC
+- fare REST events emit canonical aliases to ride/user/customer/driver compatible rooms.
+- fare:status:updated fallback keeps app + website aligned.
+- Existing legacy event compatibility preserved.
+
+FILES CHANGED FROM WEBSITE V20
+- client/src/App.jsx
+- client/src/pages/CustomerDashboard.jsx
+- client/src/pages/DriverDashboard.jsx
+- server/src/controllers/fareController.js
+- server/src/services/rideService.js
+- server/src/sockets/rideSocket.js
+
+Additional sync hardening in final pass:
+- client/src/pages/CustomerDashboard.jsx
+- client/src/pages/DriverDashboard.jsx
+- server/src/controllers/fareController.js
+
+IMPORTANT DEPLOYMENT
+- Deploy BOTH website client and server from this ZIP. Server changes are required for app <-> website realtime fare synchronization.
+- Existing payment, booking, map, admin and environment files preserved.
+- Original client/.env unchanged.

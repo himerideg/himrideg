@@ -3701,6 +3701,9 @@ async function acceptRideAtomic({
             finalFare:
               null,
 
+            fareOfferCount:
+              0,
+
             fareAcceptedAt:
               null,
 

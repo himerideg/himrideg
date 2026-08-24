@@ -1298,25 +1298,149 @@ function App() {
         }
 
         try {
-          const endpoint =
+          /*
+          |------------------------------------------------------------------
+          | Cross-client ride sync
+          |------------------------------------------------------------------
+          | Mobile app feed ke saath /driver/active ya /customer/active bhi
+          | fetch karti hai. Website pehle sirf feed/mine fetch karti thi.
+          | Agar ride dusre device/app se accept hui aur realtime event miss
+          | hua, website feed refresh tak active ride card miss kar sakti thi.
+          |
+          | Ab website bhi mobile jaisa list + authoritative active endpoint
+          | merge karti hai. Same API/account par accepted ride dono jagah
+          | reliably dikhni chahiye.
+          |------------------------------------------------------------------
+          */
+
+          if (
             user.role ===
             "admin"
-              ? "/rides"
-              : user.role ===
-                "driver"
-                ? "/rides/driver/feed"
-                : "/rides/mine";
+          ) {
+            const { data } =
+              await api.get(
+                "/rides"
+              );
 
-          const {
-            data
-          } =
-            await api.get(
-              endpoint
+            setBookings(
+              getBookingsFromResponse(
+                data
+              )
             );
 
+            return;
+          }
+
+          const listEndpoint =
+            user.role ===
+            "driver"
+              ? "/rides/driver/feed"
+              : "/rides/mine";
+
+          const activeEndpoint =
+            user.role ===
+            "driver"
+              ? "/rides/driver/active"
+              : "/rides/customer/active";
+
+          const [
+            listResult,
+            activeResult
+          ] =
+            await Promise.allSettled([
+              api.get(
+                listEndpoint
+              ),
+              api.get(
+                activeEndpoint
+              )
+            ]);
+
+          if (
+            listResult.status ===
+              "rejected" &&
+            activeResult.status ===
+              "rejected"
+          ) {
+            throw (
+              listResult.reason ||
+              activeResult.reason
+            );
+          }
+
+          const listBookings =
+            listResult.status ===
+            "fulfilled"
+              ? getBookingsFromResponse(
+                  listResult.value?.data
+                )
+              : [];
+
+          const activeBooking =
+            activeResult.status ===
+            "fulfilled"
+              ? getBookingFromResponse(
+                  activeResult.value?.data
+                )
+              : null;
+
+          const mergedMap =
+            new Map();
+
+          listBookings.forEach(
+            (ride) => {
+              const rideId =
+                getId(
+                  ride
+                );
+
+              if (rideId) {
+                mergedMap.set(
+                  rideId,
+                  ride
+                );
+              }
+            }
+          );
+
+          if (
+            activeBooking &&
+            getId(activeBooking)
+          ) {
+            const activeId =
+              getId(
+                activeBooking
+              );
+
+            mergedMap.set(
+              activeId,
+              {
+                ...(mergedMap.get(
+                  activeId
+                ) || {}),
+                ...activeBooking
+              }
+            );
+          }
+
           setBookings(
-            getBookingsFromResponse(
-              data
+            Array.from(
+              mergedMap.values()
+            ).sort(
+              (
+                firstRide,
+                secondRide
+              ) =>
+                new Date(
+                  secondRide?.updatedAt ||
+                    secondRide?.createdAt ||
+                    0
+                ).getTime() -
+                new Date(
+                  firstRide?.updatedAt ||
+                    firstRide?.createdAt ||
+                    0
+                ).getTime()
             )
           );
         } catch (error) {
@@ -1790,7 +1914,11 @@ function App() {
             loadDriverProfile();
           }
         },
-        30000
+        user.role === "driver"
+          ? 10000
+          : user.role === "customer"
+            ? 15000
+            : 30000
       );
 
     return () => {
@@ -1800,6 +1928,67 @@ function App() {
     };
   }, [
     loadAdminData,
+    loadBookings,
+    loadDriverProfile,
+    user
+  ]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Foreground / Tab Return Sync
+  |--------------------------------------------------------------------------
+  | App ya doosre browser/device se ride state badle aur ye tab background me
+  | ho, tab user wapas aate hi active ride turant refresh ho.
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    if (!user) {
+      return undefined;
+    }
+
+    const syncNow = () => {
+      loadBookings();
+
+      if (
+        user.role ===
+        "driver"
+      ) {
+        loadDriverProfile();
+      }
+    };
+
+    const handleVisibility = () => {
+      if (
+        document.visibilityState ===
+        "visible"
+      ) {
+        syncNow();
+      }
+    };
+
+    window.addEventListener(
+      "focus",
+      syncNow
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibility
+    );
+
+    return () => {
+      window.removeEventListener(
+        "focus",
+        syncNow
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibility
+      );
+    };
+  }, [
     loadBookings,
     loadDriverProfile,
     user

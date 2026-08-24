@@ -2440,17 +2440,46 @@ function DriverDashboard({
     };
 
     const handleFareRejected = (payload = {}) => {
-      handleFareUpdate({
-        ...payload,
-        fareStatus: "fare_rejected",
-        status: "negotiating"
-      });
+      const bookingId =
+        String(
+          payload?.bookingId ||
+            payload?._id ||
+            ""
+        );
+
+      if (bookingId) {
+        setLocalBookings((previous) =>
+          previous.map((ride) =>
+            getId(ride) === bookingId
+              ? {
+                  ...ride,
+                  ...payload,
+                  fareStatus: "fare_rejected",
+                  status: "searching_driver",
+                  driver: null
+                }
+              : ride
+          )
+        );
+
+        if (
+          selectedRideId ===
+          bookingId
+        ) {
+          setSelectedRideId("");
+        }
+      }
+
+      setIncomingRide(null);
+      setRequestExpiresAt(null);
 
       showNotice(
         "error",
         payload.message ||
-          "Fare offer reject hua. Naya offer bhejo."
+          "Customer ne FINAL fare reject kiya. Ride release ho gayi aur naya driver search hoga."
       );
+
+      loadBookings?.();
     };
 
     const handlePaymentUpdate = (payload = {}) => {
@@ -2596,8 +2625,28 @@ function DriverDashboard({
     );
 
     socket.on(
+      "fare:customer-countered",
+      handleFareCountered
+    );
+
+    socket.on(
+      "fare:driver-offered",
+      handleFareUpdate
+    );
+
+    socket.on(
+      "fare:final-offered",
+      handleFareUpdate
+    );
+
+    socket.on(
       "fare:accepted",
       handleFareAccepted
+    );
+
+    socket.on(
+      "fare:final-rejected",
+      handleFareRejected
     );
 
     socket.on(
@@ -2713,8 +2762,28 @@ function DriverDashboard({
       );
 
       socket.off(
+        "fare:customer-countered",
+        handleFareCountered
+      );
+
+      socket.off(
+        "fare:driver-offered",
+        handleFareUpdate
+      );
+
+      socket.off(
+        "fare:final-offered",
+        handleFareUpdate
+      );
+
+      socket.off(
         "fare:accepted",
         handleFareAccepted
+      );
+
+      socket.off(
+        "fare:final-rejected",
+        handleFareRejected
       );
 
       socket.off(
@@ -3050,45 +3119,68 @@ function DriverDashboard({
 
     setFareAction(`${bookingId}:offer`);
 
-    socket.emit(
-      "fare:offer",
-      { bookingId, amount: fare },
-      async (response) => {
-        setFareAction("");
-
-        if (!response?.success) {
-          showNotice(
-            "error",
-            response?.message ||
-              "Fare offer nahi bheja ja saka."
-          );
-          return;
-        }
-
-        setLocalBookings((previous) =>
-          previous.map((item) =>
-            getId(item) === bookingId
-              ? {
-                  ...item,
-                  driverOfferedFare: fare,
-                  fareStatus: "driver_offered",
-                  fareOfferedBy: "driver",
-                  fareOfferCount:
-                    Number(item.fareOfferCount || 0) + 1,
-                  status: "negotiating"
-                }
-              : item
-          )
+    try {
+      const { data } =
+        await api.post(
+          `/fares/${bookingId}/driver-offer`,
+          {
+            fare
+          }
         );
 
-        showNotice(
-          "success",
-          `₹${fare.toFixed(0)} ka fare customer ko bhej diya.`
-        );
+      const result =
+        data?.data ||
+        data ||
+        {};
 
-        await loadBookings?.();
-      }
-    );
+      setLocalBookings((previous) =>
+        previous.map((item) =>
+          getId(item) === bookingId
+            ? {
+                ...item,
+                driverOfferedFare:
+                  Number(
+                    result.offeredFare ||
+                      fare
+                  ),
+                fareStatus:
+                  result.fareStatus ||
+                  "driver_offered",
+                fareOfferedBy:
+                  result.fareOfferedBy ||
+                  "driver",
+                fareOfferCount:
+                  Number(
+                    result.fareOfferCount ||
+                      1
+                  ),
+                status: "fare_offered"
+              }
+            : item
+        )
+      );
+
+      setFareInputs((current) => ({
+        ...current,
+        [bookingId]: ""
+      }));
+
+      showNotice(
+        "success",
+        `₹${fare.toFixed(0)} initial fare customer ko bhej diya. Ab one-time counter ka wait karo.`
+      );
+
+      await loadBookings?.();
+    } catch (error) {
+      showNotice(
+        "error",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Fare offer nahi bheja ja saka."
+      );
+    } finally {
+      setFareAction("");
+    }
   };
 
   const acceptCustomerCounter = async (ride) => {
@@ -5477,12 +5569,11 @@ function DriverDashboard({
                     <div className="driverCustomerFacts">
                       <article><small>DISTANCE</small><strong>{formatDistance(getDistance(selectedRide))}</strong></article>
                       <article><small>PASSENGERS</small><strong>{getPassengerCount(selectedRide)}</strong></article>
-                      <article><small>EST. FARE</small><strong>₹{getEstimatedFare(selectedRide).toFixed(0)}</strong></article>
                     </div>
 
                     {selectedAssignedToMe && ["accepted","fare_offered","negotiating","fare_accepted"].includes(selectedRide.status) && (
                       <section className="driverCustomerFareCard">
-                        <header><div><small>FARE NEGOTIATION</small><h3>Apna final fare decide karo</h3></div><b>{Number(selectedRide.fareOfferCount || 0)}/6 Offers</b></header>
+                        <header><div><small>FARE NEGOTIATION</small><h3>Driver → Customer → Final</h3></div><b>{Math.min(Number(selectedRide.fareOfferCount || 0), 3)}/3 Steps</b></header>
                         {(selectedRide.fareStatus === "fare_accepted" || selectedRide.status === "fare_accepted") ? (
                           <div className="driverCustomerFareFinal">
                             <article><small>FINAL FARE</small><strong>₹{getFinalFare(selectedRide).toFixed(0)}</strong></article>
@@ -5493,13 +5584,13 @@ function DriverDashboard({
                           <div className="driverCustomerCounter">
                             <p>FINAL Fare Sent</p>
                             <strong>₹{Number(selectedRide.driverFinalFareProposal || 0).toFixed(0)}</strong>
-                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Customer ke Accept / Reject ka wait ho raha hai.</small>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Send Fare button band hai. Customer ke Accept / Reject ka wait ho raha hai.</small>
                           </div>
                         ) : selectedRide.fareStatus === "customer_countered" ? (
                           <div className="driverCustomerCounter">
-                            <p>Customer Negotiation Fare</p>
+                            <p>Customer One-Time Counter</p>
                             <strong>₹{Number(selectedRide.customerCounterFare || 0).toFixed(0)}</strong>
-                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Ab aap FINAL fare bhejein. Customer dashboard par sirf Accept / Reject aayega.</small>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Ab aap ek FINAL fare bhejein. Iske baad customer dashboard par sirf Accept / Reject aayega.</small>
                             <div className="driverCustomerFareInput" style={{marginTop:"12px"}}>
                               <span>₹</span>
                               <input
@@ -5519,11 +5610,31 @@ function DriverDashboard({
                               </button>
                             </div>
                           </div>
+                        ) : selectedRide.fareStatus === "driver_offered" ? (
+                          <div className="driverCustomerCounter">
+                            <p>Initial Fare Sent</p>
+                            <strong>₹{Number(selectedRide.driverOfferedFare || 0).toFixed(0)}</strong>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Customer ke one-time counter ka wait karo. Ab initial fare dobara send nahi hoga.</small>
+                          </div>
                         ) : (
-                          <>
-                            <div className="driverCustomerSuggested"><span>Distance based suggestion</span><strong>₹{getEstimatedFare(selectedRide).toFixed(0)}</strong></div>
-                            <div className="driverCustomerFareInput"><span>₹</span><input type="number" min="50" max="10000" placeholder="Driver final fare enter kare" value={fareInputs[selectedRideIdValue] ?? ""} onChange={(event) => setFareInputs((current) => ({...current,[selectedRideIdValue]: event.target.value}))}/><button type="button" disabled={Boolean(fareAction) || Number(selectedRide.fareOfferCount || 0) >= 6} onClick={() => sendDriverFare(selectedRide)}>Send Fare</button></div>
-                          </>
+                          <div className="driverCustomerFareInput">
+                            <span>₹</span>
+                            <input
+                              type="number"
+                              min="50"
+                              max="10000"
+                              placeholder="Apna initial fare enter kare"
+                              value={fareInputs[selectedRideIdValue] ?? ""}
+                              onChange={(event) => setFareInputs((current) => ({...current,[selectedRideIdValue]: event.target.value}))}
+                            />
+                            <button
+                              type="button"
+                              disabled={Boolean(fareAction)}
+                              onClick={() => sendDriverFare(selectedRide)}
+                            >
+                              Send Fare
+                            </button>
+                          </div>
                         )}
                         {selectedRide.status !== "fare_accepted" && <div className="driverFareWaitLarge">🔒 Fare final hone ka wait</div>}
                       </section>

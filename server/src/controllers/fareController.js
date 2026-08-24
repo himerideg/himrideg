@@ -10,7 +10,7 @@ const rideService = require("../services/rideService");
 |--------------------------------------------------------------------------
 */
 
-const MAX_FARE_OFFERS = 6;
+const MAX_FARE_OFFERS = 3;
 const MIN_FARE = 1;
 const MAX_FARE = 100000;
 
@@ -113,12 +113,39 @@ function emitFareUpdate(
       return;
     }
 
+    const bookingId =
+      String(
+        booking?._id ||
+          ""
+      );
+
+    const customerId =
+      String(
+        booking?.customer?._id ||
+          booking?.customer ||
+          ""
+      );
+
+    const driverId =
+      String(
+        booking?.driver?._id ||
+          booking?.driver ||
+          ""
+      );
+
     const payload = {
-      bookingId: booking._id,
+      bookingId:
+        booking._id,
+
       bookingNumber:
         booking.bookingNumber,
 
-      status: booking.status,
+      status:
+        booking.status,
+
+      rideStatus:
+        booking.status,
+
       fareStatus:
         booking.fareStatus,
 
@@ -127,6 +154,9 @@ function emitFareUpdate(
 
       customerCounterFare:
         booking.customerCounterFare,
+
+      driverFinalFareProposal:
+        booking.driverFinalFareProposal,
 
       finalFare:
         booking.finalFare,
@@ -153,30 +183,85 @@ function emitFareUpdate(
         booking.fareAcceptedAt
     };
 
-    io.to(
-      `booking:${booking._id}`
-    ).emit(
-      eventName,
-      payload
+    /*
+    |--------------------------------------------------------------------------
+    | Canonical Cross-Client Event Alias
+    |--------------------------------------------------------------------------
+    |
+    | REST controller ke purane event names:
+    |   fare:driver-offered      -> fare:offered
+    |   fare:customer-countered  -> fare:countered
+    |
+    | Mobile aur website dono canonical names sunte hain. Compatibility ke
+    | liye original event bhi emit hota rahega, lekin canonical alias bhi har
+    | connected client ko milega.
+    |
+    */
+
+    const canonicalEvent =
+      eventName ===
+      "fare:driver-offered"
+        ? "fare:offered"
+        : eventName ===
+          "fare:customer-countered"
+          ? "fare:countered"
+          : eventName;
+
+    const eventNames =
+      Array.from(
+        new Set(
+          [
+            eventName,
+            canonicalEvent,
+            "fare:status:updated"
+          ].filter(Boolean)
+        )
+      );
+
+    const rooms =
+      Array.from(
+        new Set(
+          [
+            bookingId
+              ? `ride:${bookingId}`
+              : "",
+            /*
+            | Legacy room preserve kiya hai in case kisi old client ne ise join
+            | kiya ho. Canonical ride room upar primary hai.
+            */
+            bookingId
+              ? `booking:${bookingId}`
+              : "",
+            customerId
+              ? `user:${customerId}`
+              : "",
+            customerId
+              ? `customer:${customerId}`
+              : "",
+            driverId
+              ? `user:${driverId}`
+              : "",
+            driverId
+              ? `driver:${driverId}`
+              : ""
+          ].filter(Boolean)
+        )
+      );
+
+    rooms.forEach(
+      (room) => {
+        eventNames.forEach(
+          (name) => {
+            io.to(
+              room
+            ).emit(
+              name,
+              payload
+            );
+          }
+        );
+      }
     );
-
-    if (booking.customer) {
-      io.to(
-        `user:${booking.customer}`
-      ).emit(
-        eventName,
-        payload
-      );
-    }
-
-    if (booking.driver) {
-      io.to(
-        `user:${booking.driver}`
-      ).emit(
-        eventName,
-        payload
-      );
-    }
   } catch (error) {
     console.error(
       "Fare socket emit error:",
@@ -448,16 +533,48 @@ exports.driverOfferFare = async (
       });
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Exact one-time initial driver fare
+    |--------------------------------------------------------------------------
+    | Driver initial -> Customer one counter -> Driver FINAL -> Customer
+    | Accept/Reject. Initial fare ko update/repeat karke loop nahi banana.
+    |--------------------------------------------------------------------------
+    */
+
     if (
+      String(
+        booking.fareStatus ||
+          "not_offered"
+      ) !== "not_offered" ||
       Number(
         booking.fareOfferCount ||
           0
-      ) >= MAX_FARE_OFFERS
+      ) !== 0 ||
+      Number(
+        booking.driverOfferedFare ||
+          0
+      ) > 0
     ) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
         message:
-          "Maximum fare offers limit complete ho gayi"
+          "Initial driver fare pehle hi bheja ja chuka hai. Ab customer ke one-time counter ka wait karo."
+      });
+    }
+
+    if (
+      ![
+        "accepted",
+        "driver_assigned"
+      ].includes(
+        booking.status
+      )
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Initial fare sirf ride accept hone ke turant baad bhej sakte ho"
       });
     }
 
@@ -471,10 +588,7 @@ exports.driverOfferFare = async (
       "driver_offered";
 
     booking.fareOfferCount =
-      Number(
-        booking.fareOfferCount ||
-          0
-      ) + 1;
+      1;
 
     booking.fareOfferedAt =
       new Date();
@@ -650,31 +764,38 @@ exports.customerCounterFare =
 
       if (
         booking.fareStatus !==
-          "driver_offered" &&
+          "driver_offered" ||
         booking.fareOfferedBy !==
-          "driver"
+          "driver" ||
+        !Number(
+          booking.driverOfferedFare
+        )
       ) {
         return res
-          .status(400)
+          .status(409)
           .json({
             success: false,
             message:
-              "Driver ke offer ke baad hi counter offer bhej sakte hain"
+              "Driver ke initial fare ke baad hi one-time counter bhej sakte hain"
           });
       }
 
       if (
         Number(
+          booking.customerCounterFare ||
+            0
+        ) > 0 ||
+        Number(
           booking.fareOfferCount ||
             0
-        ) >= MAX_FARE_OFFERS
+        ) !== 1
       ) {
         return res
-          .status(400)
+          .status(409)
           .json({
             success: false,
             message:
-              "Maximum fare offers limit complete ho gayi"
+              "Customer ka one-time counter already use ho chuka hai"
           });
       }
 
@@ -688,10 +809,7 @@ exports.customerCounterFare =
         "customer_countered";
 
       booking.fareOfferCount =
-        Number(
-          booking.fareOfferCount ||
-            0
-        ) + 1;
+        2;
 
       booking.fareOfferedAt =
         new Date();
@@ -822,6 +940,49 @@ exports.acceptFare = async (
 
     const role =
       req.user?.role;
+
+    /*
+    |--------------------------------------------------------------------------
+    | Legacy /accept compatibility gate
+    |--------------------------------------------------------------------------
+    | Purana mobile UI customer ko initial fare accept aur driver ko customer
+    | counter accept karne deta tha. Final production flow me dono allowed nahi.
+    | Sirf customer + driver_final state ko canonical final endpoint par route
+    | karte hain. Old code neeche compatibility history ke liye preserved hai.
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      role === "customer" &&
+      sameId(
+        booking.customer,
+        userId
+      ) &&
+      booking.fareStatus ===
+        "driver_final"
+    ) {
+      return exports
+        .customerAcceptFinalFare(
+          req,
+          res
+        );
+    }
+
+    if (
+      role === "driver"
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Driver customer counter accept nahi karega. Customer counter ke baad driver FINAL fare bhejega."
+      });
+    }
+
+    return res.status(409).json({
+      success: false,
+      message:
+        "Initial fare direct accept nahi hoga. Customer one-time counter ke baad driver FINAL fare bhejega."
+    });
 
     let acceptedFare = null;
 
@@ -1160,13 +1321,7 @@ exports.driverFinalFare = async (
       "driver";
 
     booking.fareOfferCount =
-      Math.min(
-        MAX_FARE_OFFERS,
-        Number(
-          booking.fareOfferCount ||
-            0
-        ) + 1
-      );
+      3;
 
     booking.fareOfferedAt =
       new Date();
@@ -1707,6 +1862,47 @@ exports.rejectFare = async (
 
     const role =
       req.user?.role;
+
+    /*
+    |--------------------------------------------------------------------------
+    | Legacy /reject compatibility gate
+    |--------------------------------------------------------------------------
+    | New flow me reject sirf customer driver FINAL fare par karega. Reject
+    | hone par same driver ko naya offer chance nahi; ride re-dispatch hogi.
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      role === "customer" &&
+      sameId(
+        booking.customer,
+        userId
+      ) &&
+      booking.fareStatus ===
+        "driver_final"
+    ) {
+      return exports
+        .customerRejectFinalFare(
+          req,
+          res
+        );
+    }
+
+    if (
+      role === "driver"
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Driver customer counter reject nahi karega. Driver ko FINAL fare bhejna hai."
+      });
+    }
+
+    return res.status(409).json({
+      success: false,
+      message:
+        "Reject option sirf driver ke FINAL fare par customer ke liye available hai."
+    });
 
     if (role === "customer") {
       if (

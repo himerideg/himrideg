@@ -1460,15 +1460,37 @@ function CustomerDashboard({
       }
     };
 
-    // Fare rejected
+    // Final fare rejected — current driver release + re-dispatch
     const handleFareRejected = (data) => {
+      const bid =
+        String(
+          data?.bookingId ||
+            data?._id ||
+            ""
+        );
+
+      if (!bid) {
+        return;
+      }
+
       setLocalBookings((prev) =>
         prev.map((b) =>
-          idOf(b) === String(data.bookingId)
-            ? { ...b, fareStatus: "fare_rejected" }
+          idOf(b) === bid
+            ? {
+                ...b,
+                ...data,
+                fareStatus: "fare_rejected",
+                status:
+                  data?.status ||
+                  data?.rideStatus ||
+                  "searching_driver",
+                driver: null
+              }
             : b
         )
       );
+
+      loadBookings?.();
     };
 
     // Payment requested
@@ -1548,9 +1570,42 @@ function CustomerDashboard({
       setPaidBookingIds((prev) => new Set([...prev, bid]));
     };
 
+    /*
+    |--------------------------------------------------------------------------
+    | Cross-client fare status fallback
+    |--------------------------------------------------------------------------
+    | REST/mobile action ka canonical status event miss na ho. Isse app me
+    | fare bhejne par website customer dashboard turant same state dikhata hai.
+    */
+    const handleFareStatusUpdated = (data = {}) => {
+      const bid = String(data?.bookingId || "");
+      if (!bid) return;
+
+      setLocalBookings((prev) =>
+        prev.map((ride) =>
+          idOf(ride) === bid
+            ? {
+                ...ride,
+                ...data,
+                status:
+                  data?.rideStatus ||
+                  data?.status ||
+                  ride.status,
+                fareStatus:
+                  data?.fareStatus ||
+                  ride.fareStatus
+              }
+            : ride
+        )
+      );
+    };
+
     socket.on("fare:offered", handleFareOffered);
+    socket.on("fare:driver-offered", handleFareOffered);
     socket.on("fare:final-offered", handleFinalFareOffered);
     socket.on("fare:accepted", handleFareAccepted);
+    socket.on("fare:status:updated", handleFareStatusUpdated);
+    socket.on("fare:final-rejected", handleFareRejected);
     socket.on("fare:rejected", handleFareRejected);
     socket.on("payment:requested", handlePaymentRequested);
     socket.on("payment:plan-updated", handlePaymentPlanUpdated);
@@ -1559,15 +1614,18 @@ function CustomerDashboard({
 
     return () => {
       socket.off("fare:offered", handleFareOffered);
+      socket.off("fare:driver-offered", handleFareOffered);
       socket.off("fare:final-offered", handleFinalFareOffered);
       socket.off("fare:accepted", handleFareAccepted);
+      socket.off("fare:status:updated", handleFareStatusUpdated);
+      socket.off("fare:final-rejected", handleFareRejected);
       socket.off("fare:rejected", handleFareRejected);
       socket.off("payment:requested", handlePaymentRequested);
       socket.off("payment:plan-updated", handlePaymentPlanUpdated);
       socket.off("payment:method-updated", handlePaymentPlanUpdated);
       socket.off("payment:completed", handlePaymentCompleted);
     };
-  }, [localBookings, paidBookingIds]);
+  }, [localBookings, paidBookingIds, loadBookings]);
 
   /* ──────────────────────────────────────────────────────────────────
      Auto Payment Modal — Fare Lock + Waiting Payment
@@ -1829,35 +1887,83 @@ function CustomerDashboard({
     ]
   );
 
-  const handleFareCounter = useCallback((bookingId, counterAmount) => {
-    if (!counterAmount || Number(counterAmount) <= 0) {
-      alert("Valid amount enter karo");
-      return;
-    }
+  const handleFareCounter = useCallback(
+    async (bookingId, counterAmount) => {
+      const amount =
+        Number(counterAmount);
 
-    socket.emit(
-      "fare:counter",
-      { bookingId, amount: Number(counterAmount) },
-      (res) => {
-        if (res?.success) {
-          setLocalBookings((prev) =>
-            prev.map((b) =>
-              idOf(b) === String(bookingId)
-                ? {
-                    ...b,
-                    fareStatus: "customer_countered",
-                    customerCounterFare: Number(counterAmount),
-                    status: "negotiating"
-                  }
-                : b
-            )
-          );
-        } else {
-          alert(res?.message || "Counter offer nahi ho saka");
-        }
+      if (
+        !Number.isFinite(amount) ||
+        amount < 50 ||
+        amount > 10000
+      ) {
+        alert(
+          "Valid counter fare ₹50 se ₹10,000 ke beech enter karo"
+        );
+        return;
       }
-    );
-  }, []);
+
+      try {
+        /*
+        |------------------------------------------------------------------
+        | One-time customer counter — REST write authority
+        |------------------------------------------------------------------
+        | Mobile aur website dono same protected endpoint use karenge.
+        | Backend second counter ko reject karega, isliye state dono clients
+        | me deterministic rahegi.
+        |------------------------------------------------------------------
+        */
+
+        const { data } =
+          await api.post(
+            `/fares/${bookingId}/customer-counter`,
+            {
+              fare: amount
+            }
+          );
+
+        const result =
+          data?.data ||
+          data ||
+          {};
+
+        setLocalBookings((prev) =>
+          prev.map((b) =>
+            idOf(b) === String(bookingId)
+              ? {
+                  ...b,
+                  fareStatus:
+                    result.fareStatus ||
+                    "customer_countered",
+                  customerCounterFare:
+                    Number(
+                      result.counterFare ||
+                        amount
+                    ),
+                  fareOfferCount:
+                    Number(
+                      result.fareOfferCount ||
+                        2
+                    ),
+                  status: "negotiating"
+                }
+              : b
+          )
+        );
+
+        await loadBookings?.();
+      } catch (error) {
+        alert(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Counter offer nahi ho saka"
+        );
+      }
+    },
+    [
+      loadBookings
+    ]
+  );
 
   const handleFareReject = useCallback(
     async (bookingId) => {
