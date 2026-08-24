@@ -1,0 +1,50 @@
+HimRideG APP V22 — FINAL RIDE / FARE / NOTIFICATION FLOW
+
+FINAL FLOW
+1. Customer taps Book Ride.
+2. Backend dispatches to nearby online/available drivers.
+3. Driver receives realtime Socket event + native push notification in installed HimRideG build.
+4. Ride request notification category contains Accept / Reject actions.
+5. Accept calls authoritative backend ride accept endpoint and opens HimRideG Driver dashboard.
+6. Accepted ride opens Send Fare popup.
+7. Driver sends ONE initial fare.
+8. Customer sees EXACTLY: Accept / Reject / Counter Offer.
+9. Initial Accept => fare locked immediately; driver Go To Pickup enabled.
+10. Initial Reject => current driver released; ride re-dispatched.
+11. Counter Offer => customer gets ONE counter chance only.
+12. Driver receives counter and sends ONE FINAL fare.
+13. Customer FINAL fare screen has only Accept / Reject.
+14. Final Accept => fare locked; all fare send buttons disappear; Go To Pickup enabled.
+15. Final Reject => current driver released; ride re-dispatched.
+16. Go To Pickup -> Arrived -> OTP -> Start Ride -> Complete Ride -> existing payment flow.
+
+MOBILE CHANGES
+- App.js: notification configuration, response actions and authenticated push-device registration.
+- src/services/notifications.js: Expo native channel/category, push token register, cold-start notification response handling, Accept/Reject actions.
+- src/context/RideContext.js: ride request notification payload includes ride_request + rideId/bookingId.
+- src/screens/driver/DriverHomeTab.js: accepted ride Send Fare modal.
+- src/components/FareNegotiationCard.js: final shared 2-path fare flow.
+- src/screens/driver/DriverActiveRideScreen.js: Go To Pickup only after authoritative fare_accepted.
+
+IMPORTANT NOTIFICATION NOTE
+- WhatsApp-style system tray push is for EAS/dev/production native build containing expo-notifications.
+- Expo Go is intentionally native-safe; if its notification native module is unavailable, Socket/in-app state still works but killed-app push actions require a real HimRideG build.
+
+BACKEND
+- Website V22 ZIP /server is the authoritative backend deploy source.
+- backend-patch-v22 in this APP ZIP is a convenience copy of only V22 backend-sync files.
+- Push failure is non-blocking and cannot fail ride dispatch/fare transaction.
+
+PRESERVED
+- Existing customer/driver login, OTP, ride lifecycle, map, payment, cash, online payment, wallet, payout, admin and Socket.IO logic are preserved.
+- Existing .env is unchanged.
+
+WEBSITE/BACKEND V22 ADDITIONS
+- Customer website initial fare: Accept / Reject / Counter Offer.
+- One-time counter is persisted and cannot be repeated.
+- Driver website uses persisted customerCounterFare to select FINAL fare endpoint even after stale/reconnected socket state.
+- Driver FINAL fare removes further fare-send action and waits only for Customer Accept / Reject.
+- Fare Accepted is the only authority that enables Go To Pickup.
+- /api/v2/notifications/register and /unregister added.
+- Nearby dispatch sends Expo push in addition to existing Socket.IO request.
+- Fare events send push notifications to the opposite party while preserving existing realtime events.

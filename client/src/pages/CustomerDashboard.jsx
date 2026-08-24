@@ -208,12 +208,12 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
   const [counterSent, setCounterSent] = useState(false);
 
   const bookingId = ride?._id || ride?.id;
-  const fareStatus = ride?.fareStatus;
+  const fareStatus = String(ride?.fareStatus || "not_offered").toLowerCase();
+  const rideStatus = String(ride?.status || "").toLowerCase();
   const driverOffer = Number(ride?.driverOfferedFare || 0);
   const customerCounter = Number(ride?.customerCounterFare || 0);
   const driverFinalFare = Number(ride?.driverFinalFareProposal || 0);
   const finalFare = Number(ride?.finalFare || ride?.fare?.finalFare || 0);
-  const offerCount = Number(ride?.fareOfferCount || 0);
 
   if (!bookingId) {
     return null;
@@ -221,47 +221,59 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
 
   /*
   |--------------------------------------------------------------------------
-  | Locked Fare
+  | Authoritative Fare Stage Resolver
   |--------------------------------------------------------------------------
-  |
-  | Fare sirf customer ke final driver fare accept karne ke baad lock hota hai.
-  |
+  | Socket reconnect ke baad fareStatus kabhi stale ho sakta hai. Persisted
+  | amounts + accepted status se app aur website same stage dikhayenge.
+  | Customer Accept ke bina fare kabhi locked nahi maana jayega.
+  |--------------------------------------------------------------------------
   */
 
-  if (fareStatus === "fare_accepted" || ride?.status === "fare_accepted") {
+  const accepted =
+    fareStatus === "fare_accepted" ||
+    rideStatus === "fare_accepted";
+
+  const hasDriverFinal =
+    !accepted &&
+    driverFinalFare > 0;
+
+  const hasCustomerCounter =
+    !accepted &&
+    !hasDriverFinal &&
+    customerCounter > 0;
+
+  const hasDriverOffer =
+    !accepted &&
+    !hasCustomerCounter &&
+    !hasDriverFinal &&
+    driverOffer > 0;
+
+  if (accepted) {
     return (
       <div className="fareLockedBox">
         <div className="fareLockedIcon">🔒</div>
 
         <div>
-          <small>Final Fare Locked</small>
+          <small>Fare Locked</small>
 
           <strong>
             ₹{money(finalFare || driverFinalFare || driverOffer)}
           </strong>
 
           <p>
-            Customer ne driver ka final fare accept kar diya hai.
+            Fare accept ho gaya. Driver ka GO TO PICKUP ab enabled hai.
           </p>
         </div>
       </div>
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Driver FINAL Fare — Customer ke paas EXACTLY Accept / Reject
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    fareStatus === "driver_final" &&
-    driverFinalFare > 0
-  ) {
+  /* Driver FINAL Fare -> only Accept / Reject */
+  if (hasDriverFinal) {
     return (
       <div className="fareNegotiateBox fareFinalDecisionBox">
         <div className="fareOfferHeader">
-          <span>🔐 Driver Final Fare</span>
+          <span>🔐 Driver FINAL Fare</span>
 
           <strong>
             ₹{money(driverFinalFare)}
@@ -275,9 +287,8 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
             margin: "8px 0"
           }}
         >
-          Driver ne final fare bhej diya hai. Accept karne par fare lock ho
-          jayega. Reject karne par current driver release hoga aur ride dobara
-          driver search me jayegi.
+          Ye driver ka final offer hai. Ab sirf Accept ya Reject kar sakte hain.
+          Accept par fare lock hoga aur driver ka GO TO PICKUP enable hoga.
         </p>
 
         <div className="fareActions">
@@ -308,29 +319,21 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Customer Counter Sent — Driver Final Fare ka wait
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    fareStatus === "customer_countered" ||
-    counterSent
-  ) {
+  /* Customer counter is one-time; now wait for driver FINAL fare. */
+  if (hasCustomerCounter || counterSent) {
     return (
       <div className="fareWaitBox">
         <div className="fareWaitIcon">⏳</div>
 
         <div>
-          <small>Your Negotiation Fare</small>
+          <small>One-Time Counter Sent</small>
 
           <strong>
             ₹{money(customerCounter || counterInput)}
           </strong>
 
           <p>
-            Waiting for driver final fare...
+            Waiting for driver FINAL fare... Counter Offer ab dobara available nahi hoga.
           </p>
         </div>
       </div>
@@ -339,42 +342,69 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
 
   /*
   |--------------------------------------------------------------------------
-  | Driver Initial Fare — Customer Negotiation Only
+  | Driver Initial Fare -> Accept / Reject / ONE Counter Offer
   |--------------------------------------------------------------------------
-  |
-  | Latest HimRideG rule:
-  |
-  | Driver initial fare
-  |      ↓
-  | Customer negotiation/counter
-  |      ↓
-  | Driver FINAL fare
-  |      ↓
-  | Customer Accept / Reject
-  |
-  | Is stage par initial fare direct lock nahi hota.
-  |
   */
-
-  if (
-    fareStatus === "driver_offered" &&
-    driverOffer > 0
-  ) {
+  if (hasDriverOffer) {
     return (
       <div className="fareNegotiateBox">
         <div className="fareOfferHeader">
-          <span>🚖 Driver Initial Fare</span>
+          <span>🚖 Driver Fare</span>
 
           <strong>
             ₹{money(driverOffer)}
           </strong>
         </div>
 
-        {showCounterInput ? (
+        <p
+          style={{
+            fontSize: "13px",
+            color: "#aaa",
+            margin: "8px 0"
+          }}
+        >
+          Fare pasand hai to Accept karein. Reject kar sakte hain, ya ek baar Counter Offer bhej sakte hain.
+        </p>
+
+        {!showCounterInput ? (
+          <div className="fareActions">
+            <button
+              className="fareBtn fareAccept"
+              onClick={() =>
+                onAccept(
+                  bookingId,
+                  driverOffer
+                )
+              }
+            >
+              ✅ Accept ₹{money(driverOffer)}
+            </button>
+
+            <button
+              className="fareBtn fareReject"
+              onClick={() =>
+                onReject(
+                  bookingId
+                )
+              }
+            >
+              ❌ Reject
+            </button>
+
+            <button
+              className="fareBtn fareCounter"
+              onClick={() =>
+                setShowCounterInput(true)
+              }
+            >
+              💬 Counter Offer
+            </button>
+          </div>
+        ) : (
           <div className="fareCounterInput">
             <input
               type="number"
-              placeholder="Aapka negotiation fare (₹)"
+              placeholder="One-time counter fare (₹)"
               value={counterInput}
               onChange={(event) =>
                 setCounterInput(
@@ -390,12 +420,12 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
               <button
                 className="fareBtn fareCounterSend"
                 onClick={() => {
-                  const amount =
-                    Number(counterInput);
+                  const amount = Number(counterInput);
 
                   if (
                     !Number.isFinite(amount) ||
-                    amount <= 0
+                    amount < 50 ||
+                    amount > 10000
                   ) {
                     return;
                   }
@@ -406,11 +436,10 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
                   );
 
                   setCounterSent(true);
-
                   setShowCounterInput(false);
                 }}
               >
-                Send ₹{counterInput || "?"}
+                Send Counter ₹{counterInput || "?"}
               </button>
 
               <button
@@ -424,32 +453,14 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
               </button>
             </div>
           </div>
-        ) : (
-          <div className="fareActions">
-            <button
-              className="fareBtn fareCounter"
-              onClick={() =>
-                setShowCounterInput(true)
-              }
-            >
-              💬 Negotiate Fare
-            </button>
-          </div>
         )}
 
         <small className="fareWarning">
-          Initial fare direct lock nahi hoga. Aap negotiation fare bhejenge,
-          phir driver final fare bhejega.
+          Counter sirf ek baar bhej sakte hain. Counter ke baad driver ek FINAL fare bhejega.
         </small>
       </div>
     );
   }
-
-  /*
-  |--------------------------------------------------------------------------
-  | Legacy Rejected State Fallback
-  |--------------------------------------------------------------------------
-  */
 
   if (fareStatus === "fare_rejected") {
     return (
@@ -457,19 +468,16 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
         <div className="fareWaitIcon">↻</div>
 
         <div>
-          <small>Fare negotiation updated</small>
-
-          <p>
-            Driver response / new dispatch ka wait karein.
-          </p>
+          <small>Fare Rejected</small>
+          <p>Naya nearby driver search ho raha hai.</p>
         </div>
       </div>
     );
   }
 
   if (
-    ride?.status === "accepted" ||
-    ride?.status === "driver_assigned"
+    rideStatus === "accepted" ||
+    rideStatus === "driver_assigned"
   ) {
     return (
       <div className="fareWaitBox">
@@ -477,10 +485,7 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
 
         <div>
           <small>Waiting for Driver Fare</small>
-
-          <p>
-            Driver initial fare bhejne ke baad negotiation yahin start hogi.
-          </p>
+          <p>Driver initial fare bhejte hi Accept / Reject / Counter yahin dikhega.</p>
         </div>
       </div>
     );

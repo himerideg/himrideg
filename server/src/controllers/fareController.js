@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Booking = require("../models/Booking");
 
 const rideService = require("../services/rideService");
+const { sendPushToUser } = require("../services/pushNotificationService");
 
 /*
 |--------------------------------------------------------------------------
@@ -108,10 +109,6 @@ function emitFareUpdate(
   try {
     const io =
       req.app?.get("io");
-
-    if (!io) {
-      return;
-    }
 
     const bookingId =
       String(
@@ -248,20 +245,80 @@ function emitFareUpdate(
         )
       );
 
-    rooms.forEach(
-      (room) => {
-        eventNames.forEach(
-          (name) => {
-            io.to(
-              room
-            ).emit(
-              name,
-              payload
-            );
+    if (io) {
+      rooms.forEach(
+        (room) => {
+          eventNames.forEach(
+            (name) => {
+              io.to(
+                room
+              ).emit(
+                name,
+                payload
+              );
+            }
+          );
+        }
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------
+    | Native Fare Notifications
+    |--------------------------------------------------------------------
+    | Socket foreground sync ke saath installed HimRideG build ko tray
+    | notification bhi mile. Failure fare transaction ko kabhi rollback
+    | nahi karta.
+    |--------------------------------------------------------------------
+    */
+
+    let pushTarget = "";
+    let pushTitle = "";
+    let pushBody = "";
+
+    if (eventName === "fare:driver-offered") {
+      pushTarget = customerId;
+      pushTitle = "Driver Fare Offer";
+      pushBody = `Driver ne ₹${Number(booking.driverOfferedFare || 0)} fare bheja. Accept, Reject ya Counter karein.`;
+    } else if (eventName === "fare:customer-countered") {
+      pushTarget = driverId;
+      pushTitle = "Customer Counter Offer";
+      pushBody = `Customer ne ₹${Number(booking.customerCounterFare || 0)} counter bheja. Ab apna FINAL fare bhejein.`;
+    } else if (eventName === "fare:final-offered") {
+      pushTarget = customerId;
+      pushTitle = "Driver FINAL Fare";
+      pushBody = `Driver ne ₹${Number(booking.driverFinalFareProposal || 0)} final fare bheja. Accept ya Reject karein.`;
+    } else if (eventName === "fare:accepted") {
+      pushTarget = driverId;
+      pushTitle = "Fare Locked ✅";
+      pushBody = `₹${Number(booking.finalFare || 0)} fare accept ho gaya. GO TO PICKUP enabled hai.`;
+    } else if (eventName === "fare:final-rejected") {
+      pushTarget = driverId;
+      pushTitle = "Fare Rejected";
+      pushBody = "Customer ne fare reject kiya. Ride current driver se release ho rahi hai.";
+    }
+
+    if (pushTarget && pushTitle) {
+      sendPushToUser(
+        pushTarget,
+        {
+          title: pushTitle,
+          body: pushBody,
+          data: {
+            type: "fare_update",
+            eventName,
+            bookingId,
+            fareStatus: booking.fareStatus,
+            finalFare: Number(booking.finalFare || 0)
           }
+        }
+      ).catch((error) => {
+        console.error(
+          "Fare push error:",
+          error.message
         );
-      }
-    );
+      });
+    }
   } catch (error) {
     console.error(
       "Fare socket emit error:",
@@ -559,7 +616,7 @@ exports.driverOfferFare = async (
       return res.status(409).json({
         success: false,
         message:
-          "Initial driver fare pehle hi bheja ja chuka hai. Ab customer ke one-time counter ka wait karo."
+          "Initial driver fare pehle hi bheja ja chuka hai. Ab customer ke Accept / Reject / one-time Counter ka wait karo."
       });
     }
 
@@ -945,10 +1002,11 @@ exports.acceptFare = async (
     |--------------------------------------------------------------------------
     | Legacy /accept compatibility gate
     |--------------------------------------------------------------------------
-    | Purana mobile UI customer ko initial fare accept aur driver ko customer
-    | counter accept karne deta tha. Final production flow me dono allowed nahi.
-    | Sirf customer + driver_final state ko canonical final endpoint par route
-    | karte hain. Old code neeche compatibility history ke liye preserved hai.
+    | Final production rule me customer driver ke INITIAL fare ko bhi direct
+    | Accept kar sakta hai. Agar customer Counter karta hai to driver ka next
+    | offer FINAL hota hai. Driver customer counter ko direct accept nahi karega.
+    | Purane /accept clients ko canonical customer acceptance endpoint par
+    | route karke app + website + older clients compatible rakhe ja rahe hain.
     |--------------------------------------------------------------------------
     */
 
@@ -958,8 +1016,10 @@ exports.acceptFare = async (
         booking.customer,
         userId
       ) &&
-      booking.fareStatus ===
+      [
+        "driver_offered",
         "driver_final"
+      ].includes(booking.fareStatus)
     ) {
       return exports
         .customerAcceptFinalFare(
@@ -981,7 +1041,7 @@ exports.acceptFare = async (
     return res.status(409).json({
       success: false,
       message:
-        "Initial fare direct accept nahi hoga. Customer one-time counter ke baad driver FINAL fare bhejega."
+        "Customer sirf active driver fare ko accept kar sakta hai."
     });
 
     let acceptedFare = null;
@@ -1481,25 +1541,38 @@ exports.customerAcceptFinalFare =
           });
       }
 
-      if (
-        booking.fareStatus !==
-          "driver_final" ||
-        !Number(
+      const acceptingInitialFare =
+        booking.fareStatus ===
+          "driver_offered" &&
+        Number(
+          booking.driverOfferedFare
+        ) > 0;
+
+      const acceptingFinalFare =
+        booking.fareStatus ===
+          "driver_final" &&
+        Number(
           booking.driverFinalFareProposal
-        )
+        ) > 0;
+
+      if (
+        !acceptingInitialFare &&
+        !acceptingFinalFare
       ) {
         return res
           .status(409)
           .json({
             success: false,
             message:
-              "Driver ka final fare abhi available nahi hai"
+              "Customer ke liye active driver fare available nahi hai"
           });
       }
 
       const acceptedFare =
         Number(
-          booking.driverFinalFareProposal
+          acceptingFinalFare
+            ? booking.driverFinalFareProposal
+            : booking.driverOfferedFare
         );
 
       const commissionPercent =
@@ -1712,15 +1785,19 @@ exports.customerRejectFinalFare =
       }
 
       if (
-        booking.fareStatus !==
+        ![
+          "driver_offered",
           "driver_final"
+        ].includes(
+          booking.fareStatus
+        )
       ) {
         return res
           .status(409)
           .json({
             success: false,
             message:
-              "Reject karne ke liye driver final fare pending nahi hai"
+              "Reject karne ke liye active driver fare pending nahi hai"
           });
       }
 
@@ -1878,8 +1955,10 @@ exports.rejectFare = async (
         booking.customer,
         userId
       ) &&
-      booking.fareStatus ===
+      [
+        "driver_offered",
         "driver_final"
+      ].includes(booking.fareStatus)
     ) {
       return exports
         .customerRejectFinalFare(
@@ -1901,7 +1980,7 @@ exports.rejectFare = async (
     return res.status(409).json({
       success: false,
       message:
-        "Reject option sirf driver ke FINAL fare par customer ke liye available hai."
+        "Reject option sirf active driver fare par customer ke liye available hai."
     });
 
     if (role === "customer") {

@@ -3066,7 +3066,12 @@ function DriverDashboard({
     |
     */
 
-    if (ride?.fareStatus === "customer_countered") {
+    const hasPersistedCustomerCounter =
+      Number(ride?.customerCounterFare || 0) > 0 &&
+      Number(ride?.driverFinalFareProposal || 0) <= 0 &&
+      String(ride?.fareStatus || "").toLowerCase() !== "fare_accepted";
+
+    if (hasPersistedCustomerCounter) {
       setFareAction(`${bookingId}:final`);
 
       try {
@@ -3167,7 +3172,7 @@ function DriverDashboard({
 
       showNotice(
         "success",
-        `₹${fare.toFixed(0)} initial fare customer ko bhej diya. Ab one-time counter ka wait karo.`
+        `₹${fare.toFixed(0)} fare customer ko bhej diya. Ab customer Accept, Reject ya one-time Counter karega.`
       );
 
       await loadBookings?.();
@@ -4287,6 +4292,45 @@ function DriverDashboard({
 
   const selectedFareLocked =
     isFinalFareLocked(selectedRide);
+
+  /*
+  |------------------------------------------------------------------------
+  | Fare stage derived from persisted values + accepted authority
+  |------------------------------------------------------------------------
+  | Socket reconnect me fareStatus stale ho sakta hai. Amount fields ko use
+  | karke website wahi stage dikhati hai jo mobile app dikhata hai. Fare lock
+  | sirf fare_accepted par hota hai.
+  |------------------------------------------------------------------------
+  */
+
+  const selectedDriverInitialFare =
+    Number(
+      selectedRide?.driverOfferedFare ||
+        0
+    );
+
+  const selectedCustomerCounterFare =
+    Number(
+      selectedRide?.customerCounterFare ||
+        0
+    );
+
+  const selectedDriverFinalFare =
+    Number(
+      selectedRide?.driverFinalFareProposal ||
+        0
+    );
+
+  const selectedFareStage =
+    selectedFareLocked
+      ? "fare_accepted"
+      : selectedDriverFinalFare > 0
+        ? "driver_final"
+        : selectedCustomerCounterFare > 0
+          ? "customer_countered"
+          : selectedDriverInitialFare > 0
+            ? "driver_offered"
+            : "not_offered";
 
   const selectedAdvancePending =
     isAdvancePaymentPending(selectedRide);
@@ -5574,22 +5618,22 @@ function DriverDashboard({
                     {selectedAssignedToMe && ["accepted","fare_offered","negotiating","fare_accepted"].includes(selectedRide.status) && (
                       <section className="driverCustomerFareCard">
                         <header><div><small>FARE NEGOTIATION</small><h3>Driver → Customer → Final</h3></div><b>{Math.min(Number(selectedRide.fareOfferCount || 0), 3)}/3 Steps</b></header>
-                        {(selectedRide.fareStatus === "fare_accepted" || selectedRide.status === "fare_accepted") ? (
+                        {selectedFareStage === "fare_accepted" ? (
                           <div className="driverCustomerFareFinal">
                             <article><small>FINAL FARE</small><strong>₹{getFinalFare(selectedRide).toFixed(0)}</strong></article>
                             <article><small>COMMISSION</small><strong>₹{getCommissionAmount(selectedRide).toFixed(0)}</strong></article>
                             <article><small>YOUR EARNING</small><strong>₹{getDriverPayable(selectedRide).toFixed(0)}</strong></article>
                           </div>
-                        ) : selectedRide.fareStatus === "driver_final" ? (
+                        ) : selectedFareStage === "driver_final" ? (
                           <div className="driverCustomerCounter">
                             <p>FINAL Fare Sent</p>
-                            <strong>₹{Number(selectedRide.driverFinalFareProposal || 0).toFixed(0)}</strong>
+                            <strong>₹{selectedDriverFinalFare.toFixed(0)}</strong>
                             <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Send Fare button band hai. Customer ke Accept / Reject ka wait ho raha hai.</small>
                           </div>
-                        ) : selectedRide.fareStatus === "customer_countered" ? (
+                        ) : selectedFareStage === "customer_countered" ? (
                           <div className="driverCustomerCounter">
                             <p>Customer One-Time Counter</p>
-                            <strong>₹{Number(selectedRide.customerCounterFare || 0).toFixed(0)}</strong>
+                            <strong>₹{selectedCustomerCounterFare.toFixed(0)}</strong>
                             <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Ab aap ek FINAL fare bhejein. Iske baad customer dashboard par sirf Accept / Reject aayega.</small>
                             <div className="driverCustomerFareInput" style={{marginTop:"12px"}}>
                               <span>₹</span>
@@ -5610,11 +5654,11 @@ function DriverDashboard({
                               </button>
                             </div>
                           </div>
-                        ) : selectedRide.fareStatus === "driver_offered" ? (
+                        ) : selectedFareStage === "driver_offered" ? (
                           <div className="driverCustomerCounter">
                             <p>Initial Fare Sent</p>
-                            <strong>₹{Number(selectedRide.driverOfferedFare || 0).toFixed(0)}</strong>
-                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Customer ke one-time counter ka wait karo. Ab initial fare dobara send nahi hoga.</small>
+                            <strong>₹{selectedDriverInitialFare.toFixed(0)}</strong>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Customer ab is fare ko Accept, Reject ya ek baar Counter Offer kar sakta hai. Initial fare dobara send nahi hoga.</small>
                           </div>
                         ) : (
                           <div className="driverCustomerFareInput">
@@ -5636,7 +5680,12 @@ function DriverDashboard({
                             </button>
                           </div>
                         )}
-                        {selectedRide.status !== "fare_accepted" && <div className="driverFareWaitLarge">🔒 Fare final hone ka wait</div>}
+                        {selectedFareStage === "driver_final" && (
+                          <div className="driverFareWaitLarge">⏳ Customer ke final Accept / Reject ka wait</div>
+                        )}
+                        {selectedFareStage === "driver_offered" && (
+                          <div className="driverFareWaitLarge">⏳ Customer ke Accept / Reject / Counter ka wait</div>
+                        )}
                       </section>
                     )}
 

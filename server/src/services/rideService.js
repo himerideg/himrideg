@@ -4,6 +4,7 @@ const crypto = require("crypto");
 
 const Booking = require("../models/Booking");
 const User = require("../models/User");
+const { sendPushToUser } = require("./pushNotificationService");
 
 const socketEvents = require("./socketEventService");
 const walletService = require("./walletService");
@@ -1560,6 +1561,46 @@ async function dispatchRide({
         driver
       }
     );
+
+    /*
+    |--------------------------------------------------------------------
+    | Native Driver Ride Notification
+    |--------------------------------------------------------------------
+    | Socket foreground speed ke liye hai; Expo push background/killed app
+    | ke liye. Category app me Accept / Reject action buttons register karti
+    | hai. Push failure dispatch ko kabhi fail nahi karta.
+    |--------------------------------------------------------------------
+    */
+
+    const pickupName =
+      booking?.pickup?.address ||
+      booking?.pickup?.name ||
+      "Pickup";
+
+    const dropName =
+      booking?.dropoff?.address ||
+      booking?.dropoff?.name ||
+      "Drop";
+
+    sendPushToUser(
+      driver._id,
+      {
+        title: "🚕 New HimRideG Ride",
+        body: `${pickupName} → ${dropName}`,
+        categoryId: "HIMRIDEG_RIDE_REQUEST",
+        data: {
+          type: "ride_request",
+          bookingId: String(booking._id),
+          pickup: pickupName,
+          drop: dropName
+        }
+      }
+    ).catch((error) => {
+      console.error(
+        "[RideService push error]",
+        error.message
+      );
+    });
   }
 
   emitPreviewRequests();

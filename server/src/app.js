@@ -22,6 +22,7 @@ const fareRoutes = require("./routes/fareRoutes");
 const walletRoutes = require("./routes/walletRoutes");
 const mapRoutes = require("./routes/mapRoutes");
 const readinessRoutes = require("./routes/readinessRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 const razorpayWebhookController = require("./controllers/razorpayWebhookController");
 
 const notFound = require("./middlewares/notFound");
@@ -369,6 +370,11 @@ app.use(
 | Error Handling
 |--------------------------------------------------------------------------
 */
+
+app.use(
+  "/api/v2/notifications",
+  notificationRoutes
+);
 
 app.use(notFound);
 
