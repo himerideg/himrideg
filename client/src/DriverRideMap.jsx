@@ -18,6 +18,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./driver-ride-map.css";
 
+import {
+  isRequestCanceled,
+} from "./api";
+
 import { getRoadRoute } from "./locationService";
 
 const DEFAULT_CENTER = [32.1109, 76.5363];
@@ -618,8 +622,9 @@ function DriverRideMap({ ride }) {
         });
       } catch (error) {
         if (
-          error.name !==
-          "AbortError"
+          !isRequestCanceled(
+            error
+          )
         ) {
           setRouteError(
             "Pickup tak ka road route calculate nahi hua."
@@ -686,8 +691,9 @@ function DriverRideMap({ ride }) {
         });
       } catch (error) {
         if (
-          error.name !==
-          "AbortError"
+          !isRequestCanceled(
+            error
+          )
         ) {
           setRouteError(
             "Destination ka road route calculate nahi hua."

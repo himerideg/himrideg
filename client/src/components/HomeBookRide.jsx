@@ -20,6 +20,10 @@ import "leaflet/dist/leaflet.css";
 import "./home-book-ride.css";
 
 import {
+  isRequestCanceled,
+} from "../api";
+
+import {
   searchLocations,
   getRoadRoute,
   getHighAccuracyBrowserLocation,
@@ -370,18 +374,28 @@ function HomeBookRide({
       return undefined;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Cancel Previous Autocomplete Immediately
+    |--------------------------------------------------------------------------
+    |
+    | Naya text/focus aate hi purani request ko turant cancel karna stale
+    | response aur needless in-flight requests dono ko rokta hai.
+    |
+    */
+
+    searchAbortRef.current
+      ?.abort();
+
+    const controller =
+      new AbortController();
+
+    searchAbortRef.current =
+      controller;
+
     const timer =
       window.setTimeout(
         async () => {
-          searchAbortRef.current
-            ?.abort();
-
-          const controller =
-            new AbortController();
-
-          searchAbortRef.current =
-            controller;
-
           setSearching(true);
 
           try {
@@ -404,6 +418,13 @@ function HomeBookRide({
                 }
               );
 
+            if (
+              controller.signal
+                .aborted
+            ) {
+              return;
+            }
+
             setSuggestions(
               Array.isArray(data)
                 ? data
@@ -411,8 +432,9 @@ function HomeBookRide({
             );
           } catch (error) {
             if (
-              error.name !==
-              "AbortError"
+              !isRequestCanceled(
+                error
+              )
             ) {
               console.error(
                 "Location search error:",
@@ -424,7 +446,9 @@ function HomeBookRide({
           } finally {
             if (
               searchAbortRef.current ===
-              controller
+                controller &&
+              !controller.signal
+                .aborted
             ) {
               setSearching(false);
             }
@@ -437,6 +461,16 @@ function HomeBookRide({
       window.clearTimeout(
         timer
       );
+
+      controller.abort();
+
+      if (
+        searchAbortRef.current ===
+        controller
+      ) {
+        searchAbortRef.current =
+          null;
+      }
     };
   }, [
     focusedField,
@@ -517,8 +551,9 @@ function HomeBookRide({
           });
         } catch (error) {
           if (
-            error.name !==
-            "AbortError"
+            !isRequestCanceled(
+              error
+            )
           ) {
             console.error(
               "Route loading error:",

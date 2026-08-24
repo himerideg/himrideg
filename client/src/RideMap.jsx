@@ -20,6 +20,10 @@ import "leaflet/dist/leaflet.css";
 import "./driver-ride-map.css";
 
 import {
+  isRequestCanceled,
+} from "./api";
+
+import {
   getRoadRoute,
   reverseLocation,
 } from "./locationService";
@@ -622,8 +626,9 @@ function DriverRideMap({ ride }) {
         });
       } catch (error) {
         if (
-          error.name !==
-          "AbortError"
+          !isRequestCanceled(
+            error
+          )
         ) {
           setRouteError(
             "Pickup tak ka road route calculate nahi hua."
@@ -690,8 +695,9 @@ function DriverRideMap({ ride }) {
         });
       } catch (error) {
         if (
-          error.name !==
-          "AbortError"
+          !isRequestCanceled(
+            error
+          )
         ) {
           setRouteError(
             "Destination ka road route calculate nahi hua."
@@ -1308,7 +1314,11 @@ function CustomerRideMap({
           }));
         }
       } catch (error) {
-        if (error?.name === "AbortError") {
+        if (
+          isRequestCanceled(
+            error
+          )
+        ) {
           return;
         }
 

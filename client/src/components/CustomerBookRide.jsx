@@ -7,6 +7,10 @@ import React, {
 import RideMap from "../RideMap";
 
 import {
+  isRequestCanceled,
+} from "../api";
+
+import {
   searchLocations,
   getHighAccuracyBrowserLocation,
   reverseLocation
@@ -99,8 +103,9 @@ function LocationSearchField({
             );
           } catch (error) {
             if (
-              error.name !==
-              "AbortError"
+              !isRequestCanceled(
+                error
+              )
             ) {
               console.error(
                 "Location search error:",

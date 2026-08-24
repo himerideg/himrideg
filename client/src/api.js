@@ -2,6 +2,32 @@ import axios from "axios";
 
 /*
 |--------------------------------------------------------------------------
+| Request Cancellation Helper
+|--------------------------------------------------------------------------
+|
+| Axios AbortController cancellation browser me AbortError ki jagah
+| CanceledError / ERR_CANCELED bhi de sakta hai. Ye normal control-flow hai,
+| backend/network failure nahi. Is helper ko location/route searches me bhi
+| reuse kiya ja sakta hai taaki console me false red errors na aayein.
+|
+*/
+
+function isRequestCanceled(error) {
+  return Boolean(
+    axios.isCancel(error) ||
+      error?.code ===
+        "ERR_CANCELED" ||
+      error?.name ===
+        "CanceledError" ||
+      error?.name ===
+        "AbortError" ||
+      error?.message ===
+        "canceled"
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
 | API Base URL
 |--------------------------------------------------------------------------
 |
@@ -466,6 +492,22 @@ api.interceptors.response.use(
   async (error) => {
     /*
     |--------------------------------------------------------------------------
+    | Intentionally Canceled Request
+    |--------------------------------------------------------------------------
+    |
+    | Autocomplete/route requests ko AbortController se cancel karna expected
+    | behavior hai. Canceled request ko backend network error mat banao.
+    |
+    */
+
+    if (isRequestCanceled(error)) {
+      return Promise.reject(
+        error
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Network Error
     |--------------------------------------------------------------------------
     */
@@ -795,6 +837,7 @@ export {
   apiBaseUrl,
   clearLoginData,
   getSavedToken,
+  isRequestCanceled,
   saveAccessToken
 };
 

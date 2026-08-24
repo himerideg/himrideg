@@ -1,0 +1,51 @@
+HimRideG WEBSITE V20 - CANCELED REQUEST / LOCATION SEARCH FIX
+===============================================================
+
+Problem screenshot:
+- Console me baar-baar "Location search error: CanceledError: canceled"
+- Axios interceptor us cancellation ko "Backend network error" samajh raha tha
+- Rapid typing/focus change par autocomplete requests cancel hoti thi, jo normal behavior hai
+
+Fixes:
+1. client/src/api.js
+   - isRequestCanceled(error) helper add kiya
+   - Axios CanceledError / ERR_CANCELED / AbortError / axios.isCancel ko normal cancellation maana
+   - Canceled requests par fake "Backend network error" console logs band
+   - Real backend/network errors ka existing logging preserve
+
+2. client/src/components/CustomerBookRide.jsx
+   - Location autocomplete catch ab Axios CanceledError ko ignore karta hai
+   - Real autocomplete errors ab bhi console aur UI me handle honge
+
+3. client/src/components/HomeBookRide.jsx
+   - Previous autocomplete request new query par immediately abort hoti hai
+   - 350ms debounce preserve
+   - Effect cleanup me timer ke saath active controller bhi abort hota hai
+   - Stale aborted response suggestions ko overwrite nahi karega
+   - Canceled autocomplete/route requests console errors nahi banenge
+
+4. client/src/RideMap.jsx
+   - AbortController se canceled route requests ko normal cancellation handle kiya
+   - Existing map/route behavior preserve
+
+5. client/src/DriverRideMap.jsx
+   - AbortController se canceled route requests ko normal cancellation handle kiya
+   - Existing driver route/map behavior preserve
+
+Preserved:
+- Customer dashboard
+- Active ride
+- Booking flow
+- Payment flow
+- Driver logic
+- Admin logic
+- Server/backend routes
+- Existing .env values
+- Existing files and features
+
+Testing performed:
+- ZIP extracted successfully
+- Modified file delimiter/bracket balance checked
+- All modified files have equal-or-higher line count than originals
+- Final ZIP integrity test passed
+- Full npm/Vite build could not be completed in this environment because dependency installation timed out; no package.json/package-lock changes were made.
