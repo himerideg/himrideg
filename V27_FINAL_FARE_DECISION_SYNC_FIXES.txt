@@ -1,0 +1,5 @@
+HimRideG V27
+- Driver final fare pending UI now shows FINAL FARE LOCKED amount, no fare input, active Cancel Ride, and waiting-for-customer response.
+- Driver Cancel Ride uses existing driver-release endpoint and safely re-dispatches customer booking.
+- Backend fare realtime payload now includes all fare amounts + target role and emits ride:updated fallback.
+- Customer final fare Accept/Reject remains authoritative; customer accept sets fare_accepted and enables Go to Pickup.

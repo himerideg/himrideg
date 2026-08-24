@@ -210,7 +210,8 @@ function emitFareUpdate(
           [
             eventName,
             canonicalEvent,
-            "fare:status:updated"
+            "fare:status:updated",
+            "ride:updated"
           ].filter(Boolean)
         )
       );
@@ -315,7 +316,12 @@ function emitFareUpdate(
             soundEvent: pushSoundEvent,
             eventName,
             bookingId,
+            role: pushTarget === customerId ? "customer" : "driver",
             fareStatus: booking.fareStatus,
+            rideStatus: booking.status,
+            driverOfferedFare: Number(booking.driverOfferedFare || 0),
+            customerCounterFare: Number(booking.customerCounterFare || 0),
+            driverFinalFareProposal: Number(booking.driverFinalFareProposal || 0),
             finalFare: Number(booking.finalFare || 0)
           }
         }

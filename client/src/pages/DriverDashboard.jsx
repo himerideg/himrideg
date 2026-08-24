@@ -5620,10 +5620,18 @@ function DriverDashboard({
                             <article><small>YOUR EARNING</small><strong>₹{getDriverPayable(selectedRide).toFixed(0)}</strong></article>
                           </div>
                         ) : selectedFareStage === "driver_final" ? (
-                          <div className="driverCustomerCounter">
-                            <p>FINAL Fare Sent</p>
+                          <div className="driverCustomerCounter driverFinalFarePendingCard">
+                            <p>🔒 FINAL FARE LOCKED</p>
                             <strong>₹{selectedDriverFinalFare.toFixed(0)}</strong>
-                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Send Fare button band hai. Customer ke Accept / Reject ka wait ho raha hai.</small>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Final amount ab change nahi hoga. Customer ke Accept / Reject ka wait ho raha hai.</small>
+                            <button
+                              type="button"
+                              className="driverFinalCancelButton"
+                              disabled={Boolean(loadingAction)}
+                              onClick={() => releaseAcceptedRide(selectedRide)}
+                            >
+                              {loadingAction === `${selectedRideIdValue}:release` ? "Cancelling..." : "× Cancel Ride"}
+                            </button>
                           </div>
                         ) : selectedFareStage === "driver_final_recovery" ? (
                           <div className="driverCustomerCounter">
@@ -5802,11 +5810,22 @@ function DriverDashboard({
                     {!selectedFareLocked && (
                       <>
                         <button type="button" className="waiting" disabled>
-                          🔒 Final Fare Lock Hone Tak Ride Actions Disabled
+                          🔒 Customer Fare Accept Hone Tak GO TO PICKUP Disabled
                         </button>
-                        <button type="button" className="danger" disabled>
-                          🔒 Cancel / Release Locked
-                        </button>
+                        {["accepted", "fare_offered", "negotiating"].includes(String(selectedRide.status || "")) ? (
+                          <button
+                            type="button"
+                            className="danger"
+                            disabled={Boolean(loadingAction)}
+                            onClick={() => releaseAcceptedRide(selectedRide)}
+                          >
+                            {loadingAction === `${selectedRideIdValue}:release` ? "Cancelling..." : "× Cancel Ride"}
+                          </button>
+                        ) : (
+                          <button type="button" className="danger" disabled>
+                            🔒 Cancel Ride Unavailable
+                          </button>
+                        )}
                       </>
                     )}
 
