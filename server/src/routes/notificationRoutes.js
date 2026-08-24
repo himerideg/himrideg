@@ -6,7 +6,8 @@ const {
 
 const {
   registerPushToken,
-  unregisterPushToken
+  unregisterPushToken,
+  testPushNotification
 } = require("../controllers/notificationController");
 
 const router = express.Router();
@@ -21,6 +22,11 @@ router.post(
 router.post(
   "/unregister",
   unregisterPushToken
+);
+
+router.post(
+  "/test",
+  testPushNotification
 );
 
 module.exports = router;

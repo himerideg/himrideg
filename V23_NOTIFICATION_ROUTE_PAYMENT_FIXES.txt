@@ -1,0 +1,16 @@
+HimRideG Website/Server V23
+
+Server:
+- stronger Expo push messages (channelId himrideg-rides, high priority)
+- authenticated POST /api/v2/notifications/test
+- ride lifecycle push notifications
+- backend-created Arrived OTP + customer push
+- cash-selected / cash-success / online-success pushes
+- existing fare flow preserved
+
+Website client:
+- driver/customer dashboards reload authoritative ride state after socket/internet reconnect
+- RideMap/DriverRideMap keep last route during transient GPS disconnect
+- route API fallback no longer leaves map with pins but no line
+
+Deploy SERVER first, then CLIENT, then use a real HimRideG EAS/dev/production mobile build for background push testing.

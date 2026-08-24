@@ -11,6 +11,7 @@ import socket from "../socket";
 import RideMap from "../RideMap";
 import CustomerBookRide from "../components/CustomerBookRide";
 import PaymentModal from "../components/paymentmodal";
+import { playHimRideGEventSound } from "../utils/himridegSounds";
 
 import "../dashboard.css";
 import "../customer-dashboard-v2.css";
@@ -233,8 +234,15 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
     fareStatus === "fare_accepted" ||
     rideStatus === "fare_accepted";
 
+  const finalFareSyncPending =
+    !accepted &&
+    fareStatus === "driver_final" &&
+    driverFinalFare <= 0 &&
+    customerCounter > 0;
+
   const hasDriverFinal =
     !accepted &&
+    !finalFareSyncPending &&
     driverFinalFare > 0;
 
   const hasCustomerCounter =
@@ -262,6 +270,25 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
 
           <p>
             Fare accept ho gaya. Driver ka GO TO PICKUP ab enabled hai.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* Corrupt/stale final status: never expose ₹0 as an actionable final fare. */
+  if (finalFareSyncPending) {
+    return (
+      <div className="fareWaitBox">
+        <div className="fareWaitIcon">⚠</div>
+
+        <div>
+          <small>Final Fare Sync Recovery</small>
+
+          <strong>₹{money(customerCounter)}</strong>
+
+          <p>
+            Driver final fare amount sync nahi hua. Driver ko FINAL fare resend karna hoga. ₹0 ko Accept/Reject ke liye kabhi show nahi kiya jayega.
           </p>
         </div>
       </div>
@@ -1390,6 +1417,8 @@ function CustomerDashboard({
   useEffect(() => {
     // Fare offered by driver
     const handleFareOffered = (data) => {
+      playHimRideGEventSound("fare_initial").catch(() => {});
+
       setLocalBookings((prev) =>
         prev.map((b) =>
           idOf(b) === String(data.bookingId)
@@ -1401,15 +1430,21 @@ function CustomerDashboard({
 
     // Driver final fare — customer Accept / Reject decision
     const handleFinalFareOffered = (data) => {
+      const incomingFinalFare = Number(
+        data?.driverFinalFareProposal || 0
+      );
+
+      if (incomingFinalFare > 0) {
+        playHimRideGEventSound("fare_final").catch(() => {});
+      }
+
       setLocalBookings((prev) =>
         prev.map((b) =>
           idOf(b) === String(data.bookingId)
             ? {
                 ...b,
                 fareStatus: "driver_final",
-                driverFinalFareProposal: Number(
-                  data.driverFinalFareProposal || 0
-                ),
+                driverFinalFareProposal: incomingFinalFare,
                 customerCounterFare: Number(
                   data.customerCounterFare ||
                   b.customerCounterFare ||
@@ -1424,6 +1459,8 @@ function CustomerDashboard({
 
     // Fare accepted (final customer confirmation)
     const handleFareAccepted = (data) => {
+      playHimRideGEventSound("fare_locked").catch(() => {});
+
       const bid = String(data?.bookingId || "");
       let mergedRide = null;
 
@@ -1478,6 +1515,8 @@ function CustomerDashboard({
         return;
       }
 
+      playHimRideGEventSound("ride_cancelled").catch(() => {});
+
       setLocalBookings((prev) =>
         prev.map((b) =>
           idOf(b) === bid
@@ -1505,6 +1544,8 @@ function CustomerDashboard({
       if (!bid) {
         return;
       }
+
+      playHimRideGEventSound("payment_required").catch(() => {});
 
       // Dashboard/socket se payment popup auto-open nahi karna.
       if (!AUTO_PAYMENT_MODAL_ENABLED) {
@@ -1561,6 +1602,11 @@ function CustomerDashboard({
     };
 
     const handlePaymentCompleted = (data = {}) => {
+      const paymentMethod = String(data?.paymentMethod || "").toLowerCase();
+      playHimRideGEventSound(
+        paymentMethod === "cash" ? "cash_payment_success" : "online_payment_success"
+      ).catch(() => {});
+
       const bid = String(data?.bookingId || "");
       if (!bid) return;
 
@@ -1605,6 +1651,11 @@ function CustomerDashboard({
       );
     };
 
+    const handleReconnect = () => {
+      loadBookings?.();
+    };
+
+    socket.on("connect", handleReconnect);
     socket.on("fare:offered", handleFareOffered);
     socket.on("fare:driver-offered", handleFareOffered);
     socket.on("fare:final-offered", handleFinalFareOffered);
@@ -1618,6 +1669,7 @@ function CustomerDashboard({
     socket.on("payment:completed", handlePaymentCompleted);
 
     return () => {
+      socket.off("connect", handleReconnect);
       socket.off("fare:offered", handleFareOffered);
       socket.off("fare:driver-offered", handleFareOffered);
       socket.off("fare:final-offered", handleFinalFareOffered);
@@ -1631,6 +1683,22 @@ function CustomerDashboard({
       socket.off("payment:completed", handlePaymentCompleted);
     };
   }, [localBookings, paidBookingIds, loadBookings]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      loadBookings?.();
+
+      if (!socket.connected) {
+        socket.connect();
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [loadBookings]);
 
   /* ──────────────────────────────────────────────────────────────────
      Auto Payment Modal — Fare Lock + Waiting Payment

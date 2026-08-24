@@ -21,6 +21,7 @@ import "leaflet/dist/leaflet.css";
 
 import api, { apiBaseUrl } from "../api";
 import socket from "../socket";
+import { playHimRideGEventSound, playHimRideGSound } from "../utils/himridegSounds";
 
 import DriverLocationTracker from "../DriverLocationTracker";
 import DriverRideMap from "../DriverRideMap";
@@ -2082,73 +2083,11 @@ function DriverDashboard({
 
   const playRequestSound =
     useCallback(() => {
-      try {
-        const AudioContextClass =
-          window.AudioContext ||
-          window.webkitAudioContext;
-
-        if (
-          !AudioContextClass
-        ) {
-          return;
-        }
-
-        if (
-          !audioContextRef.current
-        ) {
-          audioContextRef.current =
-            new AudioContextClass();
-        }
-
-        const context =
-          audioContextRef.current;
-
-        const oscillator =
-          context.createOscillator();
-
-        const gain =
-          context.createGain();
-
-        oscillator.type =
-          "sine";
-
-        oscillator.frequency.setValueAtTime(
-          880,
-          context.currentTime
-        );
-
-        gain.gain.setValueAtTime(
-          0.12,
-          context.currentTime
-        );
-
-        gain.gain.exponentialRampToValueAtTime(
-          0.001,
-          context.currentTime +
-            0.8
-        );
-
-        oscillator.connect(
-          gain
-        );
-
-        gain.connect(
-          context.destination
-        );
-
-        oscillator.start();
-
-        oscillator.stop(
-          context.currentTime +
-            0.8
-        );
-      } catch (error) {
-        console.warn(
-          "Ride request sound nahi chali:",
-          error.message
-        );
-      }
+      playHimRideGEventSound(
+        "ride_request"
+      ).catch(() => {});
     }, []);
+
 
   /*
   |--------------------------------------------------------------------------
@@ -2177,6 +2116,10 @@ function DriverDashboard({
         setSocketConnected(
           true
         );
+
+        /* Internet/socket reconnect ke turant baad active ride/fare/payment
+           server se authoritative state me re-sync karo. */
+        loadBookings?.();
       };
 
     const handleDisconnect =
@@ -2358,6 +2301,8 @@ function DriverDashboard({
         setOtpRide(null);
         setOtp("");
 
+        playHimRideGEventSound("ride_completed").catch(() => {});
+
         showNotice(
           "success",
           "Ride successfully complete ho gayi."
@@ -2401,6 +2346,8 @@ function DriverDashboard({
         status: "negotiating"
       });
 
+      playHimRideGEventSound("fare_counter").catch(() => {});
+
       showNotice(
         "success",
         payload.message ||
@@ -2431,6 +2378,8 @@ function DriverDashboard({
 
       handleFareUpdate(mergedRide);
       setDriverPaymentModalRide(mergedRide);
+
+      playHimRideGEventSound("fare_locked").catch(() => {});
 
       showNotice(
         "success",
@@ -2472,6 +2421,8 @@ function DriverDashboard({
 
       setIncomingRide(null);
       setRequestExpiresAt(null);
+
+      playHimRideGEventSound("ride_cancelled").catch(() => {});
 
       showNotice(
         "error",
@@ -2535,6 +2486,8 @@ function DriverDashboard({
         ...payload,
         paymentStatus: "paid"
       });
+      playHimRideGEventSound("payment_received_driver").catch(() => {});
+
       showNotice(
         "success",
         "Customer payment complete ho gayi."
@@ -2822,6 +2775,22 @@ function DriverDashboard({
     showNotice,
     updateLocalBooking
   ]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      loadBookings?.();
+
+      if (!socket.connected) {
+        socket.connect();
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [loadBookings]);
 
   /*
   |--------------------------------------------------------------------------
@@ -4321,16 +4290,42 @@ function DriverDashboard({
         0
     );
 
+  const selectedRawFareStatus =
+    String(
+      selectedRide?.fareStatus ||
+        "not_offered"
+    ).toLowerCase();
+
+  /*
+  |------------------------------------------------------------------------
+  | V26 Final Fare Sync Recovery
+  |------------------------------------------------------------------------
+  | Purani/stale booking me kabhi fareStatus `driver_final` persist ho gaya
+  | lekin driverFinalFareProposal 0/null raha. Aisi state ko valid FINAL fare
+  | nahi maana jayega. Driver ko customer ke one-time counter ke against ek
+  | safe resend/recovery action milega. Valid final fare (> 0) ko kabhi
+  | overwrite nahi kiya jayega.
+  |------------------------------------------------------------------------
+  */
+
+  const selectedFinalFareNeedsRecovery =
+    !selectedFareLocked &&
+    selectedRawFareStatus === "driver_final" &&
+    selectedDriverFinalFare <= 0 &&
+    selectedCustomerCounterFare > 0;
+
   const selectedFareStage =
     selectedFareLocked
       ? "fare_accepted"
-      : selectedDriverFinalFare > 0
-        ? "driver_final"
-        : selectedCustomerCounterFare > 0
-          ? "customer_countered"
-          : selectedDriverInitialFare > 0
-            ? "driver_offered"
-            : "not_offered";
+      : selectedFinalFareNeedsRecovery
+        ? "driver_final_recovery"
+        : selectedDriverFinalFare > 0
+          ? "driver_final"
+          : selectedCustomerCounterFare > 0
+            ? "customer_countered"
+            : selectedDriverInitialFare > 0
+              ? "driver_offered"
+              : "not_offered";
 
   const selectedAdvancePending =
     isAdvancePaymentPending(selectedRide);
@@ -5630,6 +5625,30 @@ function DriverDashboard({
                             <strong>₹{selectedDriverFinalFare.toFixed(0)}</strong>
                             <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Send Fare button band hai. Customer ke Accept / Reject ka wait ho raha hai.</small>
                           </div>
+                        ) : selectedFareStage === "driver_final_recovery" ? (
+                          <div className="driverCustomerCounter">
+                            <p style={{color:"#ffb020",fontWeight:900}}>⚠ FINAL Fare Sync Recovery</p>
+                            <strong>Customer Counter ₹{selectedCustomerCounterFare.toFixed(0)}</strong>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8",lineHeight:1.55}}>Final fare status save hua tha lekin amount missing/₹0 mila. Customer ko ₹0 kabhi nahi bheja jayega. Apna FINAL fare dobara bhejein; valid amount save hote hi customer ko sirf Accept / Reject milega.</small>
+                            <div className="driverCustomerFareInput" style={{marginTop:"12px"}}>
+                              <span>₹</span>
+                              <input
+                                type="number"
+                                min="50"
+                                max="10000"
+                                placeholder="FINAL fare resend kare"
+                                value={fareInputs[selectedRideIdValue] ?? ""}
+                                onChange={(event) => setFareInputs((current) => ({...current,[selectedRideIdValue]: event.target.value}))}
+                              />
+                              <button
+                                type="button"
+                                disabled={Boolean(fareAction)}
+                                onClick={() => sendDriverFare(selectedRide)}
+                              >
+                                Resend Final Fare
+                              </button>
+                            </div>
+                          </div>
                         ) : selectedFareStage === "customer_countered" ? (
                           <div className="driverCustomerCounter">
                             <p>Customer One-Time Counter</p>
@@ -5682,6 +5701,9 @@ function DriverDashboard({
                         )}
                         {selectedFareStage === "driver_final" && (
                           <div className="driverFareWaitLarge">⏳ Customer ke final Accept / Reject ka wait</div>
+                        )}
+                        {selectedFareStage === "driver_final_recovery" && (
+                          <div className="driverFareWaitLarge">⚠ ₹0 final fare invalid hai — recovery fare resend karein</div>
                         )}
                         {selectedFareStage === "driver_offered" && (
                           <div className="driverFareWaitLarge">⏳ Customer ke Accept / Reject / Counter ka wait</div>

@@ -391,52 +391,71 @@ async function fetchRoadRoute(
     `${endLongitude},${endLatitude}` +
     "?overview=full&geometries=geojson&steps=false";
 
-  const response = await fetch(
-    routeUrl,
-    {
-      signal,
+  try {
+    const response = await fetch(
+      routeUrl,
+      {
+        signal,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Road route calculate nahi hua"
+      );
     }
-  );
 
-  if (!response.ok) {
-    throw new Error(
-      "Road route calculate nahi hua"
-    );
+    const data =
+      await response.json();
+
+    const route =
+      data?.routes?.[0];
+
+    if (!route) {
+      throw new Error(
+        "Road route available nahi hai"
+      );
+    }
+
+    return {
+      positions:
+        route.geometry.coordinates.map(
+          ([
+            longitude,
+            latitude,
+          ]) => [
+            latitude,
+            longitude,
+          ]
+        ),
+
+      distanceKm:
+        Number(route.distance || 0) /
+        1000,
+
+      durationSeconds:
+        Number(route.duration || 0),
+
+      provider: "osrm-fallback",
+    };
+  } catch (error) {
+    if (signal?.aborted) {
+      throw error;
+    }
+
+    /*
+    | Never make the route disappear completely. Managed Geoapify and OSRM
+    | remain the road-route authorities; this direct geometry is only a visual
+    | continuity fallback until the next automatic refresh succeeds.
+    */
+    return {
+      positions: [start, end],
+      distanceKm: 0,
+      durationSeconds: 0,
+      provider: "visual-fallback",
+      approximate: true,
+    };
   }
-
-  const data =
-    await response.json();
-
-  const route =
-    data?.routes?.[0];
-
-  if (!route) {
-    throw new Error(
-      "Road route available nahi hai"
-    );
-  }
-
-  return {
-    positions:
-      route.geometry.coordinates.map(
-        ([
-          longitude,
-          latitude,
-        ]) => [
-          latitude,
-          longitude,
-        ]
-      ),
-
-    distanceKm:
-      Number(route.distance || 0) /
-      1000,
-
-    durationSeconds:
-      Number(route.duration || 0),
-
-    provider: "osrm-fallback",
-  };
 }
 
 function openGoogleMaps(
@@ -583,8 +602,7 @@ function DriverRideMap({ ride }) {
       !driverPosition ||
       !pickupPosition
     ) {
-      setPickupRoute([]);
-
+      /* Keep last visible pickup route during transient GPS reconnects. */
       setPickupInfo({
         distanceKm: 0,
         durationSeconds: 0,

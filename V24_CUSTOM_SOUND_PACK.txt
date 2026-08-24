@@ -1,0 +1,7 @@
+HimRideG Website/Backend V24 CUSTOM SOUND PACK
+
+- Same 20 WAV files are included under client/public/sounds.
+- Website ride-request beep now uses the custom bell pack.
+- Website normal realtime notifications use the notification/popup/payment pack based on message content.
+- Backend Expo push payload now sends matching sound filename and matching Android channelId for Bell / Popup / Payment / Notification categories.
+- Existing server ride/fare/payment state logic remains intact.

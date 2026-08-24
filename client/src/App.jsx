@@ -7,6 +7,7 @@ import React, {
 
 import api from "./api";
 import socket from "./socket";
+import { playHimRideGSoundForText } from "./utils/himridegSounds";
 
 import Home from "./pages/Home";
 import AuthPage from "./pages/AuthPage";
@@ -487,97 +488,16 @@ function App() {
 
   const playNotificationSound =
     useCallback(
-      () => {
-        try {
-          const AudioContextClass =
-            window.AudioContext ||
-            window.webkitAudioContext;
-
-          if (
-            !AudioContextClass
-          ) {
-            return;
-          }
-
-          const audioContext =
-            new AudioContextClass();
-
-          const oscillator =
-            audioContext
-              .createOscillator();
-
-          const gainNode =
-            audioContext
-              .createGain();
-
-          oscillator.type =
-            "sine";
-
-          oscillator
-            .frequency
-            .setValueAtTime(
-              880,
-              audioContext
-                .currentTime
-            );
-
-          gainNode
-            .gain
-            .setValueAtTime(
-              0.0001,
-              audioContext
-                .currentTime
-            );
-
-          gainNode
-            .gain
-            .exponentialRampToValueAtTime(
-              0.2,
-              audioContext
-                .currentTime +
-                0.02
-            );
-
-          gainNode
-            .gain
-            .exponentialRampToValueAtTime(
-              0.0001,
-              audioContext
-                .currentTime +
-                0.45
-            );
-
-          oscillator.connect(
-            gainNode
-          );
-
-          gainNode.connect(
-            audioContext
-              .destination
-          );
-
-          oscillator.start();
-
-          oscillator.stop(
-            audioContext
-              .currentTime +
-              0.5
-          );
-
-          oscillator.onended =
-            () => {
-              audioContext
-                .close();
-            };
-        } catch (error) {
-          console.log(
-            "Notification sound error:",
-            error
-          );
-        }
+      (text = "", data = {}) => {
+        playHimRideGSoundForText(
+          text,
+          "notification",
+          data
+        ).catch(() => {});
       },
       []
     );
+
 
   /*
   |--------------------------------------------------------------------------
@@ -633,7 +553,8 @@ function App() {
       (
         text,
         shouldPlaySound =
-          true
+          true,
+        soundData = {}
       ) => {
         notify(
           text
@@ -642,7 +563,7 @@ function App() {
         if (
           shouldPlaySound
         ) {
-          playNotificationSound();
+          playNotificationSound(text, soundData);
         }
 
         showBrowserNotification(
@@ -2076,16 +1997,15 @@ function App() {
           payload?.message ||
             "Nayi ride request aayi hai.",
 
-          payload
-            ?.playSound !==
-            false
+          payload?.playSound !== false,
+          { ...payload, type: "ride_request", role: "driver", soundEvent: "ride_request" }
         );
 
         loadBookings();
       };
 
     const handleRideStatus =
-      (payload) => {
+      (payload, eventName = "") => {
         const updatedRide =
           getBookingFromResponse(
             payload
@@ -2103,13 +2023,39 @@ function App() {
           user.role ===
           "customer"
         ) {
-          realtimeNotify(
-            payload?.message ||
-              "Ride status update hua hai.",
+          const status = String(
+            payload?.rideStatus || payload?.status || updatedRide?.status || ""
+          ).toLowerCase();
 
-            payload
-              ?.playSound ===
-              true
+          const soundEvent =
+            eventName === "ride:otp-generated"
+              ? "otp"
+              : eventName === "ride:accepted" || ["accepted", "driver_assigned"].includes(status)
+                ? "driver_accepted_customer"
+                : eventName === "ride:driver-arriving" || status === "driver_arriving"
+                  ? "driver_arriving"
+                  : eventName === "ride:driver-arrived" || ["driver_arrived", "arrived"].includes(status)
+                    ? "driver_arrived"
+                    : eventName === "ride:started" || status === "started"
+                      ? "ride_started"
+                      : eventName === "ride:completed" || status === "completed"
+                        ? "ride_completed"
+                        : eventName === "ride:cancelled" || status === "cancelled"
+                          ? "ride_cancelled"
+                          : "system_update";
+
+          realtimeNotify(
+            payload?.message || "Ride status update hua hai.",
+            [
+              "ride:accepted",
+              "ride:driver-arriving",
+              "ride:driver-arrived",
+              "ride:otp-generated",
+              "ride:started",
+              "ride:completed",
+              "ride:cancelled"
+            ].includes(eventName) || payload?.playSound === true,
+            { ...payload, eventName, role: "customer", soundEvent }
           );
         }
 
@@ -2154,7 +2100,8 @@ function App() {
           realtimeNotify(
             payload?.message ||
               `Customer ne ₹${Number(payload?.fare || 0).toFixed(0)} cash payment select ki hai.`,
-            true
+            true,
+            { ...payload, role: "driver", soundEvent: "cash_selected" }
           );
         }
 
@@ -2342,6 +2289,18 @@ function App() {
         );
       };
 
+    const handleRideRequestCancelledStatus = (payload) => handleRideStatus(payload, "ride:request:cancelled");
+    const handleRideAcceptedStatus = (payload) => handleRideStatus(payload, "ride:accepted");
+    const handleRideRejectedStatus = (payload) => handleRideStatus(payload, "ride:rejected");
+    const handleDriverArrivingStatus = (payload) => handleRideStatus(payload, "ride:driver-arriving");
+    const handleDriverArrivedStatus = (payload) => handleRideStatus(payload, "ride:driver-arrived");
+    const handleOtpGeneratedStatus = (payload) => handleRideStatus(payload, "ride:otp-generated");
+    const handleOtpVerifiedStatus = (payload) => handleRideStatus(payload, "ride:otp-verified");
+    const handleRideStartedStatus = (payload) => handleRideStatus(payload, "ride:started");
+    const handleRideCompletedStatus = (payload) => handleRideStatus(payload, "ride:completed");
+    const handleRideCancelledStatus = (payload) => handleRideStatus(payload, "ride:cancelled");
+    const handleGenericRideStatus = (payload) => handleRideStatus(payload, "ride:status-updated");
+
     socket.on(
       "connect",
       handleConnect
@@ -2364,57 +2323,57 @@ function App() {
 
     socket.on(
       "ride:request:cancelled",
-      handleRideStatus
+      handleRideRequestCancelledStatus
     );
 
     socket.on(
       "ride:accepted",
-      handleRideStatus
+      handleRideAcceptedStatus
     );
 
     socket.on(
       "ride:rejected",
-      handleRideStatus
+      handleRideRejectedStatus
     );
 
     socket.on(
       "ride:driver-arriving",
-      handleRideStatus
+      handleDriverArrivingStatus
     );
 
     socket.on(
       "ride:driver-arrived",
-      handleRideStatus
+      handleDriverArrivedStatus
     );
 
     socket.on(
       "ride:otp-generated",
-      handleRideStatus
+      handleOtpGeneratedStatus
     );
 
     socket.on(
       "ride:otp-verified",
-      handleRideStatus
+      handleOtpVerifiedStatus
     );
 
     socket.on(
       "ride:started",
-      handleRideStatus
+      handleRideStartedStatus
     );
 
     socket.on(
       "ride:completed",
-      handleRideStatus
+      handleRideCompletedStatus
     );
 
     socket.on(
       "ride:cancelled",
-      handleRideStatus
+      handleRideCancelledStatus
     );
 
     socket.on(
       "ride:status-updated",
-      handleRideStatus
+      handleGenericRideStatus
     );
 
     socket.on(

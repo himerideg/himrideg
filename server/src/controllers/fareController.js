@@ -275,27 +275,33 @@ function emitFareUpdate(
     let pushTarget = "";
     let pushTitle = "";
     let pushBody = "";
+    let pushSoundEvent = "system_update";
 
     if (eventName === "fare:driver-offered") {
       pushTarget = customerId;
       pushTitle = "Driver Fare Offer";
       pushBody = `Driver ne ₹${Number(booking.driverOfferedFare || 0)} fare bheja. Accept, Reject ya Counter karein.`;
+      pushSoundEvent = "fare_initial";
     } else if (eventName === "fare:customer-countered") {
       pushTarget = driverId;
       pushTitle = "Customer Counter Offer";
       pushBody = `Customer ne ₹${Number(booking.customerCounterFare || 0)} counter bheja. Ab apna FINAL fare bhejein.`;
+      pushSoundEvent = "fare_counter";
     } else if (eventName === "fare:final-offered") {
       pushTarget = customerId;
       pushTitle = "Driver FINAL Fare";
       pushBody = `Driver ne ₹${Number(booking.driverFinalFareProposal || 0)} final fare bheja. Accept ya Reject karein.`;
+      pushSoundEvent = "fare_final";
     } else if (eventName === "fare:accepted") {
       pushTarget = driverId;
       pushTitle = "Fare Locked ✅";
       pushBody = `₹${Number(booking.finalFare || 0)} fare accept ho gaya. GO TO PICKUP enabled hai.`;
+      pushSoundEvent = "fare_locked";
     } else if (eventName === "fare:final-rejected") {
       pushTarget = driverId;
       pushTitle = "Fare Rejected";
       pushBody = "Customer ne fare reject kiya. Ride current driver se release ho rahi hai.";
+      pushSoundEvent = "ride_cancelled";
     }
 
     if (pushTarget && pushTitle) {
@@ -306,6 +312,7 @@ function emitFareUpdate(
           body: pushBody,
           data: {
             type: "fare_update",
+            soundEvent: pushSoundEvent,
             eventName,
             bookingId,
             fareStatus: booking.fareStatus,
@@ -1350,14 +1357,43 @@ exports.driverFinalFare = async (
         });
     }
 
+    const persistedCustomerCounter =
+      Number(
+        booking.customerCounterFare ||
+          0
+      );
+
+    const normalFinalFareStage =
+      booking.fareStatus ===
+        "customer_countered" &&
+      booking.fareOfferedBy ===
+        "customer" &&
+      persistedCustomerCounter > 0;
+
+    /*
+    |----------------------------------------------------------------------
+    | V26 Final Fare Sync Recovery
+    |----------------------------------------------------------------------
+    | Legacy/stale data me fareStatus `driver_final` ho sakta hai jabki
+    | driverFinalFareProposal 0/null ho. Sirf isi corrupt state me assigned
+    | driver ko customer ke already-persisted one-time counter ke against
+    | FINAL fare resend karne dete hain. Valid final fare ko overwrite karna
+    | allowed nahi hai.
+    |----------------------------------------------------------------------
+    */
+
+    const recoverableFinalFareStage =
+      booking.fareStatus ===
+        "driver_final" &&
+      Number(
+        booking.driverFinalFareProposal ||
+          0
+      ) <= 0 &&
+      persistedCustomerCounter > 0;
+
     if (
-      booking.fareStatus !==
-        "customer_countered" ||
-      booking.fareOfferedBy !==
-        "customer" ||
-      !Number(
-        booking.customerCounterFare
-      )
+      !normalFinalFareStage &&
+      !recoverableFinalFareStage
     ) {
       return res
         .status(409)
@@ -1366,6 +1402,13 @@ exports.driverFinalFare = async (
           message:
             "Customer counter fare ke baad hi driver final fare bhejega"
         });
+    }
+
+    if (recoverableFinalFareStage) {
+      console.warn(
+        "Recovering missing driver final fare:",
+        String(booking._id)
+      );
     }
 
     booking.driverFinalFareProposal =

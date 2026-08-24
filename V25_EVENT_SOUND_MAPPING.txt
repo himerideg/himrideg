@@ -1,0 +1,37 @@
+HimRideG V25 — EVENT-SPECIFIC SOUND MAPPING
+
+App + Website + Backend now share the same deterministic sound map.
+No GPS/map refresh sound. No sound on every render. Only meaningful ride/payment events.
+
+BELL
+1 bell_1.wav  Driver: New ride request
+2 bell_2.wav  Customer: Driver accepted/assigned
+3 bell_3.wav  Customer: Driver nearby (reserved/currently inferred if event exists)
+4 bell_4.wav  Customer: Driver arrived
+5 bell_5.wav  Ride rejected/cancelled/expired urgent alert
+
+POPUP
+1 popup_1.wav  Customer: Driver initial fare
+2 popup_2.wav  Driver: Customer counter offer
+3 popup_3.wav  Customer: Driver final fare
+4 popup_4.wav  Driver/Customer: Fare locked/accepted
+5 popup_5.wav  OTP generated/ready
+
+PAYMENT
+1 payment_1.wav  Customer: Ride complete/payment required
+2 payment_2.wav  Driver: Customer selected cash
+3 payment_3.wav  Customer: Online payment success
+4 payment_4.wav  Customer: Cash payment success
+5 payment_5.wav  Driver: Payment received
+
+NOTIFICATION
+1 notification_1.wav  Ride booked/searching confirmation
+2 notification_2.wav  Customer: Driver going to pickup
+3 notification_3.wav  Customer: Ride started
+4 notification_4.wav  Ride completed/receipt update
+5 notification_5.wav  General system/compatibility update
+
+IMPORTANT
+- The selected custom sound downloaded by the user has NOT been supplied in chat yet.
+- Current V25 keeps the V24 20 sound files. The user's chosen new ride bell can be installed later by replacing assets/sounds/bell_1.wav (app) and client/public/sounds/bell_1.wav (website) with the supplied file, plus rebuild.
+- Android background/killed-app custom sounds require an EAS/dev/production rebuild because notification channel sound resources are native.

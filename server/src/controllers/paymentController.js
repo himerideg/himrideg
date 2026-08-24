@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const razorpay = require("../config/razorpay");
 const Booking = require("../models/Booking");
 const walletService = require("../services/walletService");
+const { sendPushToUser } = require("../services/pushNotificationService");
 
 const PLATFORM_COMMISSION_PERCENT = 10;
 const DRIVER_SHARE_PERCENT = 100 - PLATFORM_COMMISSION_PERCENT;
@@ -396,6 +397,31 @@ exports.verifyPayment = async (req, res) => {
           paidAt: booking.paidAt
         });
       }
+
+      const customerId = getCustomerId(booking);
+      const pushData = {
+        type: "payment_success",
+        bookingId: String(booking._id),
+        paymentMethod: "online",
+        paymentStatus: "paid",
+        fare
+      };
+
+      if (customerId) {
+        sendPushToUser(customerId, {
+          title: "Payment Successful ✅",
+          body: `₹${fare} online payment successful ho gayi.`,
+          data: { ...pushData, soundEvent: "online_payment_success", role: "customer" }
+        }).catch(() => {});
+      }
+
+      if (driverId) {
+        sendPushToUser(driverId, {
+          title: `Payment Received ₹${fare}`,
+          body: "Customer ki online payment successfully receive ho gayi.",
+          data: { ...pushData, soundEvent: "payment_received_driver", role: "driver" }
+        }).catch(() => {});
+      }
     }
 
     return res.status(200).json({
@@ -493,6 +519,23 @@ exports.selectCashPayment = async (req, res) => {
           cashSelectedPayload
         );
       }
+    }
+
+    if (driverId) {
+      const fare = getFare(booking);
+      sendPushToUser(driverId, {
+        title: "Cash Payment Selected",
+        body: `Customer ne ₹${fare} cash select kiya. Cash receive karke confirm karein.`,
+        data: {
+          type: "cash_selected",
+          soundEvent: "cash_selected",
+          role: "driver",
+          bookingId: String(booking._id),
+          fare,
+          paymentMethod: "cash",
+          paymentStatus: "pending"
+        }
+      }).catch(() => {});
     }
 
     return res.status(200).json({
@@ -609,6 +652,31 @@ exports.confirmCashPayment = async (req, res) => {
         paidAt: booking.paidAt,
         message: "Cash Payment Successful"
       });
+    }
+
+    const driverId = getDriverId(booking);
+    const pushData = {
+      type: "payment_success",
+      bookingId: String(booking._id),
+      paymentMethod: "cash",
+      paymentStatus: "paid",
+      fare
+    };
+
+    if (customerId) {
+      sendPushToUser(customerId, {
+        title: "Cash Payment Successful ✅",
+        body: `Driver ne ₹${fare} cash received confirm kar diya.`,
+        data: { ...pushData, soundEvent: "cash_payment_success", role: "customer" }
+      }).catch(() => {});
+    }
+
+    if (driverId) {
+      sendPushToUser(driverId, {
+        title: `Payment Received ₹${fare}`,
+        body: "Cash payment successfully confirm ho gayi. Ab aap next ride le sakte hain.",
+        data: { ...pushData, soundEvent: "payment_received_driver", role: "driver" }
+      }).catch(() => {});
     }
 
     return res.status(200).json({
