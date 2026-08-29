@@ -49,13 +49,61 @@ async function settleRidePayment(bookingOrId) {
 
   // ADD-ONLY: Prepaid payment can be paid before ride completion, but driver
   // earning/commission settlement must wait until the service (ride) completes.
-  const settlementGate = await Booking.findById(bookingId).select("status paymentStatus walletSettlementStatus");
+  const settlementGate = await Booking.findById(bookingId).select(
+    "status paymentStatus walletSettlementStatus driver"
+  );
   if (!settlementGate || settlementGate.paymentStatus !== "paid") {
     return settlementGate;
   }
   if (settlementGate.status !== "completed") {
     return settlementGate;
   }
+
+  const releasePaidRideDriver = async (driverId) => {
+    if (!driverId) return;
+
+    await User.updateOne(
+      {
+        _id: driverId,
+        role: "driver",
+        currentRide: bookingId,
+        isOnline: true
+      },
+      {
+        $set: {
+          currentRide: null,
+          isAvailable: true,
+          lastSeenAt: new Date()
+        }
+      }
+    );
+
+    await User.updateOne(
+      {
+        _id: driverId,
+        role: "driver",
+        currentRide: bookingId,
+        isOnline: { $ne: true }
+      },
+      {
+        $set: {
+          currentRide: null,
+          isAvailable: false,
+          lastSeenAt: new Date()
+        }
+      }
+    );
+  };
+
+  /*
+  | Paid + already settled can happen after a reconnect/retry. Repair driver
+  | availability idempotently before returning.
+  */
+  if (settlementGate.walletSettlementStatus === "settled") {
+    await releasePaidRideDriver(settlementGate.driver);
+    return settlementGate;
+  }
+
   /*
   | Financial idempotency lock:
   | only not_settled -> settling is allowed. A second concurrent verify/webhook
@@ -242,6 +290,10 @@ async function settleRidePayment(bookingOrId) {
     locked.walletSettlementStatus = "settled";
     locked.walletSettledAt = new Date();
     await locked.save();
+
+    /* Payment received -> only now can the driver take the next ride. */
+    await releasePaidRideDriver(driverId);
+
     return locked;
   } catch (error) {
     await Booking.findByIdAndUpdate(bookingId, {

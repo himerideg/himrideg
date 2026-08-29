@@ -33,7 +33,14 @@ const emptyBooking = {
   dropoff: "",
   passengers: 1,
   customerPhone: "",
-  note: ""
+  note: "",
+
+  /* ADD-ONLY: booking form selections must survive until POST /rides */
+  bookingMode: "now",
+  travelDate: "",
+  riderFor: "self",
+  paymentTiming: "pay_later",
+  vehicleType: "sedan"
 };
 
 const emptyMapData = {
@@ -832,15 +839,15 @@ function App() {
         new Date()
           .toISOString();
 
-      if (
-        pendingBooking
-          .time
-      ) {
+      const savedTravelDate =
+        pendingBooking.travelDate ||
+        pendingBooking.scheduledAt ||
+        pendingBooking.time ||
+        null;
+
+      if (savedTravelDate) {
         const selectedDate =
-          new Date(
-            pendingBooking
-              .time
-          );
+          new Date(savedTravelDate);
 
         if (
           !Number.isNaN(
@@ -852,6 +859,14 @@ function App() {
             selectedDate
               .toISOString();
         }
+      }
+
+      if (
+        (pendingBooking.bookingMode === "schedule" || pendingBooking.scheduledAt) &&
+        new Date(travelDate).getTime() < Date.now() - 5 * 60 * 1000
+      ) {
+        notify("Saved scheduled booking ka time expire ho gaya hai. Naya time select karo");
+        return;
       }
 
       const bookingPayload = {
@@ -888,6 +903,18 @@ function App() {
           ).trim(),
 
         travelDate,
+
+        bookingMode:
+          pendingBooking.bookingMode ||
+          (pendingBooking.scheduledAt ? "schedule" : "now"),
+
+        riderFor:
+          pendingBooking.riderFor ||
+          "self",
+
+        paymentTiming:
+          pendingBooking.paymentTiming ||
+          "pay_later",
 
         pickupCoordinates: {
           latitude:
@@ -945,7 +972,28 @@ function App() {
 
           note:
             bookingPayload
-              .note
+              .note,
+
+          bookingMode:
+            bookingPayload
+              .bookingMode || "now",
+
+          travelDate:
+            bookingPayload.bookingMode === "schedule"
+              ? travelDate.slice(0, 16)
+              : "",
+
+          riderFor:
+            bookingPayload
+              .riderFor || "self",
+
+          paymentTiming:
+            bookingPayload
+              .paymentTiming || "pay_later",
+
+          vehicleType:
+            bookingPayload
+              .vehicleType || "sedan"
         });
 
         setMapData({
@@ -2597,6 +2645,20 @@ function App() {
         return;
       }
 
+      const selectedTravelDate =
+        booking.bookingMode === "schedule" && booking.travelDate
+          ? new Date(booking.travelDate)
+          : new Date();
+
+      if (
+        Number.isNaN(selectedTravelDate.getTime()) ||
+        (booking.bookingMode === "schedule" &&
+          selectedTravelDate.getTime() < Date.now() - 5 * 60 * 1000)
+      ) {
+        notify("Valid future schedule date/time select karo");
+        return null;
+      }
+
       const bookingPayload = {
         pickup:
           booking
@@ -2626,8 +2688,24 @@ function App() {
           "",
 
         travelDate:
-          new Date()
+          selectedTravelDate
             .toISOString(),
+
+        bookingMode:
+          booking.bookingMode ||
+          "now",
+
+        riderFor:
+          booking.riderFor ||
+          "self",
+
+        paymentTiming:
+          booking.paymentTiming ||
+          "pay_later",
+
+        vehicleType:
+          booking.vehicleType ||
+          "sedan",
 
         pickupCoordinates: {
           latitude:

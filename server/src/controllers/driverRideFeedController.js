@@ -132,15 +132,23 @@ async function repairDriverRideState(
   const activeRide =
     await Booking.findOne({
       _id: driver.currentRide,
-      driver: driver._id,
+      driver: driver._id
+    }).select("_id status paymentStatus");
 
-      status: {
-        $in:
-          ACTIVE_DRIVER_RIDE_STATUSES
-      }
-    }).select("_id status");
+  if (
+    activeRide &&
+    (
+      ACTIVE_DRIVER_RIDE_STATUSES.includes(activeRide.status) ||
+      (activeRide.status === "completed" && activeRide.paymentStatus !== "paid")
+    )
+  ) {
+    /* Completed + unpaid is intentionally still busy until payment confirmation. */
+    if (activeRide.status === "completed" && driver.isAvailable) {
+      driver.isAvailable = false;
+      driver.lastSeenAt = new Date();
+      await driver.save();
+    }
 
-  if (activeRide) {
     return driver;
   }
 

@@ -658,6 +658,20 @@ const bookingSchema = new mongoose.Schema(
       index: true
     },
 
+    /* ADD-ONLY: customer booking selections persisted at booking level */
+    bookingMode: {
+      type: String,
+      enum: ["now", "schedule"],
+      default: "now",
+      index: true
+    },
+
+    riderFor: {
+      type: String,
+      enum: ["self", "other"],
+      default: "self"
+    },
+
     passengers: {
       type: Number,
       default: 1,
@@ -730,6 +744,113 @@ const bookingSchema = new mongoose.Schema(
         "refunded"
       ],
       default: "pending"
+    },
+
+    /*
+    | ADD-ONLY: these fields were already used throughout controllers as
+    | booking.<field>, while old compatibility copies also exist under payment.
+    | Defining them here makes those existing writes persist in MongoDB.
+    */
+    paymentTiming: {
+      type: String,
+      enum: ["pay_now", "pay_later", "scheduled"],
+      default: "pay_later",
+      index: true
+    },
+
+    paymentPlan: {
+      type: String,
+      enum: ["online_after_ride", "advance", "scheduled", null],
+      default: null,
+      index: true
+    },
+
+    paymentPlanSelectedAt: {
+      type: Date,
+      default: null
+    },
+
+    paymentScheduledAt: {
+      type: Date,
+      default: null
+    },
+
+    paymentChoiceAfterRide: {
+      type: String,
+      enum: ["online", "cash", null],
+      default: null
+    },
+
+    driverFinalFareProposal: {
+      type: Number,
+      default: null,
+      min: 0
+    },
+
+    driverFinalFareProposedAt: {
+      type: Date,
+      default: null
+    },
+
+    finalFareRejectedAt: {
+      type: Date,
+      default: null
+    },
+
+    driverReleaseHistory: {
+      type: [
+        {
+          driver: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+          },
+          reason: {
+            type: String,
+            trim: true,
+            maxlength: 500,
+            default: ""
+          },
+          releasedAt: {
+            type: Date,
+            default: Date.now
+          }
+        }
+      ],
+      default: []
+    },
+
+    settlementStatus: {
+      type: String,
+      enum: [
+        "not_started",
+        "pending",
+        "transferred",
+        "wallet_fallback",
+        "cash_commission_debited",
+        "cash_commission_due",
+        "failed"
+      ],
+      default: "not_started",
+      index: true
+    },
+
+    settlementReference: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
+    settlementError: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: ""
+    },
+
+    settledAt: {
+      type: Date,
+      default: null
     },
 
     razorpayOrderId: {

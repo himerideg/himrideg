@@ -610,6 +610,9 @@ async function createRide({
   pickupCoordinates = null,
   dropCoordinates = null,
   travelDate = null,
+  bookingMode = "now",
+  riderFor = "self",
+  paymentTiming = "pay_later",
   passengers = 1,
   vehicleType = "hatchback",
   distanceKm = null,
@@ -687,6 +690,42 @@ async function createRide({
       400,
       "INVALID_TRAVEL_DATE"
     );
+  }
+
+  const normalizedBookingMode =
+    ["now", "schedule"].includes(String(bookingMode || "").toLowerCase())
+      ? String(bookingMode).toLowerCase()
+      : "now";
+
+  const normalizedRiderFor =
+    ["self", "other"].includes(String(riderFor || "").toLowerCase())
+      ? String(riderFor).toLowerCase()
+      : "self";
+
+  let normalizedPaymentTiming =
+    ["pay_now", "pay_later", "scheduled"].includes(String(paymentTiming || "").toLowerCase())
+      ? String(paymentTiming).toLowerCase()
+      : "pay_later";
+
+  if (normalizedBookingMode === "schedule" && !travelDate) {
+    throw new RideServiceError(
+      "Scheduled ride ke liye date/time required hai",
+      400,
+      "SCHEDULE_DATE_REQUIRED"
+    );
+  }
+
+  if (normalizedBookingMode === "schedule" && date.getTime() < Date.now() - 5 * 60 * 1000) {
+    throw new RideServiceError(
+      "Scheduled ride date must be in the future",
+      400,
+      "INVALID_SCHEDULE_DATE"
+    );
+  }
+
+  /* Scheduled Payment sirf scheduled booking ke saath valid hai. */
+  if (normalizedPaymentTiming === "scheduled" && normalizedBookingMode !== "schedule") {
+    normalizedPaymentTiming = "pay_later";
   }
 
   const passengerCount =
@@ -807,7 +846,14 @@ async function createRide({
   const BASE_FARE = 50;
   const PER_KM_RATE = 18;
 
-  const fareEstimate =
+  /*
+  | ADD-ONLY: HimRideG driver-only fare mode. Legacy auto calculator preserve
+  | hai, lekin production booking me customer ko automatic fare assign nahi hota.
+  | Driver initial fare -> customer counter -> driver final -> customer accept.
+  */
+  const DRIVER_ONLY_FARE_MODE = true;
+
+  const legacyFareEstimate =
     clientFare > 0
       ? clientFare
       : Math.round(
@@ -816,9 +862,16 @@ async function createRide({
               PER_KM_RATE
         );
 
+  const fareEstimate =
+    DRIVER_ONLY_FARE_MODE
+      ? 0
+      : legacyFareEstimate;
+
   if (clientFare <= 0) {
     console.log(
-      `[createRide] Fare estimate client se nahi aaya - distance se calculate kiya: Rs.${fareEstimate}`
+      DRIVER_ONLY_FARE_MODE
+        ? `[createRide] Driver-only fare mode active - estimated fare intentionally Rs.0`
+        : `[createRide] Fare estimate client se nahi aaya - distance se calculate kiya: Rs.${fareEstimate}`
     );
   }
 
@@ -858,6 +911,15 @@ async function createRide({
         normalizedDropoff,
 
       travelDate: date,
+
+      bookingMode:
+        normalizedBookingMode,
+
+      riderFor:
+        normalizedRiderFor,
+
+      paymentTiming:
+        normalizedPaymentTiming,
 
       passengers:
         passengerCount,
@@ -2933,8 +2995,13 @@ async function completeRide({
 
     {
       $set: {
-        currentRide: null,
-        isAvailable: true,
+        /*
+        | ADD-ONLY payment gate: completed but unpaid ride remains the driver's
+        | currentRide, so refresh/reconnect cannot unlock a new ride early.
+        | walletService.settleRidePayment() releases it after PAID.
+        */
+        currentRide: bookingObjectId,
+        isAvailable: false,
         lastSeenAt:
           new Date()
       },

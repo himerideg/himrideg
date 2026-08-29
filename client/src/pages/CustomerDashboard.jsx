@@ -99,7 +99,7 @@ const paymentPlanOf = (ride) => {
 | Payment modal sirf customer ke explicit Pay/Wallet action se khulega.
 | Existing socket/hydration auto-popup code preserve hai, bas disabled hai.
 */
-const AUTO_PAYMENT_MODAL_ENABLED = false;
+const AUTO_PAYMENT_MODAL_ENABLED = true;
 
 const isFinalFareLocked = (ride) =>
   Boolean(
@@ -1335,8 +1335,12 @@ function CustomerDashboard({
   // Local bookings state (socket updates ke liye)
   const [localBookings, setLocalBookings] = useState(bookings);
 
+  /* ADD-ONLY: foreground customer OTP popup shown when driver marks arrived. */
+  const [rideOtpPopup, setRideOtpPopup] = useState(null);
+
   const fileInputRef = useRef(null);
   const paymentShownRef = useRef(new Set());
+  const paymentCompletedSeenRef = useRef(new Set());
 
   const [profile, setProfile] = useState({
     name: user?.name || "Customer",
@@ -1412,6 +1416,46 @@ function CustomerDashboard({
     !["started", "completed", "cancelled"].includes(activeRide.status);
 
   /* ──────────────────────────────────────────────────────────────────
+     Ride Start OTP — customer popup + automatic close after verification
+  ────────────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    const handleOtpGenerated = (payload = {}) => {
+      const otp = String(payload?.data?.otp || payload?.otp || "").trim();
+      const status = String(
+        payload?.status || payload?.data?.booking?.status || ""
+      ).toLowerCase();
+
+      if (!otp || status !== "driver_arrived") {
+        return;
+      }
+
+      setRideOtpPopup({
+        bookingId: String(payload?.bookingId || payload?.data?.booking?._id || ""),
+        otp,
+        expiresAt: payload?.data?.expiresAt || payload?.expiresAt || null
+      });
+    };
+
+    const handleOtpVerified = (payload = {}) => {
+      const bid = String(payload?.bookingId || payload?.data?.booking?._id || "");
+
+      setRideOtpPopup((current) =>
+        current && (!bid || current.bookingId === bid)
+          ? null
+          : current
+      );
+    };
+
+    socket.on("ride:otp-generated", handleOtpGenerated);
+    socket.on("ride:otp-verified", handleOtpVerified);
+
+    return () => {
+      socket.off("ride:otp-generated", handleOtpGenerated);
+      socket.off("ride:otp-verified", handleOtpVerified);
+    };
+  }, []);
+
+  /* ──────────────────────────────────────────────────────────────────
      Socket Event Listeners — Fare Negotiation + Payment
   ────────────────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -1482,7 +1526,7 @@ function CustomerDashboard({
         })
       );
 
-      if (AUTO_PAYMENT_MODAL_ENABLED && bid) {
+      if (AUTO_PAYMENT_MODAL_ENABLED && bid && String(data?.status || data?.rideStatus || "").toLowerCase() === "completed") {
         const currentRide = localBookings.find((ride) => idOf(ride) === bid);
         const paymentRide = {
           ...(currentRide || {}),
@@ -1603,12 +1647,21 @@ function CustomerDashboard({
 
     const handlePaymentCompleted = (data = {}) => {
       const paymentMethod = String(data?.paymentMethod || "").toLowerCase();
-      playHimRideGEventSound(
-        paymentMethod === "cash" ? "cash_payment_success" : "online_payment_success"
-      ).catch(() => {});
-
       const bid = String(data?.bookingId || "");
       if (!bid) return;
+
+      /*
+      | Cash confirmation compatibility me server payment:confirmed aur
+      | payment:completed dono emit kar sakta hai. Same payment ka sound ek hi
+      | baar play ho; state updates idempotent rehne diye gaye hain.
+      */
+      const completionKey = `${bid}:${paymentMethod || "unknown"}:${String(data?.paidAt || "paid")}`;
+      if (!paymentCompletedSeenRef.current.has(completionKey)) {
+        paymentCompletedSeenRef.current.add(completionKey);
+        playHimRideGEventSound(
+          paymentMethod === "cash" ? "cash_payment_success" : "online_payment_success"
+        ).catch(() => {});
+      }
 
       setLocalBookings((prev) =>
         prev.map((ride) =>
@@ -1619,6 +1672,12 @@ function CustomerDashboard({
       );
 
       setPaidBookingIds((prev) => new Set([...prev, bid]));
+
+      setPaymentBooking((current) =>
+        current && idOf(current) === bid
+          ? { ...current, ...data, paymentStatus: "paid" }
+          : current
+      );
     };
 
     /*
@@ -1667,6 +1726,7 @@ function CustomerDashboard({
     socket.on("payment:plan-updated", handlePaymentPlanUpdated);
     socket.on("payment:method-updated", handlePaymentPlanUpdated);
     socket.on("payment:completed", handlePaymentCompleted);
+    socket.on("payment:confirmed", handlePaymentCompleted);
 
     return () => {
       socket.off("connect", handleReconnect);
@@ -1681,6 +1741,7 @@ function CustomerDashboard({
       socket.off("payment:plan-updated", handlePaymentPlanUpdated);
       socket.off("payment:method-updated", handlePaymentPlanUpdated);
       socket.off("payment:completed", handlePaymentCompleted);
+      socket.off("payment:confirmed", handlePaymentCompleted);
     };
   }, [localBookings, paidBookingIds, loadBookings]);
 
@@ -1908,9 +1969,11 @@ function CustomerDashboard({
           paymentStatus: result.paymentStatus || "pending",
         };
 
-        paymentShownRef.current.add(`${bookingId}:fare-plan`);
-        setPaymentBooking(paymentRide);
-        setShowPaymentModal(true);
+        if (canCustomerPayRide(paymentRide, paidBookingIds)) {
+          paymentShownRef.current.add(`${bookingId}:completed-payment`);
+          setPaymentBooking(paymentRide);
+          setShowPaymentModal(true);
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -2115,39 +2178,24 @@ function CustomerDashboard({
 
     /*
     |--------------------------------------------------------------------------
-    | Cash is NOT paid until assigned driver confirms receipt
+    | Independent payment completion
     |--------------------------------------------------------------------------
-    |
-    | PaymentModal uses onSuccess when the customer selects Cash so that the
-    | UI can close gracefully. Do not add a cash booking to paidBookingIds here.
-    | The backend /payments/cash-confirm endpoint is the only authority that can
-    | mark a cash ride paid, and it is restricted to the assigned driver.
-    |
+    | Online verification, customer Cash Payment Done, ya driver Receive Cash
+    | me se authoritative backend paid response aate hi ride paid hai. Customer
+    | aur driver ko ek-dusre ke UI acknowledgement ka wait nahi karna.
     */
 
-    if (bid && method === "online") {
+    if (bid && String(paymentData?.paymentStatus || "").toLowerCase() === "paid") {
       setPaidBookingIds((prev) => new Set([...prev, bid]));
     }
 
     loadBookings?.();
 
-    if (method === "online") {
+    if (String(paymentData?.paymentStatus || "").toLowerCase() === "paid") {
       setTimeout(() => {
         setShowPaymentModal(false);
         setPaymentBooking(null);
       }, 3000);
-      return;
-    }
-
-    if (method === "cash") {
-      /*
-      | Cash select karne ke baad success instructions thodi der visible rahein.
-      | Cash ko paidBookingIds me add nahi karna; driver confirmation required hai.
-      */
-      setTimeout(() => {
-        setShowPaymentModal(false);
-        setPaymentBooking(null);
-      }, 2500);
     }
   }, [paymentBooking, loadBookings]);
 
@@ -2939,6 +2987,60 @@ function CustomerDashboard({
       </nav>
 
       {/* Payment Modal */}
+      {rideOtpPopup && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Ride start OTP"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10080,
+            background: "rgba(0,0,0,.72)",
+            display: "grid",
+            placeItems: "center",
+            padding: 18
+          }}
+        >
+          <div
+            style={{
+              width: "min(92vw,390px)",
+              borderRadius: 22,
+              padding: "24px 22px",
+              background: "#101318",
+              color: "#fff",
+              border: "1px solid rgba(245,197,24,.45)",
+              boxShadow: "0 24px 70px rgba(0,0,0,.5)",
+              textAlign: "center"
+            }}
+          >
+            <div style={{ fontSize: 36 }}>🔐</div>
+            <h2 style={{ margin: "8px 0 4px", color: "#f5c518" }}>
+              Ride Start OTP
+            </h2>
+            <p style={{ margin: "0 0 16px", color: "#c7cbd1", lineHeight: 1.5 }}>
+              Driver arrive ho gaya hai. Driver ko saamne milne ke baad ye OTP batayein.
+            </p>
+            <div
+              style={{
+                fontSize: 42,
+                fontWeight: 900,
+                letterSpacing: 12,
+                padding: "14px 12px",
+                borderRadius: 14,
+                background: "#f5c518",
+                color: "#050505"
+              }}
+            >
+              {rideOtpPopup.otp}
+            </div>
+            <small style={{ display: "block", marginTop: 12, color: "#9aa3ad" }}>
+              OTP verify hote hi ye popup automatically close ho jayega.
+            </small>
+          </div>
+        </div>
+      )}
+
       {showPaymentModal && paymentBooking && (
         <PaymentModal
           booking={paymentBooking}

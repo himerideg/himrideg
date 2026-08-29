@@ -114,6 +114,9 @@ async function createRide(
       pickupCoordinates,
       dropCoordinates,
       travelDate,
+      bookingMode,
+      riderFor,
+      paymentTiming,
       passengers,
       vehicleType,
       distanceKm,
@@ -137,6 +140,15 @@ async function createRide(
         dropCoordinates,
 
         travelDate,
+
+        bookingMode:
+          bookingMode || "now",
+
+        riderFor:
+          riderFor || "self",
+
+        paymentTiming:
+          paymentTiming || "pay_later",
 
         passengers:
           passengers === undefined

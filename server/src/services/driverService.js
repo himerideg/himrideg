@@ -5,7 +5,11 @@ const Booking = require("../models/Booking");
 const ApiError = require("../utils/ApiError");
 
 const ACTIVE_RIDE_STATUSES = [
+  "driver_assigned",
   "accepted",
+  "fare_offered",
+  "negotiating",
+  "fare_accepted",
   "driver_arriving",
   "driver_arrived",
   "started"
@@ -121,6 +125,37 @@ async function getCurrentRide(driverId) {
       "customer",
       "name phone profileImage"
     );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Availability Blocking Ride
+|--------------------------------------------------------------------------
+| Active fare/ride stages ke saath completed-but-unpaid ride bhi driver ko
+| new request ke liye unavailable rakhegi. Offline toggle ko unnecessarily
+| block nahi kiya jata; ye helper sirf new-ride availability decisions me hai.
+*/
+async function getAvailabilityBlockingRide(driverId) {
+  return Booking.findOne({
+    driver: driverId,
+    $or: [
+      {
+        status: {
+          $in: ACTIVE_RIDE_STATUSES
+        }
+      },
+      {
+        status: "completed",
+        paymentStatus: {
+          $ne: "paid"
+        }
+      }
+    ]
+  })
+    .sort({
+      updatedAt: -1
+    })
+    .select("_id status paymentStatus");
 }
 
 /*
@@ -281,7 +316,7 @@ async function setDriverOnline(driverId) {
   }
 
   const currentRide =
-    await getCurrentRide(driverId);
+    await getAvailabilityBlockingRide(driverId);
 
   const commissionDue =
     Number(
@@ -395,12 +430,14 @@ async function setDriverAvailable(
   }
 
   const currentRide =
-    await getCurrentRide(driverId);
+    await getAvailabilityBlockingRide(driverId);
 
   if (currentRide) {
     throw new ApiError(
       400,
-      "Driver cannot become available during an active ride"
+      currentRide.status === "completed"
+        ? "Payment confirmation pending hai. Payment receive hone ke baad next ride available hogi"
+        : "Driver cannot become available during an active ride"
     );
   }
 

@@ -74,6 +74,13 @@ const DRIVER_DOCUMENT_TYPES = [
   ["vehicle_photo", "Vehicle Photo"]
 ];
 
+/* ADD-ONLY: old records remain compatible, but these are no longer driver-facing requirements. */
+const HIDDEN_DRIVER_DOCUMENT_TYPES = new Set([
+  "insurance",
+  "pollution_certificate",
+  "fitness_certificate"
+]);
+
 const STATUS_LABELS = {
   pending: "Pending",
   searching_driver: "Searching Driver",
@@ -5373,7 +5380,9 @@ function DriverDashboard({
                   <div className="hgProfileBody">
                     <p className="hgDocHelp">JPG, PNG, WEBP ya PDF • Max 5MB • Upload ke baad Admin verify karega</p>
 
-                    {DRIVER_DOCUMENT_TYPES.map(([documentType, fallbackLabel]) => {
+                    {DRIVER_DOCUMENT_TYPES
+                      .filter(([documentType]) => !HIDDEN_DRIVER_DOCUMENT_TYPES.has(documentType))
+                      .map(([documentType, fallbackLabel]) => {
                       const meta = DOC_META[documentType] || { icon:"📄", label: fallbackLabel };
                       const doc = driverDocuments.find(d => d.documentType === documentType);
                       const status = doc?.verificationStatus || "not_uploaded";
@@ -5524,7 +5533,7 @@ function DriverDashboard({
                     {tabRides.length ? (
                       <>
                         <p className="driverRequestListHint">Ride request par tap karo. Accept / Reject sirf details open hone ke baad aayega.</p>
-                        {tabRides.slice(0, 8).map((ride) => {
+                        {tabRides.slice(0, 10).map((ride) => {
                           const rideId = getId(ride);
 
                           return (
@@ -5535,6 +5544,8 @@ function DriverDashboard({
                               onClick={() => setSelectedRideId(rideId)}
                             >
                               <span className="driverRequestCompactRoute">
+                                <small>CUSTOMER</small>
+                                <strong style={{color:"#f5c518",fontWeight:900}}>{getCustomerName(ride)}</strong>
                                 <small>PICKUP</small>
                                 <strong>{getPickupName(ride)}</strong>
                                 <small>DROP</small>
@@ -5621,9 +5632,9 @@ function DriverDashboard({
                           </div>
                         ) : selectedFareStage === "driver_final" ? (
                           <div className="driverCustomerCounter driverFinalFarePendingCard">
-                            <p>🔒 FINAL FARE LOCKED</p>
+                            <p>📨 FINAL FARE SENT</p>
                             <strong>₹{selectedDriverFinalFare.toFixed(0)}</strong>
-                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Final amount ab change nahi hoga. Customer ke Accept / Reject ka wait ho raha hai.</small>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Final offer customer ko bhej diya hai. Fare sirf customer ke Accept karne ke baad LOCK hoga.</small>
                             <button
                               type="button"
                               className="driverFinalCancelButton"

@@ -24,8 +24,9 @@ import api from "../api";
 | 4. Advance select hone par driver pickup action payment paid hone tak locked.
 | 5. Scheduled Payment me customer kabhi bhi Pay Now kar sakta hai.
 | 6. Ride complete + payment pending = Waiting for Payment.
-| 7. Cash choice sirf normal post-ride payment ke andar preserve hai.
-| 8. estimatedFare / driverOfferedFare ko payment amount ke liye use nahi karna.
+| 7. Cash me customer Payment Done ya driver Receive Cash — first confirm wins.
+| 8. Payment paid hote hi driver release; mutual acknowledgement required nahi.
+| 9. estimatedFare / driverOfferedFare ko payment amount ke liye use nahi karna.
 |
 |--------------------------------------------------------------------------
 */
@@ -858,7 +859,7 @@ function PaymentModal({
         fare: selectedFare,
         finalFare: selectedFare,
         message:
-          "Driver ko locked fare cash dijiye. Assigned driver receive confirm karega.",
+          "Driver ko locked fare cash dijiye. Cash dene ke baad Payment Done dabayein; driver bhi Receive Cash karke complete kar sakta hai.",
       };
 
       setReceipt(cashReceipt);
@@ -872,12 +873,76 @@ function PaymentModal({
         paymentStatus: "pending",
       });
 
-      onSuccess?.(cashReceipt);
+      // Cash selection abhi PAID nahi hai; customer Payment Done ya driver
+      // Receive Cash me se koi ek confirmation payment complete karega.
     } catch (cashError) {
       setError(
         cashError?.response?.data?.message ||
           cashError?.message ||
           "Cash payment select nahi ho saka"
+      );
+      setStep(STEP.ERROR);
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    bookingId,
+    completed,
+    fareLocked,
+    finalFare,
+    onBookingUpdate,
+    onSuccess,
+    plan,
+  ]);
+
+  const handleCustomerCashDone = useCallback(async () => {
+    if (!fareLocked || !completed) {
+      setError("Cash Payment Done sirf completed ride ke baad available hai.");
+      setStep(STEP.ERROR);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const { data } = await api.post("/payments/cash-confirm", { bookingId });
+
+      if (!data?.success) {
+        throw new Error(data?.message || "Cash Payment Done nahi ho saka");
+      }
+
+      const paidFare = Number(data?.data?.fare) || finalFare;
+      const paidMethod = String(data?.data?.paymentMethod || METHOD.CASH).toLowerCase();
+      const paidReceipt = {
+        ...data?.data,
+        paymentMethod: paidMethod,
+        paymentPlan: plan,
+        paymentStatus: "paid",
+        fare: paidFare,
+        finalFare: paidFare,
+        confirmedBy: "customer",
+        message: data?.message || "Cash Payment Done",
+      };
+
+      setReceipt(paidReceipt);
+      setStep(STEP.SUCCESS);
+
+      onBookingUpdate?.({
+        bookingId,
+        paymentPlan: plan,
+        paymentMethod: paidMethod,
+        paymentChoiceAfterRide: paidMethod,
+        paymentStatus: "paid",
+        paidAt: data?.data?.paidAt || new Date().toISOString(),
+      });
+
+      onSuccess?.(paidReceipt);
+    } catch (cashDoneError) {
+      setError(
+        cashDoneError?.response?.data?.message ||
+          cashDoneError?.message ||
+          "Cash Payment Done nahi ho saka"
       );
       setStep(STEP.ERROR);
     } finally {
@@ -1340,7 +1405,7 @@ function PaymentModal({
                 <p>
                   Driver ko exactly
                   <strong> {formatMoney(finalFare)} </strong>
-                  cash dijiye. Driver receive confirm karega.
+                  cash dijiye. Cash dene ke baad aap Payment Done kar sakte hain; driver bhi Receive Cash kar sakta hai.
                 </p>
               </div>
             )}
@@ -1388,16 +1453,20 @@ function PaymentModal({
         {step === STEP.SUCCESS && (
           <div className="paymentSuccess">
             <div className="paymentSuccessIcon">
-              {receipt?.paymentMethod === METHOD.CASH ? "💵" : "✅"}
+              {receipt?.paymentMethod === METHOD.CASH && receipt?.paymentStatus !== "paid"
+                ? "💵"
+                : "✅"}
             </div>
 
             <h3>
               {receipt?.paymentMethod === METHOD.CASH
-                ? "Cash Selected"
+                ? receipt?.paymentStatus === "paid"
+                  ? "Cash Payment Successful! ✅"
+                  : "Cash Payment Selected"
                 : "Payment Successful! 🎉"}
             </h3>
 
-            {receipt?.paymentMethod === METHOD.CASH ? (
+            {receipt?.paymentMethod === METHOD.CASH && receipt?.paymentStatus !== "paid" ? (
               <div className="paymentCashInstructions">
                 <div className="cashInstRow">
                   <span>💰</span>
@@ -1410,9 +1479,17 @@ function PaymentModal({
                 <div className="cashInstRow">
                   <span>✅</span>
                   <p>
-                    Driver cash receive confirm karega. Tab payment Paid hoga.
+                    Cash dene ke baad <strong>Payment Done</strong> dabayein. Driver bhi Receive Cash dabakar payment complete kar sakta hai. Dono me se ek confirmation enough hai.
                   </p>
                 </div>
+                <button
+                  type="button"
+                  className="paymentConfirmBtn"
+                  disabled={loading}
+                  onClick={handleCustomerCashDone}
+                >
+                  {loading ? "Completing..." : `Payment Done · ${formatMoney(receipt?.fare || finalFare)}`}
+                </button>
               </div>
             ) : (
               <div className="paymentReceiptBox">
@@ -1446,7 +1523,9 @@ function PaymentModal({
               className="paymentDoneBtn"
               onClick={onClose}
             >
-              Done ✓
+              {receipt?.paymentMethod === METHOD.CASH && receipt?.paymentStatus !== "paid"
+                ? "Close"
+                : "Done ✓"}
             </button>
           </div>
         )}
@@ -1491,7 +1570,7 @@ function PaymentModal({
 
             {completed && fareLocked && !alreadyPaid && (
               <small style={{display:"block",marginTop:"10px",color:"#aab0b8",lineHeight:1.5}}>
-                Online transaction fail hone par Cash Payment choose kar sakte hain. Driver cash receive confirm karega.
+                Online transaction fail hone par Cash Payment choose kar sakte hain. Customer Payment Done ya driver Receive Cash — dono me se koi ek payment complete karega.
               </small>
             )}
           </div>

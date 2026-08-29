@@ -601,16 +601,25 @@ const emitRideOtpGenerated = ({
   booking,
   otp = null,
   expiresAt = null,
+  rideStartOtp = null,
+  otpExpiresAt = null,
   data = null
 } = {}) => {
+  /* ADD-ONLY compatibility: older ride service calls use rideStartOtp/otpExpiresAt. */
+  const resolvedOtp =
+    otp ?? rideStartOtp ?? null;
+
+  const resolvedExpiresAt =
+    expiresAt ?? otpExpiresAt ?? null;
+
   const payload = createEventPayload({
     booking,
     message:
       "Ride start OTP generated",
 
     data: {
-      otp,
-      expiresAt,
+      otp: resolvedOtp,
+      expiresAt: resolvedExpiresAt,
       booking,
 
       ...(
@@ -648,8 +657,8 @@ const emitRideOtpGenerated = ({
 
         data: {
           booking,
-          expiresAt,
-          otpGenerated: Boolean(otp)
+          expiresAt: resolvedExpiresAt,
+          otpGenerated: Boolean(resolvedOtp)
         }
       }
     );
