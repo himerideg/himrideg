@@ -2365,3 +2365,263 @@ canvas {
     font-size: 9.3px !important;
   }
 }
+
+/* =========================================================
+   FINAL RESPONSIVE NAVBAR MODE SPLIT — ADD-ONLY
+   2026-08-30
+   Desktop-site mode gets the laptop one-line navbar.
+   Real mobile keeps the direct mobile tabs in the SAME top row.
+========================================================= */
+
+@media (min-width: 700px) and (max-width: 1100px) {
+  .siteNavbar {
+    width: 100% !important;
+    min-height: 72px !important;
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    grid-auto-rows: 1fr !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 0 12px !important;
+  }
+
+  .hrgNavbarBrand {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-width: max-content !important;
+    gap: 7px !important;
+  }
+
+  .hrgNavbarLogo,
+  .siteNavbar img.hrgNavbarLogo {
+    width: 50px !important;
+    height: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+    max-height: 50px !important;
+  }
+
+  .hrgNavbarBrandName {
+    display: inline-flex !important;
+    font-size: 22px !important;
+    letter-spacing: -0.8px !important;
+  }
+
+  .navLinks {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: clamp(7px, 1vw, 14px) !important;
+  }
+
+  .navLinks a,
+  .navLinks button {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    padding: 6px 2px !important;
+    font-size: clamp(10px, 1.15vw, 13px) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  .navLinks button[title="Admin Login"] {
+    padding: 6px 9px !important;
+  }
+
+  .navActions {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 7px !important;
+    min-width: max-content !important;
+  }
+
+  .loginButton,
+  .signupButton {
+    min-width: 68px !important;
+    min-height: 40px !important;
+    padding: 0 11px !important;
+    border-radius: 9px !important;
+    font-size: 11px !important;
+  }
+
+  .mobileNavLinks,
+  .mobileRoleActions {
+    display: none !important;
+  }
+}
+
+@media (max-width: 699px) {
+  .siteNavbar {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-height: 66px !important;
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    grid-auto-rows: 1fr !important;
+    align-items: center !important;
+    column-gap: 5px !important;
+    row-gap: 0 !important;
+    padding: 6px 8px !important;
+  }
+
+  .hrgNavbarBrand {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+
+  .hrgNavbarBrandName {
+    display: none !important;
+  }
+
+  .hrgNavbarLogo,
+  .siteNavbar img.hrgNavbarLogo {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+    max-height: 42px !important;
+  }
+
+  .navLinks,
+  .mobileRoleActions {
+    display: none !important;
+  }
+
+  .mobileNavLinks {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    position: relative !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 1px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: visible !important;
+  }
+
+  .mobileNavLinks > a,
+  .mobileNavLinks > button,
+  .mobileMoreMenu > summary {
+    flex: 0 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 30px !important;
+    padding: 0 4px !important;
+    border-radius: 7px !important;
+    font-size: 8.8px !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileDriverNavItem {
+    width: auto !important;
+    gap: 2px !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  .mobileDriverNavItem > span:first-child {
+    display: none !important;
+  }
+
+  .mobileMoreMenu {
+    position: relative !important;
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+  }
+
+  .mobileMoreDropdown {
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    right: 0 !important;
+    z-index: 5000 !important;
+  }
+
+  .navActions {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 4px !important;
+    min-width: max-content !important;
+  }
+
+  .loginButton,
+  .signupButton {
+    flex: 0 0 auto !important;
+    min-width: 48px !important;
+    min-height: 36px !important;
+    padding: 0 7px !important;
+    border-radius: 9px !important;
+    font-size: 9px !important;
+    white-space: nowrap !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .siteNavbar {
+    column-gap: 4px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+
+  .hrgNavbarLogo,
+  .siteNavbar img.hrgNavbarLogo {
+    width: 39px !important;
+    height: 39px !important;
+    min-width: 39px !important;
+    max-width: 39px !important;
+    max-height: 39px !important;
+  }
+
+  .mobileNavLinks > a,
+  .mobileNavLinks > button,
+  .mobileMoreMenu > summary {
+    padding-left: 3px !important;
+    padding-right: 3px !important;
+    font-size: 8.2px !important;
+  }
+
+  .loginButton,
+  .signupButton {
+    min-width: 45px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    font-size: 8.6px !important;
+  }
+}
+
+@media (max-width: 350px) {
+  .mobileNavLinks > button:nth-of-type(1) {
+    font-size: 0 !important;
+  }
+
+  .mobileNavLinks > button:nth-of-type(1)::after {
+    content: "Book";
+    font-size: 8px;
+  }
+
+  .mobileDriverNavItem > span:last-child {
+    font-size: 0 !important;
+  }
+
+  .mobileDriverNavItem > span:last-child::after {
+    content: "Driver";
+    font-size: 8px;
+  }
+}
