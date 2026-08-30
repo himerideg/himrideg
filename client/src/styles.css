@@ -1927,3 +1927,265 @@ canvas {
     font-size: 11px;
   }
 }
+
+/* =========================================================
+   MOBILE NAVBAR TABS + MORE MENU FIX — ADD-ONLY
+   2026-08-30
+   Goal:
+   - Keep Login / Sign Up fixed on the right side of mobile navbar.
+   - Keep Driver Login inside the navbar, not as a large card below it.
+   - Put remaining navbar items inside a tappable More menu.
+   - Preserve the complete desktop navbar unchanged.
+========================================================= */
+
+.mobileNavLinks {
+  display: none;
+}
+
+@media (max-width: 1000px) {
+  /* The old large role-login cards remain in source for full-code safety,
+     but are intentionally hidden because role access now lives in navbar. */
+  .mobileRoleActions {
+    display: none !important;
+  }
+
+  .siteNavbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 0;
+  }
+
+  .mobileNavLinks {
+    grid-column: 1 / -1;
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 0 9px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .mobileNavLinks > a,
+  .mobileNavLinks > button,
+  .mobileMoreMenu > summary {
+    min-width: 0;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobileNavLinks > a:hover,
+  .mobileNavLinks > button:hover,
+  .mobileNavLinks > a:focus-visible,
+  .mobileNavLinks > button:focus-visible,
+  .mobileMoreMenu > summary:hover,
+  .mobileMoreMenu > summary:focus-visible {
+    color: #ffc400;
+    background: rgba(255, 196, 0, 0.07);
+    outline: none;
+  }
+
+  .mobileDriverNavItem {
+    width: 100%;
+    color: #ffc400 !important;
+    border: 1px solid rgba(255, 196, 0, 0.26) !important;
+    background: rgba(255, 196, 0, 0.055) !important;
+  }
+
+  .mobileMoreMenu {
+    position: relative;
+    min-width: 0;
+  }
+
+  .mobileMoreMenu > summary {
+    list-style: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .mobileMoreMenu > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobileMoreMenu[open] > summary {
+    color: #0a0a0a;
+    background: #ffc400;
+    border-color: #ffc400;
+  }
+
+  .mobileMoreChevron {
+    display: inline-block;
+    font-size: 10px;
+    transform-origin: center;
+    transition: transform 0.18s ease;
+  }
+
+  .mobileMoreMenu[open] .mobileMoreChevron {
+    transform: rotate(180deg);
+  }
+
+  .mobileMoreDropdown {
+    position: absolute;
+    top: calc(100% + 7px);
+    right: 0;
+    z-index: 1205;
+    width: min(205px, calc(100vw - 24px));
+    padding: 7px;
+    display: grid;
+    gap: 4px;
+    background: #090c10;
+    border: 1px solid rgba(255, 196, 0, 0.28);
+    border-radius: 12px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+  }
+
+  .mobileMoreDropdown a,
+  .mobileMoreDropdown button {
+    width: 100%;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+
+  .mobileMoreDropdown a:hover,
+  .mobileMoreDropdown button:hover,
+  .mobileMoreDropdown a:focus-visible,
+  .mobileMoreDropdown button:focus-visible {
+    color: #ffc400;
+    background: rgba(255, 196, 0, 0.08);
+    outline: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .siteNavbar {
+    padding: 8px 12px 0;
+  }
+
+  .mobileNavLinks {
+    gap: 5px;
+    padding-top: 7px;
+    padding-bottom: 8px;
+  }
+
+  .mobileNavLinks > a,
+  .mobileNavLinks > button,
+  .mobileMoreMenu > summary {
+    min-height: 32px;
+    padding-left: 7px;
+    padding-right: 7px;
+    font-size: 11px;
+  }
+
+  .mobileDriverNavItem {
+    gap: 3px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  /* Logo stays on the left; desktop-size text is already hidden by the
+     existing mobile brand rule, leaving room for fixed Login / Sign Up. */
+  .siteNavbar {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .navActions {
+    flex-shrink: 0;
+  }
+
+  .loginButton,
+  .signupButton {
+    min-height: 38px;
+  }
+
+  .mobileNavLinks {
+    grid-template-columns: 0.72fr 1fr 1.34fr auto;
+    gap: 4px;
+  }
+
+  .mobileNavLinks > a,
+  .mobileNavLinks > button,
+  .mobileMoreMenu > summary {
+    width: 100%;
+    padding-left: 5px;
+    padding-right: 5px;
+    font-size: 10.5px;
+  }
+}
+
+@media (max-width: 360px) {
+  .siteNavbar {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .hrgNavbarLogo,
+  .siteNavbar img.hrgNavbarLogo {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    max-height: 46px !important;
+  }
+
+  .navActions {
+    gap: 5px;
+  }
+
+  .loginButton,
+  .signupButton {
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 10.5px;
+  }
+
+  .mobileNavLinks {
+    grid-template-columns: 0.66fr 0.92fr 1.38fr auto;
+    gap: 3px;
+  }
+
+  .mobileNavLinks > a,
+  .mobileNavLinks > button,
+  .mobileMoreMenu > summary {
+    min-height: 31px;
+    padding-left: 4px;
+    padding-right: 4px;
+    font-size: 9.8px;
+  }
+
+  .mobileDriverNavItem > span:first-child {
+    display: none;
+  }
+}

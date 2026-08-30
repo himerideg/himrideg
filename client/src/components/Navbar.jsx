@@ -96,6 +96,63 @@ function Navbar({
 
       {/*
       |--------------------------------------------------------------------
+      | Mobile Navbar Menu — 2026-08-30
+      |--------------------------------------------------------------------
+      | Mobile must behave like the desktop navbar: role logins stay inside
+      | the navbar instead of appearing as large standalone cards. The
+      | right-side Login / Sign Up buttons above remain fixed and visible.
+      | Tabs that fit are shown directly; remaining links are under More.
+      */}
+      <nav className="mobileNavLinks" aria-label="Mobile HimRideG navigation">
+        <a href="#home" className="mobileNavDirectItem">
+          Home
+        </a>
+
+        <button
+          type="button"
+          className="mobileNavDirectItem"
+          onClick={onBookRide}
+        >
+          Book Ride
+        </button>
+
+        <button
+          type="button"
+          className="mobileNavDirectItem mobileDriverNavItem"
+          onClick={onDriverLogin}
+          title="Driver Login"
+          aria-label="Open Driver Login"
+        >
+          <span aria-hidden="true">🚕</span>
+          <span>Driver Login</span>
+        </button>
+
+        <details className="mobileMoreMenu">
+          <summary aria-label="Open more navigation options">
+            More
+            <span className="mobileMoreChevron" aria-hidden="true">▾</span>
+          </summary>
+
+          <div className="mobileMoreDropdown">
+            <a href="#about">About</a>
+
+            <button
+              type="button"
+              onClick={onAdminLogin}
+              title="Admin Login"
+              aria-label="Open Admin Login"
+            >
+              <span aria-hidden="true">🔐</span>
+              <span>Admin Login</span>
+            </button>
+
+            <a href="#help">Help</a>
+          </div>
+        </details>
+      </nav>
+
+      {/*
+      |--------------------------------------------------------------------
       | Mobile Role Login Actions — ADD-ONLY
       |--------------------------------------------------------------------
       | Desktop navigation already contains Driver/Admin. On screens below
