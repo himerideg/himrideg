@@ -1742,3 +1742,188 @@ a {
     display: none !important;
   }
 }
+
+/* =========================================================
+   HIMRIDEG MOBILE VISIBILITY + ROLE LOGIN FIX — ADD-ONLY
+   2026-08-30
+   Existing desktop styles and logic are intentionally preserved.
+========================================================= */
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+}
+
+html {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body,
+#root,
+.homePage {
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Desktop already has Driver/Admin inside .navLinks. */
+.mobileRoleActions {
+  display: none;
+}
+
+/* The About accordion sits on a light section. Inline legacy white text
+   made its questions disappear on phones. These stronger scoped rules
+   restore readable contrast without changing accordion behavior. */
+.aboutSection .aboutAccordionItem {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.05);
+}
+
+.aboutSection .aboutAccordionItem[data-open="true"] {
+  background: #fffaf0 !important;
+  border-color: rgba(183, 134, 0, 0.42) !important;
+}
+
+.aboutSection .aboutAccordionQuestion {
+  color: #171717 !important;
+}
+
+.aboutSection .aboutAccordionQuestion[aria-expanded="true"] {
+  color: #8b6500 !important;
+}
+
+.aboutSection .aboutAccordionAnswer {
+  color: #5f6672 !important;
+}
+
+@media (max-width: 1000px) {
+  .siteNavbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 0;
+  }
+
+  .mobileRoleActions {
+    grid-column: 1 / -1;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 0 0 12px;
+  }
+
+  .mobileRoleActions button {
+    min-width: 0;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 850;
+    white-space: nowrap;
+  }
+
+  .mobileDriverLoginButton {
+    color: #0a0a0a;
+    background: #ffc400;
+    border: 1px solid #ffc400;
+  }
+
+  .mobileAdminLoginButton {
+    color: #ffc400;
+    background: rgba(255, 196, 0, 0.07);
+    border: 1px solid rgba(255, 196, 0, 0.48);
+  }
+}
+
+@media (max-width: 600px) {
+  .siteNavbar {
+    width: 100%;
+    max-width: 100vw;
+    padding: 8px 12px 0;
+    align-items: center;
+  }
+
+  .hrgNavbarBrand {
+    min-width: 0 !important;
+    max-width: 100%;
+  }
+
+  .navActions {
+    min-width: 0;
+    justify-content: flex-end;
+  }
+
+  .loginButton,
+  .signupButton {
+    white-space: nowrap;
+  }
+
+  .mobileRoleActions {
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 9px;
+  }
+
+  .mobileRoleActions button {
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .featuresSection,
+  .aboutSection {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .aboutSection .sectionHeading,
+  .aboutSection .featureGrid,
+  .aboutSection .aboutAccordionItem {
+    max-width: 100%;
+  }
+
+  .aboutSection .aboutAccordionQuestion {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    font-size: 14px !important;
+    line-height: 1.35;
+  }
+
+  .aboutSection .aboutAccordionAnswer {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    font-size: 13px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .siteNavbar {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .loginButton,
+  .signupButton {
+    padding-left: 9px;
+    padding-right: 9px;
+    font-size: 11px;
+  }
+
+  .mobileRoleActions button {
+    padding-left: 7px;
+    padding-right: 7px;
+    font-size: 11px;
+  }
+}

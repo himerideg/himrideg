@@ -93,6 +93,39 @@ function Navbar({
           Sign Up
         </button>
       </div>
+
+      {/*
+      |--------------------------------------------------------------------
+      | Mobile Role Login Actions — ADD-ONLY
+      |--------------------------------------------------------------------
+      | Desktop navigation already contains Driver/Admin. On screens below
+      | 1000px the desktop nav is intentionally hidden, so these dedicated
+      | mobile actions keep Driver Login and Admin Login visible in Chrome,
+      | Safari and installed web-app/mobile browser views.
+      */}
+      <div className="mobileRoleActions" aria-label="HimRideG role login links">
+        <button
+          className="mobileDriverLoginButton"
+          type="button"
+          onClick={onDriverLogin}
+          aria-label="Open Driver Login"
+          title="Driver Login"
+        >
+          <span aria-hidden="true">🚕</span>
+          <span>Driver Login</span>
+        </button>
+
+        <button
+          className="mobileAdminLoginButton"
+          type="button"
+          onClick={onAdminLogin}
+          aria-label="Open Admin Login"
+          title="Admin Login"
+        >
+          <span aria-hidden="true">🔐</span>
+          <span>Admin Login</span>
+        </button>
+      </div>
     </header>
   );
 }

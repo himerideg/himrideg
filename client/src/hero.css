@@ -1240,3 +1240,146 @@ html{
     animation: none;
   }
 }
+
+/* =========================================================
+   HIMRIDEG HERO MOBILE OVERFLOW FIX — ADD-ONLY
+   2026-08-30
+========================================================= */
+
+.hrHero,
+.hrHeroContainer,
+.hrHeroContent,
+.hrBookingColumn,
+.hrBookingCard {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 650px) {
+  .hrHero {
+    width: 100%;
+    max-width: 100vw;
+    overflow: hidden;
+    background-position: 50% center;
+  }
+
+  .hrHeroContainer {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 38px 16px 44px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 34px;
+  }
+
+  .hrHeroContent,
+  .hrBookingColumn,
+  .hrBookingCard {
+    width: 100%;
+  }
+
+  .hrHeroTitle {
+    width: 100%;
+    max-width: 100%;
+    font-size: clamp(38px, 11vw, 50px);
+    line-height: 1.02;
+    letter-spacing: -2px;
+    overflow-wrap: anywhere;
+  }
+
+  .hrHeroTitle span {
+    width: 100%;
+    max-width: 100%;
+    margin-top: 5px;
+    font-size: 0.84em;
+    line-height: 1.05;
+  }
+
+  .hrHeroDescription {
+    width: 100%;
+    max-width: 100%;
+    margin-top: 19px;
+    font-size: 15px;
+    line-height: 1.58;
+    overflow-wrap: break-word;
+  }
+
+  .hrHeroBenefits {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .hrHeroActions,
+  .hrHeroActions button,
+  .hrPrimaryButton {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .hrHeroActions button,
+  .hrPrimaryButton {
+    min-width: 0;
+    min-height: 48px;
+    padding: 12px 16px;
+    border-radius: 0;
+  }
+
+  .hrBookingCard {
+    padding: 20px;
+    overflow: hidden;
+  }
+
+  .hrBookingHeader {
+    min-width: 0;
+  }
+
+  .hrBookingHeader > div {
+    min-width: 0;
+  }
+
+  .hrBookingHeader h2 {
+    max-width: 100%;
+    overflow-wrap: break-word;
+  }
+
+  .hrFareButton {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .hrHeroContainer {
+    width: 100%;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .hrHeroTitle {
+    font-size: clamp(36px, 10.7vw, 43px);
+    letter-spacing: -1.7px;
+  }
+
+  .hrHeroDescription {
+    font-size: 14px;
+  }
+
+  .hrBookingCard {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 360px) {
+  .hrHeroContainer {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .hrHeroTitle {
+    font-size: 35px;
+  }
+
+  .hrHeroTag {
+    max-width: 100%;
+    white-space: normal;
+  }
+}

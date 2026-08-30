@@ -70,14 +70,20 @@ function AboutAccordion() {
 
       <div style={{ maxWidth: "760px", margin: "0 auto 48px", display: "flex", flexDirection: "column", gap: "10px" }}>
         {aboutItems.map(item => (
-          <div key={item.id}
+          <div
+            key={item.id}
+            className="aboutAccordionItem"
+            data-open={openId === item.id ? "true" : "false"}
             style={{
               background: openId === item.id ? "rgba(245,197,24,0.07)" : "rgba(255,255,255,0.03)",
               border: `1px solid ${openId === item.id ? "rgba(245,197,24,0.4)" : "rgba(255,255,255,0.1)"}`,
               borderRadius: "12px", overflow: "hidden", transition: "all 0.2s"
             }}>
             <button
+              className="aboutAccordionQuestion"
               type="button"
+              aria-expanded={openId === item.id}
+              aria-controls={`about-answer-${item.id}`}
               onClick={() => toggle(item.id)}
               style={{
                 width: "100%", padding: "16px 20px", display: "flex",
@@ -90,7 +96,11 @@ function AboutAccordion() {
               <span style={{ fontSize: "20px", transition: "transform 0.2s", transform: openId === item.id ? "rotate(45deg)" : "none", color: "#f5c518" }}>+</span>
             </button>
             {openId === item.id && (
-              <div style={{ padding: "0 20px 16px", color: "#aaa", fontSize: "14px", lineHeight: 1.7 }}>
+              <div
+                id={`about-answer-${item.id}`}
+                className="aboutAccordionAnswer"
+                style={{ padding: "0 20px 16px", color: "#aaa", fontSize: "14px", lineHeight: 1.7 }}
+              >
                 {item.content}
               </div>
             )}
