@@ -211,17 +211,26 @@ function saveAccessToken(
 */
 
 function clearLoginData() {
-  [
+  const authKeys = [
     "himrideg_token",
     "himrideg_user",
     "himrideg_role",
     "accessToken",
-    "token"
-  ].forEach((key) => {
-    sessionStorage.removeItem(
-      key
-    );
+    "token",
+    "authToken",
+    "himridegToken"
+  ];
+
+  authKeys.forEach((key) => {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
   });
+
+  // Very old builds stored auth payloads under these generic keys.
+  // Current project does not use them as canonical state, so stale copies
+  // must not survive logout and interfere with legacy dashboard helpers.
+  localStorage.removeItem("auth");
+  localStorage.removeItem("user");
 }
 
 /*
@@ -553,6 +562,18 @@ api.interceptors.response.use(
     |
     */
 
+    const cleanRequestPath =
+      requestUrl
+        .split("?")[0]
+        .split("#")[0]
+        .replace(/\/+$/, "");
+
+    const isGoogleLoginRequest =
+      cleanRequestPath === "/auth/google" ||
+      cleanRequestPath.endsWith(
+        "/api/v2/auth/google"
+      );
+
     const isAuthRequest =
       requestUrl.includes(
         "/login"
@@ -565,7 +586,11 @@ api.interceptors.response.use(
       ) ||
       requestUrl.includes(
         "/refresh"
-      );
+      ) ||
+      requestUrl.includes(
+        "/auth/logout"
+      ) ||
+      isGoogleLoginRequest;
 
     /*
     |--------------------------------------------------------------------------

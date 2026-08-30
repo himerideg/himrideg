@@ -4,6 +4,7 @@ const {
   sendCustomerOtp,
   verifyCustomerOtp,
   refreshAccessToken,
+  logoutCurrentSession,
   updateCustomerProfile,
   getCurrentAuthenticatedUser,
   getAccountPreferences,
@@ -244,6 +245,17 @@ router.patch(
 router.post(
   "/refresh",
   refreshAccessToken
+);
+
+/*
+|--------------------------------------------------------------------------
+| Logout Current Browser / Mobile Session
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  "/logout",
+  logoutCurrentSession
 );
 
 /*

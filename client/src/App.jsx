@@ -5,7 +5,7 @@ import React, {
   useState
 } from "react";
 
-import api from "./api";
+import api, { clearLoginData } from "./api";
 import socket from "./socket";
 import { playHimRideGSoundForText } from "./utils/himridegSounds";
 
@@ -404,25 +404,7 @@ function App() {
           expiredRole = "customer";
         }
 
-        sessionStorage.removeItem(
-          "himrideg_token"
-        );
-
-        sessionStorage.removeItem(
-          "himrideg_user"
-        );
-
-        sessionStorage.removeItem(
-          "himrideg_role"
-        );
-
-        sessionStorage.removeItem(
-          "accessToken"
-        );
-
-        sessionStorage.removeItem(
-          "token"
-        );
+        clearLoginData();
 
         if (
           socket.connected
@@ -1172,8 +1154,24 @@ function App() {
           "Basic info save hui, lekin session continue nahi ho paya. Dobara login karo."
         );
 
+        const fallbackRole =
+          updatedUser?.role ||
+          user?.role ||
+          "customer";
+
+        const fallbackPage =
+          fallbackRole === "driver"
+            ? "driverAuth"
+            : "customerAuth";
+
         setUser(null);
-        setPage("auth");
+        setAuthMode("login");
+        setPage(fallbackPage);
+        window.history.replaceState(
+          {},
+          "",
+          publicPathForPage(fallbackPage)
+        );
         return;
       }
 
@@ -3067,30 +3065,30 @@ function App() {
       }
 
       if (
+        user?.role !== "admin"
+      ) {
+        try {
+          await api.post(
+            "/auth/logout",
+            {}
+          );
+        } catch (error) {
+          console.warn(
+            "Server logout warning:",
+            error?.response?.data?.message ||
+              error?.message ||
+              "logout request failed"
+          );
+        }
+      }
+
+      if (
         socket.connected
       ) {
         socket.disconnect();
       }
 
-      sessionStorage.removeItem(
-        "himrideg_token"
-      );
-
-      sessionStorage.removeItem(
-        "himrideg_user"
-      );
-
-      sessionStorage.removeItem(
-        "himrideg_role"
-      );
-
-      sessionStorage.removeItem(
-        "accessToken"
-      );
-
-      sessionStorage.removeItem(
-        "token"
-      );
+      clearLoginData();
 
       setUser(null);
       setBookings([]);
@@ -3160,11 +3158,10 @@ function App() {
       <>
         {message && <div className="toast">{message}</div>}
 
-        <AuthPage
+        <CustomerLoginPage
           key={`driver-${authMode}`}
           initialMode={authMode}
-          initialAccountType="driver"
-          lockAccountType
+          accountType="driver"
           onBack={goHome}
           onSuccess={handleAuthSuccess}
         />

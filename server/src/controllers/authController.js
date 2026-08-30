@@ -1671,6 +1671,128 @@ const updateAccountPreferences =
       );
   };
 
+
+/*
+|--------------------------------------------------------------------------
+| Logout Current Refresh Session
+|--------------------------------------------------------------------------
+| Browser logout sirf sessionStorage clear karke complete nahi hota, kyunki
+| httpOnly refresh cookie backend par valid reh sakti hai. Ye endpoint current
+| refresh token ka hash revoke karta hai aur cookie clear karta hai. Invalid ya
+| already-expired token par bhi logout idempotent 200 hi rahega.
+|--------------------------------------------------------------------------
+*/
+
+const clearRefreshTokenCookie = (res) => {
+  const isProduction =
+    process.env.NODE_ENV ===
+    "production";
+
+  const secureCookie =
+    process.env.COOKIE_SECURE ===
+      "true" ||
+    isProduction;
+
+  const sameSite =
+    normalizeSameSite(
+      process.env.COOKIE_SAME_SITE,
+      isProduction
+    );
+
+  res.clearCookie(
+    "refreshToken",
+    {
+      httpOnly: true,
+      secure: secureCookie,
+      sameSite,
+      path: "/"
+    }
+  );
+};
+
+const logoutCurrentSession =
+  async (req, res) => {
+    const incomingToken =
+      req.cookies?.refreshToken ||
+      req.body?.refreshToken ||
+      "";
+
+    try {
+      if (incomingToken) {
+        let payload = null;
+
+        try {
+          payload =
+            verifyRefreshToken(
+              incomingToken
+            );
+        } catch {
+          payload = null;
+        }
+
+        if (
+          payload?.type === "refresh" &&
+          payload?.sub
+        ) {
+          const incomingHash =
+            hashToken(
+              incomingToken
+            );
+
+          const user =
+            await User.findById(
+              payload.sub
+            ).select(
+              "+refreshTokenHash +refreshTokenHashes"
+            );
+
+          if (user) {
+            const remembered =
+              Array.isArray(
+                user.refreshTokenHashes
+              )
+                ? user.refreshTokenHashes
+                    .map((value) =>
+                      String(value || "").trim()
+                    )
+                    .filter(Boolean)
+                : [];
+
+            user.refreshTokenHashes =
+              remembered.filter(
+                (value) =>
+                  value !== incomingHash
+              );
+
+            if (
+              String(
+                user.refreshTokenHash || ""
+              ) === incomingHash
+            ) {
+              user.refreshTokenHash = "";
+            }
+
+            await user.save();
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(
+        "Logout session revoke warning:",
+        error?.message || error
+      );
+    }
+
+    clearRefreshTokenCookie(
+      res
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Logout successful"
+    });
+  };
+
 /*
 |--------------------------------------------------------------------------
 | Exports
@@ -1681,6 +1803,7 @@ module.exports = {
   sendCustomerOtp,
   verifyCustomerOtp,
   refreshAccessToken,
+  logoutCurrentSession,
   updateCustomerProfile,
   getCurrentAuthenticatedUser,
   getAccountPreferences,

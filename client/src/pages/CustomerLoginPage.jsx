@@ -19,10 +19,19 @@ const GOOGLE_CLIENT_ID = String(
 
 let googleScriptPromise = null;
 
-// GIS initialize() page-level singleton hai. React re-render / StrictMode /
-// login-register mode switch me isko dobara initialize nahi karna.
-let googleInitializedClientId = "";
-let activeGoogleCredentialHandler = null;
+// Google Identity Services browser-global singleton hai. Customer aur Driver
+// login pages same shared callback state use karte hain, taaki page switch ke
+// baad credential galat/stale component callback me na jaye.
+function getSharedGoogleIdentityState() {
+  if (!window.__himridegGoogleIdentityState) {
+    window.__himridegGoogleIdentityState = {
+      clientId: "",
+      handler: null
+    };
+  }
+
+  return window.__himridegGoogleIdentityState;
+}
 
 function loadGoogleIdentityScript() {
   if (window.google?.accounts?.id) {
@@ -110,9 +119,14 @@ function getResponseData(response) {
 
 function CustomerLoginPage({
   initialMode = "login",
+  accountType = "customer",
   onSuccess,
   onBack
 }) {
+  const normalizedAccountType =
+    accountType === "driver" ? "driver" : "customer";
+  const isDriver = normalizedAccountType === "driver";
+  const roleLabel = isDriver ? "Driver" : "Customer";
   const [mode, setMode] = useState(initialMode);
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
@@ -157,7 +171,7 @@ function CustomerLoginPage({
 
       const response = await api.post("/auth/google", {
         credential,
-        role: "customer",
+        role: normalizedAccountType,
         expectedPhone
       });
 
@@ -173,8 +187,8 @@ function CustomerLoginPage({
         );
       }
 
-      if (authenticatedUser.role !== "customer") {
-        throw new Error("Ye Customer account nahi hai.");
+      if (authenticatedUser.role !== normalizedAccountType) {
+        throw new Error(`Ye ${roleLabel} account nahi hai.`);
       }
 
       sessionStorage.setItem(
@@ -185,14 +199,14 @@ function CustomerLoginPage({
         "himrideg_user",
         JSON.stringify(authenticatedUser)
       );
-      sessionStorage.setItem("himrideg_role", "customer");
+      sessionStorage.setItem("himrideg_role", normalizedAccountType);
 
       if (onSuccess) {
         onSuccess({
           ...responseData,
           accessToken,
           user: authenticatedUser,
-          accountType: "customer",
+          accountType: normalizedAccountType,
           provider: "google",
           requiresBasicInfo: Boolean(
             responseData?.requiresBasicInfo ||
@@ -219,21 +233,20 @@ function CustomerLoginPage({
       return false;
     }
 
-    // Latest mounted CustomerLoginPage ka callback active rakho without
-    // re-running google.accounts.id.initialize().
-    activeGoogleCredentialHandler = (response) => {
+    const sharedGoogleState = getSharedGoogleIdentityState();
+
+    sharedGoogleState.handler = (response) => {
       if (response?.credential && googleCallbackRef.current) {
         googleCallbackRef.current(response.credential);
       }
     };
 
-    if (googleInitializedClientId !== GOOGLE_CLIENT_ID) {
+    if (sharedGoogleState.clientId !== GOOGLE_CLIENT_ID) {
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: (response) => {
-          if (activeGoogleCredentialHandler) {
-            activeGoogleCredentialHandler(response);
-          }
+          const latestState = getSharedGoogleIdentityState();
+          latestState.handler?.(response);
         },
         auto_select: false,
         cancel_on_tap_outside: true,
@@ -241,7 +254,7 @@ function CustomerLoginPage({
         use_fedcm_for_button: true
       });
 
-      googleInitializedClientId = GOOGLE_CLIENT_ID;
+      sharedGoogleState.clientId = GOOGLE_CLIENT_ID;
     }
 
     initializedRef.current = true;
@@ -424,13 +437,15 @@ function CustomerLoginPage({
             <span className="customerLoginUserIcon">♙</span>
             <h2>
               {mode === "register"
-                ? "Create Customer Account"
-                : "Welcome to HimRideG"}
+                ? `Create ${roleLabel} Account`
+                : isDriver
+                  ? "Driver Login"
+                  : "Welcome to HimRideG"}
             </h2>
             <p>
               {mode === "register"
-                ? "Mobile number enter karo aur Google se account verify karo"
-                : "Mobile number enter karo aur Google se secure login karo"}
+                ? `Mobile number enter karo aur Google se ${roleLabel.toLowerCase()} account verify karo`
+                : `Mobile number enter karo aur Google se secure ${roleLabel.toLowerCase()} login karo`}
             </p>
           </header>
 
@@ -530,7 +545,7 @@ function CustomerLoginPage({
             <strong>How it works</strong>
             <p>
               Mobile number → Google verification → first time Basic Info
-              confirmation → Dashboard. Returning registered customer Google
+              confirmation → Dashboard. Returning registered {roleLabel.toLowerCase()} Google
               verification ke baad direct Dashboard par jayega.
             </p>
           </div>

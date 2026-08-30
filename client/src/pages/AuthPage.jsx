@@ -24,10 +24,19 @@ const GOOGLE_CLIENT_ID =
 let googleIdentityScriptPromise =
   null;
 
-// GIS must be initialized only once per client ID. React re-renders and
-// StrictMode must not create duplicate Google identity initializations.
-let googleIdentityInitializedClientId = "";
-let activeGoogleIdentityHandler = null;
+// Google Identity Services browser-global singleton hai. Legacy AuthPage aur
+// dedicated Customer/Driver login pages same shared callback state use karte
+// hain, taaki route switch ke baad stale callback credential consume na kare.
+function getSharedGoogleIdentityState() {
+  if (!window.__himridegGoogleIdentityState) {
+    window.__himridegGoogleIdentityState = {
+      clientId: "",
+      handler: null
+    };
+  }
+
+  return window.__himridegGoogleIdentityState;
+}
 
 const loadGoogleIdentityScript =
   () => {
@@ -1073,9 +1082,10 @@ function AuthPage({
         return false;
       }
 
-      // Keep latest mounted page callback active without calling initialize()
-      // repeatedly. Backend still verifies the exact expected email.
-      activeGoogleIdentityHandler =
+      const sharedGoogleState =
+        getSharedGoogleIdentityState();
+
+      sharedGoogleState.handler =
         (response) => {
           const credential =
             response?.credential;
@@ -1091,7 +1101,7 @@ function AuthPage({
         };
 
       if (
-        googleIdentityInitializedClientId !==
+        sharedGoogleState.clientId !==
         GOOGLE_CLIENT_ID
       ) {
         window.google.accounts.id.initialize({
@@ -1099,7 +1109,10 @@ function AuthPage({
             GOOGLE_CLIENT_ID,
           callback:
             (response) => {
-              activeGoogleIdentityHandler?.(
+              const latestState =
+                getSharedGoogleIdentityState();
+
+              latestState.handler?.(
                 response
               );
             },
@@ -1109,7 +1122,7 @@ function AuthPage({
           use_fedcm_for_button: true
         });
 
-        googleIdentityInitializedClientId =
+        sharedGoogleState.clientId =
           GOOGLE_CLIENT_ID;
       }
 
