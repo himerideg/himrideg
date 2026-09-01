@@ -11,7 +11,9 @@
     "load:probe": "node scripts/scalabilityLoadProbe.js",
     "load:scenario": "node scripts/scalabilityScenarioProbe.js",
     "audit:production": "node scripts/productionReadinessAudit.js",
-    "audit:ride-flow": "node scripts/rideFlowContractAudit.js"
+    "audit:ride-flow": "node scripts/rideFlowContractAudit.js",
+    "validate:live": "node scripts/finalLaunchValidator.js",
+    "load:final": "node scripts/finalLoadRampProbe.js"
   },
   "keywords": [
     "himrideg",
