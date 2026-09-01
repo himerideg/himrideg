@@ -19,7 +19,34 @@ const {
 
 const { protect } = require("../middlewares/auth");
 
+const {
+  paymentLimiter
+} = require(
+  "../middlewares/rateLimits"
+);
+
 router.use(protect);
+
+/*
+|--------------------------------------------------------------------------
+| Payment Capacity Guard — ADD-ONLY
+|--------------------------------------------------------------------------
+| Existing controllers/webhooks unchanged. Authenticated POST bursts only.
+*/
+
+router.use(
+  (req, res, next) => {
+    if (req.method !== "POST") {
+      return next();
+    }
+
+    return paymentLimiter(
+      req,
+      res,
+      next
+    );
+  }
+);
 
 /*
 |--------------------------------------------------------------------------

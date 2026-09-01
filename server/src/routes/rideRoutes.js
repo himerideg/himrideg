@@ -13,6 +13,13 @@ const {
   protect,
 } = require("../middlewares/auth");
 
+const {
+  rideMutationLimiter,
+  liveLocationLimiter
+} = require(
+  "../middlewares/rateLimits"
+);
+
 const router = express.Router();
 
 /*
@@ -22,6 +29,48 @@ const router = express.Router();
 */
 
 router.use(protect);
+
+/*
+|--------------------------------------------------------------------------
+| Ride Mutation Capacity Guard — ADD-ONLY
+|--------------------------------------------------------------------------
+| GET/feed/history behavior untouched. Logged-in user ID based limiter avoids
+| carrier-NAT collisions. Live GPS gets its own higher-frequency bucket.
+*/
+
+router.use(
+  (req, res, next) => {
+    const isMutation =
+      [
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE"
+      ].includes(req.method);
+
+    if (!isMutation) {
+      return next();
+    }
+
+    if (
+      /\/location\/?$/i.test(
+        req.path
+      )
+    ) {
+      return liveLocationLimiter(
+        req,
+        res,
+        next
+      );
+    }
+
+    return rideMutationLimiter(
+      req,
+      res,
+      next
+    );
+  }
+);
 
 /*
 |--------------------------------------------------------------------------

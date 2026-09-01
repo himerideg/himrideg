@@ -1,6 +1,10 @@
 const dns = require("dns");
 const mongoose = require("mongoose");
 
+const {
+  mongo: mongoScalability
+} = require("./scalability");
+
 /*
 |--------------------------------------------------------------------------
 | DNS
@@ -52,8 +56,33 @@ const connectDatabase = async () => {
   });
 
   await mongoose.connect(mongoUri, {
-    serverSelectionTimeoutMS: 10000
+    serverSelectionTimeoutMS: 10000,
+
+    // ADD-ONLY scalability foundation. Existing URI/database remains same.
+    maxPoolSize:
+      mongoScalability.maxPoolSize,
+
+    minPoolSize:
+      mongoScalability.minPoolSize,
+
+    maxIdleTimeMS:
+      mongoScalability.maxIdleTimeMS,
+
+    socketTimeoutMS:
+      mongoScalability.socketTimeoutMS,
+
+    connectTimeoutMS:
+      mongoScalability.connectTimeoutMS,
+
+    heartbeatFrequencyMS:
+      mongoScalability.heartbeatFrequencyMS,
+
+    retryWrites: true
   });
+
+  console.log(
+    `🗄️ MongoDB pool ready: min ${mongoScalability.minPoolSize}, max ${mongoScalability.maxPoolSize}`
+  );
 
   return mongoose.connection;
 };

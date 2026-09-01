@@ -1,8 +1,29 @@
 const express = require("express");
+const mongoose = require("mongoose");
+
+const {
+  mongo: mongoScalability,
+  observability
+} = require(
+  "../config/scalability"
+);
 const router = express.Router();
 
 router.get("/", (req, res) => {
   const livePaymentKey = String(process.env.RAZORPAY_KEY_ID || "").startsWith("rzp_live_");
+
+  // ADD-ONLY runtime visibility for scaling/production diagnostics.
+  const databaseReadyState =
+    mongoose.connection.readyState;
+
+  const databaseConnected =
+    databaseReadyState === 1;
+
+  const memoryUsage =
+    process.memoryUsage();
+
+  const toMb = (bytes) =>
+    Number((bytes / 1024 / 1024).toFixed(1));
   res.status(200).json({
     success: true,
     data: {
@@ -15,6 +36,19 @@ router.get("/", (req, res) => {
       razorpayXAccountConfigured: Boolean(process.env.RAZORPAYX_ACCOUNT_NUMBER),
       paymentWebhookConfigured: Boolean(process.env.RAZORPAY_WEBHOOK_SECRET),
       payoutWebhookConfigured: Boolean(process.env.RAZORPAYX_WEBHOOK_SECRET),
+
+      databaseConnected,
+      databaseReadyState,
+      uptimeSeconds: Math.floor(process.uptime()),
+      memoryRssMb: toMb(memoryUsage.rss),
+      heapUsedMb: toMb(memoryUsage.heapUsed),
+      mongoMaxPoolSize:
+        mongoScalability.maxPoolSize,
+      mongoMinPoolSize:
+        mongoScalability.minPoolSize,
+      slowRequestThresholdMs:
+        observability.slowRequestMs,
+
       timestamp: new Date().toISOString()
     }
   });

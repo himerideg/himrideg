@@ -28,6 +28,10 @@ const razorpayWebhookController = require("./controllers/razorpayWebhookControll
 const notFound = require("./middlewares/notFound");
 const errorHandler = require("./middlewares/errorHandler");
 
+const requestDiagnostics = require(
+  "./middlewares/requestDiagnostics"
+);
+
 const app = express();
 
 /*
@@ -188,6 +192,15 @@ app.use(cors(corsOptions));
 app.use(compression());
 
 app.use(cookieParser());
+
+/*
+|--------------------------------------------------------------------------
+| Request Diagnostics — ADD-ONLY
+|--------------------------------------------------------------------------
+| Request ID + slow request visibility. Body/response business logic same.
+*/
+
+app.use(requestDiagnostics);
 
 /*
 |--------------------------------------------------------------------------
