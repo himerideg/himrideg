@@ -9,6 +9,24 @@ const {
 );
 const router = express.Router();
 
+const {
+  getRedisStatus
+} = require(
+  "../services/redisRuntime"
+);
+
+const {
+  getBackgroundJobStatus
+} = require(
+  "../services/backgroundJobService"
+);
+
+const {
+  getLiveLocationCacheStatus
+} = require(
+  "../services/liveLocationCacheService"
+);
+
 router.get("/", (req, res) => {
   const livePaymentKey = String(process.env.RAZORPAY_KEY_ID || "").startsWith("rzp_live_");
 
@@ -24,6 +42,17 @@ router.get("/", (req, res) => {
 
   const toMb = (bytes) =>
     Number((bytes / 1024 / 1024).toFixed(1));
+
+  // Phase 2 runtime status — no secrets/Redis URL exposed.
+  const redisStatus =
+    getRedisStatus();
+
+  const backgroundJobStatus =
+    getBackgroundJobStatus();
+
+  const liveLocationStatus =
+    getLiveLocationCacheStatus();
+
   res.status(200).json({
     success: true,
     data: {
@@ -48,6 +77,31 @@ router.get("/", (req, res) => {
         mongoScalability.minPoolSize,
       slowRequestThresholdMs:
         observability.slowRequestMs,
+
+      redis: {
+        enabled:
+          redisStatus.enabled,
+        ready:
+          redisStatus.ready,
+        mode:
+          redisStatus.mode,
+        socketAdapterReady:
+          redisStatus.socketAdapterReady
+      },
+
+      liveLocationCache:
+        liveLocationStatus,
+
+      backgroundJobs: {
+        enabled:
+          backgroundJobStatus.enabled,
+        distributedQueueReady:
+          backgroundJobStatus.distributedQueueReady,
+        workerRunning:
+          backgroundJobStatus.workerRunning,
+        registeredHandlers:
+          backgroundJobStatus.registeredHandlers
+      },
 
       timestamp: new Date().toISOString()
     }

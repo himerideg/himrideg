@@ -34,6 +34,34 @@ const {
   stopPayoutScheduler
 } = require("./src/services/payoutScheduler");
 
+/*
+|--------------------------------------------------------------------------
+| Phase 2 Scalability Runtime — Redis / Queue
+|--------------------------------------------------------------------------
+*/
+
+const {
+  startRedisRuntime,
+  stopRedisRuntime,
+  getRedisStatus
+} = require(
+  "./src/services/redisRuntime"
+);
+
+const {
+  startBackgroundJobWorker,
+  stopBackgroundJobWorker
+} = require(
+  "./src/services/backgroundJobService"
+);
+
+const {
+  registerBackgroundNotificationHandler
+} = require(
+  "./src/services/backgroundNotificationService"
+);
+
+
 const PORT =
   Number(process.env.PORT) || 5001;
 
@@ -73,6 +101,24 @@ const startServer = async () => {
   try {
     await connectDatabase();
     await syncAdminBootstrap();
+
+    // Phase 2: Redis optional hai. Disabled/unavailable hone par current
+    // single-server behavior safe fallback ke roop me active rahega.
+    registerBackgroundNotificationHandler();
+
+    await startRedisRuntime({
+      io
+    });
+
+    await startBackgroundJobWorker();
+
+    const redisStatus =
+      getRedisStatus();
+
+    console.log(
+      `🧠 Scalability runtime: ${redisStatus.mode} | Redis: ${redisStatus.ready ? "ready" : "fallback"} | Socket adapter: ${redisStatus.socketAdapterReady ? "redis" : "local"}`
+    );
+
     startPayoutScheduler();
 
     httpServer.listen(
@@ -129,11 +175,29 @@ const startServer = async () => {
     stopPayoutScheduler();
 
     try {
+      await stopBackgroundJobWorker();
+    } catch (backgroundJobError) {
+      console.error(
+        "Background job shutdown error:",
+        backgroundJobError.message
+      );
+    }
+
+    try {
       await closeSocketServer();
     } catch (socketError) {
       console.error(
         "Socket close error:",
         socketError.message
+      );
+    }
+
+    try {
+      await stopRedisRuntime();
+    } catch (redisError) {
+      console.error(
+        "Redis shutdown error:",
+        redisError.message
       );
     }
 
@@ -182,11 +246,29 @@ const shutdown = async (signal) => {
   stopPayoutScheduler();
 
   try {
+    await stopBackgroundJobWorker();
+  } catch (backgroundJobError) {
+    console.error(
+      "Background job shutdown error:",
+      backgroundJobError.message
+    );
+  }
+
+  try {
     await closeSocketServer();
   } catch (error) {
     console.error(
       "Socket shutdown error:",
       error.message
+    );
+  }
+
+  try {
+    await stopRedisRuntime();
+  } catch (redisError) {
+    console.error(
+      "Redis shutdown error:",
+      redisError.message
     );
   }
 

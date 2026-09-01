@@ -22,6 +22,18 @@ const scalability = require(
 |
 */
 
+
+function packageAvailable(
+  packageName
+) {
+  try {
+    require.resolve(packageName);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 function printIndexSummary(
   modelName,
   model
@@ -89,6 +101,52 @@ console.log(
   "Live location limit/min:",
   scalability.rateLimits
     .liveLocationPerMinute
+);
+
+console.log(
+  "Redis enabled:",
+  scalability.redis.enabled
+);
+
+console.log(
+  "Redis URL configured:",
+  Boolean(scalability.redis.url)
+);
+
+console.log(
+  "Socket Redis adapter enabled:",
+  scalability.redis
+    .socketAdapterEnabled
+);
+
+console.log(
+  "Live location cache enabled:",
+  scalability.liveLocation
+    .cacheEnabled
+);
+
+console.log(
+  "Mongo live-location persist interval (ms):",
+  scalability.liveLocation
+    .mongoPersistIntervalMs
+);
+
+console.log(
+  "Background jobs enabled:",
+  scalability.backgroundJobs
+    .enabled
+);
+
+console.log(
+  "redis package available:",
+  packageAvailable("redis")
+);
+
+console.log(
+  "@socket.io/redis-adapter available:",
+  packageAvailable(
+    "@socket.io/redis-adapter"
+  )
 );
 
 console.log("");

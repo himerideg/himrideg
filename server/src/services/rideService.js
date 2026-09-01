@@ -6,6 +6,18 @@ const Booking = require("../models/Booking");
 const User = require("../models/User");
 const { sendPushToUser } = require("./pushNotificationService");
 
+// Phase 2: high-volume ride notifications Redis queue par ja sakti hain.
+// Queue unavailable ho to helper original direct push ko fallback karta hai.
+const {
+  queuePushToUser
+} = require("./backgroundNotificationService");
+
+// Phase 2: Redis live-location fast path. Redis unavailable ho to existing
+// MongoDB code below bilkul waise hi execute hota rahega.
+const {
+  updateRideLocationScalable
+} = require("./liveLocationCacheService");
+
 const socketEvents = require("./socketEventService");
 const walletService = require("./walletService");
 
@@ -114,7 +126,7 @@ function safePush(userId, options) {
     return;
   }
 
-  sendPushToUser(id, options).catch((error) => {
+  queuePushToUser(id, options).catch((error) => {
     console.error(
       "[RideService push error]",
       error?.message || error
@@ -2783,6 +2795,70 @@ async function updateDriverLocation({
 
     updatedAt: now
   };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Phase 2 Redis Live-Location Fast Path — SAFE FALLBACK
+  |--------------------------------------------------------------------------
+  | Redis ready ho to every 5-second GPS ping par MongoDB ko write nahi karte.
+  | Latest point Redis me cache hota hai aur MongoDB persistence interval par
+  | hoti hai. Redis/cache error par result null aata hai aur original MongoDB
+  | implementation immediately below unchanged fallback ke roop me chalti hai.
+  */
+
+  const scalableAllowedStatuses = [
+    "accepted",
+    "fare_offered",
+    "negotiating",
+    "fare_accepted",
+    "driver_arriving",
+    "driver_arrived",
+    "started"
+  ];
+
+  const scalableLocationResult =
+    await updateRideLocationScalable({
+      bookingId:
+        bookingObjectId,
+
+      driverId:
+        driverObjectId,
+
+      location,
+
+      allowedStatuses:
+        scalableAllowedStatuses
+    });
+
+  if (
+    scalableLocationResult?.handled
+  ) {
+    if (
+      !scalableLocationResult.allowed ||
+      !scalableLocationResult.booking
+    ) {
+      throw new RideServiceError(
+        "Driver cannot update this ride location",
+        409,
+        "LOCATION_UPDATE_NOT_ALLOWED"
+      );
+    }
+
+    safeEmit(
+      emitDriverLocationUpdated,
+      {
+        booking:
+          scalableLocationResult.booking,
+
+        driverId:
+          driverObjectId,
+
+        location
+      }
+    );
+
+    return scalableLocationResult.booking;
+  }
 
   const booking =
     await Booking.findOneAndUpdate(

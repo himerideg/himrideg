@@ -5,6 +5,12 @@ const User = require("../models/User");
 const Admin = require("../models/Admin");
 const Booking = require("../models/Booking");
 
+// Phase 2 live-location cache. Redis unavailable ho to helper null return
+// karta hai aur original booking.save() path below unchanged chalta hai.
+const {
+  updateKnownBookingLocationScalable
+} = require("../services/liveLocationCacheService");
+
 /*
 |--------------------------------------------------------------------------
 | Socket Event Names
@@ -976,6 +982,19 @@ const updateBookingDriverLocation =
       updatedAt:
         location.updatedAt,
     };
+
+    const scalableResult =
+      await updateKnownBookingLocationScalable({
+        booking,
+        driverId:
+          getBookingDriverId(booking),
+        location:
+          locationData
+      });
+
+    if (scalableResult?.handled) {
+      return locationData;
+    }
 
     booking.driverLocation =
       locationData;

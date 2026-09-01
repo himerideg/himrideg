@@ -4,7 +4,8 @@ services:
     runtime: node
     plan: starter
     rootDir: server
-    buildCommand: npm ci
+    # Phase 2 dependencies package.json me add hui hain; npm install lock ko deploy par reconcile karta hai.
+    buildCommand: npm install --omit=dev
     startCommand: npm start
     healthCheckPath: /api/v2/health
     envVars:
@@ -58,6 +59,30 @@ services:
         value: "false"
       - key: GEOAPIFY_API_KEY
         sync: false
+
+      # Phase 2 scalability — Redis remains opt-in until a Redis service URL is configured.
+      - key: REDIS_ENABLED
+        value: "false"
+      - key: REDIS_REQUIRED
+        value: "false"
+      - key: REDIS_URL
+        sync: false
+      - key: REDIS_KEY_PREFIX
+        value: himrideg:v2
+      - key: SOCKET_REDIS_ADAPTER_ENABLED
+        value: "true"
+      - key: LIVE_LOCATION_CACHE_ENABLED
+        value: "true"
+      - key: LIVE_LOCATION_CACHE_TTL_SECONDS
+        value: "90"
+      - key: LIVE_LOCATION_ACCESS_TTL_SECONDS
+        value: "8"
+      - key: LIVE_LOCATION_MONGO_PERSIST_MS
+        value: "15000"
+      - key: BACKGROUND_JOBS_ENABLED
+        value: "true"
+      - key: BACKGROUND_JOB_QUEUE
+        value: jobs:default
     disk:
       name: himrideg-uploads
       mountPath: /var/data/himrideg-uploads
