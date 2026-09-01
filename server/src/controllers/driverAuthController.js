@@ -58,6 +58,15 @@ const normalizeSameSite = (
     : "lax";
 };
 
+/*
+|--------------------------------------------------------------------------
+| Driver Role-Isolated Refresh Cookie — ADD-ONLY
+|--------------------------------------------------------------------------
+| Driver aur customer browser tabs parallel chal sakte hain. Driver refresh
+| token apni dedicated cookie me bhi store hoga; legacy cookie preserve hai.
+|--------------------------------------------------------------------------
+*/
+
 const setRefreshTokenCookie = (
   res,
   refreshToken
@@ -74,6 +83,26 @@ const setRefreshTokenCookie = (
       process.env.COOKIE_SAME_SITE,
       isProduction
     );
+
+  const cookieOptions = {
+      httpOnly: true,
+      secure:
+        secureCookie,
+      sameSite,
+      path: "/",
+      maxAge:
+        7 * 24 * 60 * 60 * 1000
+    };
+
+  res.cookie(
+    "refreshToken_driver",
+    refreshToken,
+    cookieOptions
+  );
+
+  /*
+  | Legacy browser/mobile compatibility
+  */
 
   res.cookie(
     "refreshToken",

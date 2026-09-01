@@ -121,9 +121,31 @@ const normalizeSameSite = (
     : "lax";
 };
 
+/*
+|--------------------------------------------------------------------------
+| Role-Isolated Refresh Cookie — ADD-ONLY
+|--------------------------------------------------------------------------
+| Customer aur Driver browser tabs ek hi api.himrideg.com cookie jar share
+| karte hain. Purana single "refreshToken" cookie doosre role ke login se
+| overwrite ho sakta tha. Ab role-specific cookie primary rahegi; legacy
+| cookie backward compatibility ke liye preserve hai.
+|--------------------------------------------------------------------------
+*/
+
+const getRoleRefreshCookieName = (
+  role
+) => {
+  return String(role || "")
+    .trim()
+    .toLowerCase() === "driver"
+    ? "refreshToken_driver"
+    : "refreshToken_customer";
+};
+
 const setRefreshTokenCookie = (
   res,
-  refreshToken
+  refreshToken,
+  role = "customer"
 ) => {
   const isProduction =
     process.env.NODE_ENV ===
@@ -141,6 +163,45 @@ const setRefreshTokenCookie = (
         .COOKIE_SAME_SITE,
       isProduction
     );
+
+  const cookieOptions = {
+      httpOnly: true,
+
+      secure:
+        secureCookie,
+
+      sameSite,
+
+      path: "/",
+
+      maxAge:
+        7 *
+        24 *
+        60 *
+        60 *
+        1000
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Primary Role Cookie
+  |--------------------------------------------------------------------------
+  */
+
+  res.cookie(
+    getRoleRefreshCookieName(
+      role
+    ),
+    refreshToken,
+    cookieOptions
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Legacy Cookie — Backward Compatibility
+  |--------------------------------------------------------------------------
+  | Old deployed clients / mobile flows ko break nahi karna.
+  */
 
   res.cookie(
     "refreshToken",
@@ -944,7 +1005,8 @@ const verifyCustomerOtp =
 
     setRefreshTokenCookie(
       res,
-      refreshToken
+      refreshToken,
+      "customer"
     );
 
     /*
@@ -1007,11 +1069,26 @@ const refreshAccessToken =
     |--------------------------------------------------------------------------
     */
 
+    const expectedRole =
+      String(
+        req.headers?.["x-himrideg-role"] ||
+          req.body?.role ||
+          ""
+      )
+        .trim()
+        .toLowerCase();
+
+    const expectedRoleCookie =
+      expectedRole === "driver"
+        ? req.cookies?.refreshToken_driver
+        : expectedRole === "customer"
+          ? req.cookies?.refreshToken_customer
+          : "";
+
     const incomingToken =
-      req.cookies
-        ?.refreshToken ||
-      req.body
-        ?.refreshToken ||
+      expectedRoleCookie ||
+      req.cookies?.refreshToken ||
+      req.body?.refreshToken ||
       "";
 
     if (
@@ -1058,6 +1135,30 @@ const refreshAccessToken =
       throw new ApiError(
         401,
         "Galat token type."
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Expected Role Integrity
+    |--------------------------------------------------------------------------
+    | Frontend jis dashboard role ko refresh kar raha hai, refresh JWT bhi
+    | usi role ka hona chahiye. Isse customer/driver parallel browser tabs
+    | ek doosre ki session identity silently adopt nahi kar sakte.
+    */
+
+    if (
+      expectedRole &&
+      ["customer", "driver"].includes(
+        expectedRole
+      ) &&
+      String(payload?.role || "")
+        .trim()
+        .toLowerCase() !== expectedRole
+    ) {
+      throw new ApiError(
+        401,
+        "Session role mismatch. Is tab me dobara sahi account se login karo."
       );
     }
 
@@ -1239,7 +1340,8 @@ const refreshAccessToken =
 
     setRefreshTokenCookie(
       res,
-      incomingToken
+      incomingToken,
+      user.role
     );
 
     /*
@@ -1699,20 +1801,55 @@ const clearRefreshTokenCookie = (res) => {
       isProduction
     );
 
+  const clearOptions = {
+    httpOnly: true,
+    secure: secureCookie,
+    sameSite,
+    path: "/"
+  };
+
   res.clearCookie(
     "refreshToken",
-    {
-      httpOnly: true,
-      secure: secureCookie,
-      sameSite,
-      path: "/"
-    }
+    clearOptions
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Role-Isolated Cookies Cleanup
+  |--------------------------------------------------------------------------
+  */
+
+  res.clearCookie(
+    "refreshToken_customer",
+    clearOptions
+  );
+
+  res.clearCookie(
+    "refreshToken_driver",
+    clearOptions
   );
 };
 
 const logoutCurrentSession =
   async (req, res) => {
+    const logoutRole =
+      String(
+        req.headers?.["x-himrideg-role"] ||
+          req.body?.role ||
+          ""
+      )
+        .trim()
+        .toLowerCase();
+
+    const roleCookie =
+      logoutRole === "driver"
+        ? req.cookies?.refreshToken_driver
+        : logoutRole === "customer"
+          ? req.cookies?.refreshToken_customer
+          : "";
+
     const incomingToken =
+      roleCookie ||
       req.cookies?.refreshToken ||
       req.body?.refreshToken ||
       "";

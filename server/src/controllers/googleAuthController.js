@@ -291,9 +291,18 @@ const normalizeSameSite = (
     : "lax";
 };
 
+/*
+|--------------------------------------------------------------------------
+| Google Login Role-Isolated Refresh Cookie — ADD-ONLY
+|--------------------------------------------------------------------------
+| Google customer/driver login bhi dedicated role cookie set karega.
+|--------------------------------------------------------------------------
+*/
+
 const setRefreshTokenCookie = (
   res,
-  refreshToken
+  refreshToken,
+  role = "customer"
 ) => {
   const isProduction =
     process.env.NODE_ENV ===
@@ -311,6 +320,37 @@ const setRefreshTokenCookie = (
         .COOKIE_SAME_SITE,
       isProduction
     );
+
+  const cookieOptions = {
+      httpOnly: true,
+      secure:
+        secureCookie,
+      sameSite,
+      path: "/",
+      maxAge:
+        7 *
+        24 *
+        60 *
+        60 *
+        1000
+    };
+
+  const roleCookieName =
+    String(role || "")
+      .trim()
+      .toLowerCase() === "driver"
+      ? "refreshToken_driver"
+      : "refreshToken_customer";
+
+  res.cookie(
+    roleCookieName,
+    refreshToken,
+    cookieOptions
+  );
+
+  /*
+  | Legacy cookie preserve
+  */
 
   res.cookie(
     "refreshToken",
@@ -902,7 +942,8 @@ const googleLogin =
 
     setRefreshTokenCookie(
       res,
-      refreshToken
+      refreshToken,
+      role
     );
 
     return res

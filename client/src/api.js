@@ -162,6 +162,154 @@ function getSavedToken() {
 
 /*
 |--------------------------------------------------------------------------
+| Session Identity Integrity — ADD-ONLY
+|--------------------------------------------------------------------------
+| UI user snapshot aur access-token identity ko compare karte hain. Agar ek
+| browser tab me customer/driver session accidentally cross ho jaye to wrong
+| role APIs ko 403 spam karne ke bajay session safely re-login par jayegi.
+|--------------------------------------------------------------------------
+*/
+
+function getSavedUser() {
+  try {
+    return JSON.parse(
+      sessionStorage.getItem(
+        "himrideg_user"
+      ) || "null"
+    );
+  } catch {
+    return null;
+  }
+}
+
+function decodeJwtPayload(
+  token
+) {
+  try {
+    const cleanToken =
+      String(token || "")
+        .replace(
+          /^Bearer\s+/i,
+          ""
+        )
+        .trim();
+
+    const payloadPart =
+      cleanToken.split(".")[1];
+
+    if (!payloadPart) {
+      return null;
+    }
+
+    const normalized =
+      payloadPart
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+
+    const padded =
+      normalized.padEnd(
+        Math.ceil(
+          normalized.length / 4
+        ) * 4,
+        "="
+      );
+
+    return JSON.parse(
+      decodeURIComponent(
+        Array.prototype.map.call(
+          atob(padded),
+          (character) =>
+            "%" +
+            (
+              "00" +
+              character
+                .charCodeAt(0)
+                .toString(16)
+            ).slice(-2)
+        ).join("")
+      )
+    );
+  } catch {
+    return null;
+  }
+}
+
+function sessionIdentityMatches(
+  token
+) {
+  const savedUser =
+    getSavedUser();
+
+  const payload =
+    decodeJwtPayload(
+      token
+    );
+
+  if (
+    !savedUser ||
+    !payload
+  ) {
+    return true;
+  }
+
+  const userRole =
+    String(
+      savedUser.role ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+
+  const tokenRole =
+    String(
+      payload.role ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+
+  const userId =
+    String(
+      savedUser._id ||
+        savedUser.id ||
+        ""
+    ).trim();
+
+  const tokenId =
+    String(
+      payload.sub ||
+        payload.userId ||
+        payload.id ||
+        ""
+    ).trim();
+
+  const roleMatches =
+    !userRole ||
+    !tokenRole ||
+    userRole === tokenRole;
+
+  const idMatches =
+    !userId ||
+    !tokenId ||
+    userId === tokenId;
+
+  return (
+    roleMatches &&
+    idMatches
+  );
+}
+
+function getExpectedSessionRole() {
+  return String(
+    getSavedUser()?.role ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+}
+
+/*
+|--------------------------------------------------------------------------
 | Save Access Token
 |--------------------------------------------------------------------------
 */
@@ -258,11 +406,44 @@ api.interceptors.request.use(
       config.headers || {};
 
     if (cleanToken) {
+      /*
+      |--------------------------------------------------------------------------
+      | Token/User Role Guard
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        !sessionIdentityMatches(
+          cleanToken
+        )
+      ) {
+        clearLoginData();
+
+        dispatchUnauthorized(
+          "token_user_identity_mismatch"
+        );
+
+        return Promise.reject(
+          new axios.CanceledError(
+            "HimRideG session identity mismatch"
+          )
+        );
+      }
+
       config.headers.Authorization =
         `Bearer ${cleanToken}`;
     } else {
       delete config.headers
         .Authorization;
+    }
+
+    const expectedRole =
+      getExpectedSessionRole();
+
+    if (expectedRole) {
+      config.headers[
+        "X-HimRideG-Role"
+      ] = expectedRole;
     }
 
     /*
@@ -396,7 +577,13 @@ async function refreshSession() {
             "application/json",
 
           Accept:
-            "application/json"
+            "application/json",
+
+          /*
+          | Role-isolated refresh cookie selection on backend
+          */
+          "X-HimRideG-Role":
+            getExpectedSessionRole()
         }
       }
     );
@@ -808,6 +995,50 @@ api.interceptors.response.use(
 
         return Promise.reject(
           refreshError
+        );
+      }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Role / Account Mismatch 403 Safety — ADD-ONLY
+    |--------------------------------------------------------------------------
+    | Driver profile ka 403 while UI thinks user is driver strongly indicates
+    | stale/mixed browser identity. Approval-related feed 403 ko logout nahi
+    | karte; sirf explicit role/account mismatch messages par session reset.
+    */
+
+    if (
+      status === 403 &&
+      !isAuthRequest
+    ) {
+      const backendMessage =
+        String(
+          error.response?.data?.message ||
+            ""
+        )
+          .trim()
+          .toLowerCase();
+
+      const explicitRoleMismatch =
+        backendMessage.includes(
+          "only drivers can access this route"
+        ) ||
+        backendMessage.includes(
+          "this account is not a driver account"
+        ) ||
+        backendMessage.includes(
+          "only drivers can access driver active rides"
+        ) ||
+        backendMessage.includes(
+          "session role mismatch"
+        );
+
+      if (explicitRoleMismatch) {
+        clearLoginData();
+
+        dispatchUnauthorized(
+          "protected_role_mismatch"
         );
       }
     }
