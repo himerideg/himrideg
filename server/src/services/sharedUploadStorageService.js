@@ -30,13 +30,63 @@ let migrationCount = 0;
 let errorCount = 0;
 let lastError = "";
 
-function storageMode() {
+function configuredStorageMode() {
   return String(
     process.env.UPLOAD_STORAGE_MODE ||
-      "persistent-disk"
+      ""
   )
     .trim()
     .toLowerCase();
+}
+
+function sharedStorageExplicitlyDisabled() {
+  return String(
+    process.env.UPLOAD_STORAGE_SHARED_DISABLED ||
+      "false"
+  )
+    .trim()
+    .toLowerCase() === "true";
+}
+
+function storageMode() {
+  const configured =
+    configuredStorageMode();
+
+  /*
+  |-----------------------------------------------------------------------
+  | Phase 6 shared-storage auto-heal
+  |-----------------------------------------------------------------------
+  | Older Render environments may still contain UPLOAD_STORAGE_MODE as
+  | persistent-disk (or may not contain it at all). The application already
+  | has a safe local-disk-first + GridFS-mirror implementation, so production
+  | now promotes that legacy value to hybrid-gridfs automatically.
+  |
+  | Nothing is deleted from the persistent disk. Local files continue to win
+  | on reads; GridFS is the shared mirror/fallback for additional instances.
+  | An explicit emergency opt-out remains available through
+  | UPLOAD_STORAGE_SHARED_DISABLED=true.
+  */
+  if (
+    sharedStorageExplicitlyDisabled()
+  ) {
+    return "persistent-disk";
+  }
+
+  if (
+    configured === "gridfs" ||
+    configured === "hybrid-gridfs"
+  ) {
+    return configured;
+  }
+
+  if (
+    !configured ||
+    configured === "persistent-disk"
+  ) {
+    return "hybrid-gridfs";
+  }
+
+  return configured;
 }
 
 function sharedStorageEnabled() {
@@ -407,8 +457,25 @@ async function migrateLocalUploadsToSharedStorage() {
 }
 
 function getSharedUploadStorageStatus() {
+  const configuredMode =
+    configuredStorageMode();
+
+  const effectiveMode =
+    storageMode();
+
   return {
-    mode: storageMode(),
+    mode: effectiveMode,
+    configuredMode:
+      configuredMode || null,
+    autoPromotedToShared:
+      !sharedStorageExplicitlyDisabled() &&
+      (
+        !configuredMode ||
+        configuredMode === "persistent-disk"
+      ) &&
+      effectiveMode === "hybrid-gridfs",
+    emergencySharedStorageDisabled:
+      sharedStorageExplicitlyDisabled(),
     sharedEnabled:
       sharedStorageEnabled(),
     sharedReady:

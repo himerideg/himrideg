@@ -1,0 +1,41 @@
+HimRideG Phase 6 Shared Upload Storage Verification
+Date: 2026-09-01
+
+BASELINE: Phase-5 Final Production Validation Full Code
+
+FULL CODE RULE
+- Baseline existing files: 244
+- Final files before this verification report: 246
+- Missing existing files: 0
+- Modified existing text/code files with fewer lines: 0
+- Entire client tree: byte-for-byte unchanged
+- client/.env: unchanged
+- client/.env.example: unchanged
+- client/.env.production.example: unchanged
+- server/.env.example: unchanged
+- server/.env.production.example: unchanged
+
+MODIFIED EXISTING FILE LINE COUNTS
+- package.json: 52 -> 53
+- render.yaml: 120 -> 122
+- server/.env: 58 -> 62
+- server/package.json: 51 -> 52
+- server/src/services/sharedUploadStorageService.js: 436 -> 503
+
+VALIDATION
+- Server JavaScript syntax: 94/94 PASS
+- Root server.js syntax: PASS
+- JSON/package/package-lock parsing: PASS
+- render.yaml parse: PASS
+- npm run audit:uploads (root): 6/6 PASS
+- npm run audit:uploads (server): 6/6 PASS
+- Root npm ci --package-lock-only --offline: PASS
+- Server npm ci --package-lock-only --offline: PASS
+
+BEHAVIOR
+- Missing or legacy persistent-disk UPLOAD_STORAGE_MODE now safely auto-promotes to hybrid-gridfs.
+- Existing persistent disk remains read-first/primary; files are not deleted.
+- GridFS mirror/fallback enables shared access across backend instances when MongoDB is ready.
+- Emergency opt-out: UPLOAD_STORAGE_SHARED_DISABLED=true.
+- Normal production value: UPLOAD_STORAGE_SHARED_DISABLED=false.
+- RazorpayX payout/webhook configuration intentionally untouched/held until account permission is available.

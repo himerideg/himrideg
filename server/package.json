@@ -13,7 +13,8 @@
     "audit:production": "node scripts/productionReadinessAudit.js",
     "audit:ride-flow": "node scripts/rideFlowContractAudit.js",
     "validate:live": "node scripts/finalLaunchValidator.js",
-    "load:final": "node scripts/finalLoadRampProbe.js"
+    "load:final": "node scripts/finalLoadRampProbe.js",
+    "audit:uploads": "node scripts/sharedUploadStorageAudit.js"
   },
   "keywords": [
     "himrideg",

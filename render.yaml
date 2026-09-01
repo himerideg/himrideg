@@ -114,6 +114,8 @@ services:
         value: "5"
       - key: UPLOAD_STORAGE_MODE
         value: hybrid-gridfs
+      - key: UPLOAD_STORAGE_SHARED_DISABLED
+        value: "false"
     disk:
       name: himrideg-uploads
       mountPath: /var/data/himrideg-uploads
