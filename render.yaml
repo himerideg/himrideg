@@ -4,8 +4,8 @@ services:
     runtime: node
     plan: starter
     rootDir: server
-    # Phase 2 dependencies package.json me add hui hain; npm install lock ko deploy par reconcile karta hai.
-    buildCommand: npm install --omit=dev
+    # Phase 2 package-lock fully synchronized hai; deterministic production install ke liye npm ci use hota hai.
+    buildCommand: npm ci
     startCommand: npm start
     healthCheckPath: /api/v2/health
     envVars:
@@ -62,7 +62,7 @@ services:
 
       # Phase 2 scalability — Redis remains opt-in until a Redis service URL is configured.
       - key: REDIS_ENABLED
-        value: "false"
+        value: "true"
       - key: REDIS_REQUIRED
         value: "false"
       - key: REDIS_URL
