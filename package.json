@@ -8,7 +8,8 @@
     "start": "node server.js",
     "purge:customers": "node server/scripts/deleteAllCustomers.js",
     "preflight:live": "node server/scripts/livePreflight.js",
-    "preflight:scale": "node server/scripts/scalabilityPreflight.js"
+    "preflight:scale": "node server/scripts/scalabilityPreflight.js",
+    "load:probe": "node server/scripts/scalabilityLoadProbe.js"
   },
   "keywords": [
     "himrideg",

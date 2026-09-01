@@ -18,6 +18,23 @@ const {
   updateRideLocationScalable
 } = require("./liveLocationCacheService");
 
+// Phase 3: Redis GEO prefilter + distributed driver availability registry.
+// MongoDB remains final source-of-truth, so Redis stale/unavailable hone par
+// existing $geoNear + atomic ride flow safely continue karta hai.
+const {
+  findNearestAvailableDriverIds,
+  syncDriverAvailabilityById
+} = require(
+  "./distributedDriverAvailabilityService"
+);
+
+const {
+  acquireRideAcceptLock,
+  releaseRideAcceptLock
+} = require(
+  "./distributedLockService"
+);
+
 const socketEvents = require("./socketEventService");
 const walletService = require("./walletService");
 
@@ -553,21 +570,35 @@ async function releaseDriver(
     );
   }
 
-  return User.findOneAndUpdate(
-    filter,
+  const releasedDriver =
+    await User.findOneAndUpdate(
+      filter,
 
-    {
-      $set: {
-        isAvailable: true,
-        currentRide: null,
-        lastSeenAt: new Date()
+      {
+        $set: {
+          isAvailable: true,
+          currentRide: null,
+          lastSeenAt: new Date()
+        }
+      },
+
+      {
+        new: true
       }
-    },
+    );
 
-    {
-      new: true
-    }
-  );
+  if (releasedDriver) {
+    syncDriverAvailabilityById(
+      releasedDriver._id
+    ).catch((error) => {
+      console.error(
+        "[RideService availability resync error]",
+        error?.message || error
+      );
+    });
+  }
+
+  return releasedDriver;
 }
 
 async function markDriverBusy(
@@ -1289,6 +1320,72 @@ async function findNearestDrivers({
     booking.rejectedDrivers ||
     [];
 
+  /*
+  |------------------------------------------------------------------------
+  | Phase 3 Redis GEO Prefilter
+  |------------------------------------------------------------------------
+  | Redis registry sirf fast candidate shortlist deta hai. Final eligibility,
+  | approval, online/available/currentRide aur exact distance MongoDB $geoNear
+  | dobara verify karta hai. Empty/stale Redis result par old MongoDB search
+  | unchanged fallback hota hai.
+  |------------------------------------------------------------------------
+  */
+  let redisCandidateIds = null;
+
+  try {
+    redisCandidateIds =
+      await findNearestAvailableDriverIds({
+        longitude:
+          geo.coordinates[0],
+        latitude:
+          geo.coordinates[1],
+        radiusMeters:
+          radius,
+        limit:
+          driverLimit,
+        excludeIds:
+          rejectedIds
+      });
+  } catch (error) {
+    redisCandidateIds = null;
+
+    console.error(
+      "[RideService Redis driver prefilter error]",
+      error?.message || error
+    );
+  }
+
+  const redisObjectIds =
+    Array.isArray(
+      redisCandidateIds
+    )
+      ? redisCandidateIds
+          .filter((id) =>
+            mongoose.Types.ObjectId.isValid(
+              id
+            )
+          )
+          .map(
+            (id) =>
+              new mongoose.Types.ObjectId(
+                id
+              )
+          )
+      : [];
+
+  const driverIdFilter =
+    redisObjectIds.length > 0
+      ? {
+          $in:
+            redisObjectIds,
+          $nin:
+            rejectedIds
+        }
+      : {
+          $nin:
+            rejectedIds
+        };
+
   const drivers =
     await User.aggregate([
       {
@@ -1317,10 +1414,8 @@ async function findNearestDrivers({
             "driverProfile.isApproved":
               true,
 
-            _id: {
-              $nin:
-                rejectedIds
-            }
+            _id:
+              driverIdFilter
           }
         }
       },
@@ -4179,6 +4274,58 @@ async function acceptRideAtomic({
   }
 }
 
+/*
+|--------------------------------------------------------------------------
+| Phase 3 Distributed-Safe Ride Accept Wrapper
+|--------------------------------------------------------------------------
+| Redis lock same ride par multi-instance accept stampede ko short-circuit
+| karta hai. Existing MongoDB atomic update final authority hi rehta hai.
+| Redis unavailable ho to lock helper fallback permission deta hai.
+|--------------------------------------------------------------------------
+*/
+async function acceptRideDistributedSafe({
+  bookingId,
+  driverId
+}) {
+  const lock =
+    await acquireRideAcceptLock(
+      bookingId
+    );
+
+  if (!lock.acquired) {
+    throw new RideServiceError(
+      "Ride accept process already in progress hai. Request refresh karo.",
+      409,
+      "RIDE_ACCEPT_IN_PROGRESS"
+    );
+  }
+
+  try {
+    return await acceptRideAtomic({
+      bookingId,
+      driverId
+    });
+  } finally {
+    await releaseRideAcceptLock(
+      lock
+    ).catch((error) => {
+      console.error(
+        "[RideService distributed accept lock release error]",
+        error?.message || error
+      );
+    });
+
+    syncDriverAvailabilityById(
+      driverId
+    ).catch((error) => {
+      console.error(
+        "[RideService post-accept availability sync error]",
+        error?.message || error
+      );
+    });
+  }
+}
+
 async function driverCanAcceptNewRide(
   driverId
 ) {
@@ -4262,6 +4409,7 @@ module.exports = {
   dispatchRide,
   acceptRide,
   acceptRideAtomic,
+  acceptRideDistributedSafe,
   rejectRide,
   driverReleaseRide,
   driverCanAcceptNewRide,

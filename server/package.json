@@ -7,7 +7,8 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "preflight:live": "node scripts/livePreflight.js",
-    "preflight:scale": "node scripts/scalabilityPreflight.js"
+    "preflight:scale": "node scripts/scalabilityPreflight.js",
+    "load:probe": "node scripts/scalabilityLoadProbe.js"
   },
   "keywords": [
     "himrideg",

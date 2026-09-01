@@ -254,6 +254,61 @@ const scalabilityConfig = Object.freeze({
     )
   }),
 
+  distributedAvailability: Object.freeze({
+    enabled: booleanValue(
+      process.env.DISTRIBUTED_DRIVER_AVAILABILITY_ENABLED,
+      true
+    ),
+
+    redisPrefilterEnabled: booleanValue(
+      process.env.DRIVER_MATCH_REDIS_PREFILTER_ENABLED,
+      true
+    ),
+
+    ttlSeconds: positiveInteger(
+      process.env.DRIVER_AVAILABILITY_TTL_SECONDS,
+      120,
+      {
+        minimum: 30,
+        maximum: 600
+      }
+    ),
+
+    locationStaleSeconds: positiveInteger(
+      process.env.DRIVER_LOCATION_STALE_SECONDS,
+      180,
+      {
+        minimum: 30,
+        maximum: 1800
+      }
+    ),
+
+    warmupLimit: positiveInteger(
+      process.env.DRIVER_AVAILABILITY_WARMUP_LIMIT,
+      5000,
+      {
+        minimum: 100,
+        maximum: 50000
+      }
+    )
+  }),
+
+  rideAcceptLock: Object.freeze({
+    enabled: booleanValue(
+      process.env.RIDE_ACCEPT_DISTRIBUTED_LOCK_ENABLED,
+      true
+    ),
+
+    ttlMs: positiveInteger(
+      process.env.RIDE_ACCEPT_LOCK_TTL_MS,
+      8000,
+      {
+        minimum: 2000,
+        maximum: 30000
+      }
+    )
+  }),
+
   rateLimits: Object.freeze({
     rideMutationPerMinute: positiveInteger(
       process.env.RIDE_MUTATION_LIMIT_PER_MINUTE,

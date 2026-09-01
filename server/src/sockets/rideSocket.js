@@ -11,6 +11,26 @@ const {
   updateKnownBookingLocationScalable
 } = require("../services/liveLocationCacheService");
 
+// Phase 3 shared driver availability registry. Socket status changes bhi
+// Redis GEO registry ko best-effort sync karte hain; MongoDB final authority.
+const {
+  syncDriverAvailabilityById
+} = require(
+  "../services/distributedDriverAvailabilityService"
+);
+
+const syncSocketDriverAvailability =
+  (driverId) => {
+    syncDriverAvailabilityById(
+      driverId
+    ).catch((error) => {
+      console.error(
+        "[RideSocket distributed availability sync error]",
+        error?.message || error
+      );
+    });
+  };
+
 /*
 |--------------------------------------------------------------------------
 | Socket Event Names
@@ -1085,6 +1105,10 @@ const setDriverOnlineStatus =
         runValidators: false,
       }
     ).catch(() => null);
+
+    syncSocketDriverAvailability(
+      socket.userId
+    );
   };
 
 const isEmptyLocationPayload =
@@ -1435,6 +1459,10 @@ const handleDriverOnline =
               }
             ).catch(
               () => null
+            );
+
+            syncSocketDriverAvailability(
+              socket.userId
             );
           }
 

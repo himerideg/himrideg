@@ -4,6 +4,29 @@ const User = require("../models/User");
 const Booking = require("../models/Booking");
 const ApiError = require("../utils/ApiError");
 
+// Phase 3: distributed available-driver registry. Redis unavailable ho to
+// helper silently MongoDB source-of-truth ko preserve karta hai.
+const {
+  publishDriverAvailability
+} = require(
+  "./distributedDriverAvailabilityService"
+);
+
+function syncDistributedAvailability(
+  driver
+) {
+  Promise.resolve(
+    publishDriverAvailability(
+      driver
+    )
+  ).catch((error) => {
+    console.error(
+      "[DriverService distributed availability sync error]",
+      error?.message || error
+    );
+  });
+}
+
 const ACTIVE_RIDE_STATUSES = [
   "driver_assigned",
   "accepted",
@@ -349,6 +372,10 @@ async function setDriverOnline(driverId) {
 
   await driver.save();
 
+  syncDistributedAvailability(
+    driver
+  );
+
   return driver;
 }
 
@@ -379,6 +406,10 @@ async function setDriverOffline(driverId) {
   driver.lastSeenAt = new Date();
 
   await driver.save();
+
+  syncDistributedAvailability(
+    driver
+  );
 
   return driver;
 }
@@ -447,6 +478,10 @@ async function setDriverAvailable(
 
   await driver.save();
 
+  syncDistributedAvailability(
+    driver
+  );
+
   return driver;
 }
 
@@ -465,6 +500,10 @@ async function setDriverBusy(driverId) {
   driver.lastSeenAt = new Date();
 
   await driver.save();
+
+  syncDistributedAvailability(
+    driver
+  );
 
   return driver;
 }
@@ -573,6 +612,10 @@ async function updateDriverLocation(
   driver.lastSeenAt = now;
 
   await driver.save();
+
+  syncDistributedAvailability(
+    driver
+  );
 
   const currentRide =
     await getCurrentRide(driverId);

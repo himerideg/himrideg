@@ -12,6 +12,14 @@ const rideService = require(
   "../services/rideService"
 );
 
+// Phase 3: ride-feed/accept activity Redis availability TTL ko refresh karti
+// hai. Failure kabhi existing feed/accept flow ko block nahi karta.
+const {
+  syncDriverAvailabilityById
+} = require(
+  "../services/distributedDriverAvailabilityService"
+);
+
 /*
 |--------------------------------------------------------------------------
 | Constants
@@ -269,6 +277,15 @@ async function getApprovedDriver(req) {
   await repairDriverRideState(
     driver
   );
+
+  syncDriverAvailabilityById(
+    driver._id
+  ).catch((error) => {
+    console.error(
+      "[DriverRideFeed availability refresh error]",
+      error?.message || error
+    );
+  });
 
   return driver;
 }
@@ -903,8 +920,9 @@ async function acceptAvailableRide(
     }
 
     const result =
+      // Phase 3: distributed Redis lock + existing MongoDB atomic accept.
       await rideService
-        .acceptRideAtomic({
+        .acceptRideDistributedSafe({
           bookingId,
 
           driverId:

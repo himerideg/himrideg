@@ -188,6 +188,13 @@ const {
   "./server/src/services/backgroundNotificationService"
 );
 
+// Phase 3: Redis GEO registry warmup is best-effort and never blocks fallback.
+const {
+  warmDistributedAvailabilityRegistry
+} = require(
+  "./server/src/services/distributedDriverAvailabilityService"
+);
+
 
 /*
 |--------------------------------------------------------------------------
@@ -390,6 +397,21 @@ const startServer =
       });
 
       await startBackgroundJobWorker();
+
+      warmDistributedAvailabilityRegistry()
+        .then((result) => {
+          if (result?.handled) {
+            console.log(
+              `✅ Distributed driver availability warmup: ${result.published}/${result.scanned} published`
+            );
+          }
+        })
+        .catch((error) => {
+          console.error(
+            "⚠️ Distributed availability warmup skipped:",
+            error?.message || error
+          );
+        });
 
       const redisStatus =
         getRedisStatus();

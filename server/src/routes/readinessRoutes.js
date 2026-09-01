@@ -27,6 +27,18 @@ const {
   "../services/liveLocationCacheService"
 );
 
+const {
+  getDistributedAvailabilityStatus
+} = require(
+  "../services/distributedDriverAvailabilityService"
+);
+
+const {
+  getDistributedLockStatus
+} = require(
+  "../services/distributedLockService"
+);
+
 router.get("/", (req, res) => {
   const livePaymentKey = String(process.env.RAZORPAY_KEY_ID || "").startsWith("rzp_live_");
 
@@ -52,6 +64,13 @@ router.get("/", (req, res) => {
 
   const liveLocationStatus =
     getLiveLocationCacheStatus();
+
+  // Phase 3 status — no driver IDs, locations, Redis keys or secrets exposed.
+  const distributedAvailabilityStatus =
+    getDistributedAvailabilityStatus();
+
+  const distributedLockStatus =
+    getDistributedLockStatus();
 
   res.status(200).json({
     success: true,
@@ -91,6 +110,12 @@ router.get("/", (req, res) => {
 
       liveLocationCache:
         liveLocationStatus,
+
+      distributedDriverAvailability:
+        distributedAvailabilityStatus,
+
+      distributedRideAcceptLock:
+        distributedLockStatus,
 
       backgroundJobs: {
         enabled:
