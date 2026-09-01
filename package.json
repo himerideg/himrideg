@@ -9,7 +9,10 @@
     "purge:customers": "node server/scripts/deleteAllCustomers.js",
     "preflight:live": "node server/scripts/livePreflight.js",
     "preflight:scale": "node server/scripts/scalabilityPreflight.js",
-    "load:probe": "node server/scripts/scalabilityLoadProbe.js"
+    "load:probe": "node server/scripts/scalabilityLoadProbe.js",
+    "load:scenario": "node server/scripts/scalabilityScenarioProbe.js",
+    "audit:production": "node server/scripts/productionReadinessAudit.js",
+    "audit:ride-flow": "node server/scripts/rideFlowContractAudit.js"
   },
   "keywords": [
     "himrideg",

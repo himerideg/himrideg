@@ -19,5 +19,24 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     sourcemap: false,
+
+    /*
+    |--------------------------------------------------------------------
+    | Phase 4 production bundle split
+    |--------------------------------------------------------------------
+    | Route-level React.lazy chunks are complemented by stable vendor
+    | chunks so map/socket libraries are cached independently.
+    */
+    target: "es2020",
+    cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "react-vendor": ["react", "react-dom"],
+          "map-vendor": ["leaflet", "react-leaflet"],
+          "network-vendor": ["axios", "socket.io-client"],
+        },
+      },
+    },
   },
 });

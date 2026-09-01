@@ -206,3 +206,17 @@
     width: calc(100vw - 8px);
   }
 }
+
+
+/* ==========================================================================
+   Phase 4 — Map-first Fare Negotiation Bottom Sheet (ADD-ONLY)
+   ========================================================================== */
+.fareNegotiationLegacySlot{display:none!important}
+.cvMapFrame{position:relative;isolation:isolate}
+.cvMapFareSheet{position:absolute;left:12px;right:12px;bottom:10px;z-index:850;max-height:calc(100% - 20px);overflow:auto;padding:0;border-radius:16px;background:rgba(5,6,8,.92);box-shadow:0 18px 45px rgba(0,0,0,.48);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.cvMapFareSheet>.fareNegotiateBox,.cvMapFareSheet>.fareWaitBox,.cvMapFareSheet>.fareLockedBox{margin:0;border-radius:16px;background:rgba(8,10,13,.94)}
+.cvMapFareSheet .fareOfferHeader span,.cvMapFareSheet .fareWarning,.cvMapFareSheet .fareWaitBox p{color:#d1d5db}
+.cvMapFareSheet .fareBtn{min-height:42px}
+.cvMapFareSheet .fareCounterInput input{background:#11151b}
+@media(max-width:720px){.cvMapFareSheet{left:8px;right:8px;bottom:8px;max-height:76%;border-radius:14px}.cvMapFareSheet>.fareNegotiateBox,.cvMapFareSheet>.fareWaitBox,.cvMapFareSheet>.fareLockedBox{padding:12px}.cvMapFareSheet .fareActions{display:grid;grid-template-columns:1fr 1fr}.cvMapFareSheet .fareBtn{width:100%;min-width:0}.cvMapFareSheet .fareCounterInput{gap:7px}}
+@media(max-width:430px){.cvLiveMap .cvMapFrame{height:350px}.cvMapFareSheet{max-height:72%}.cvMapFareSheet .fareOfferHeader strong{font-size:21px}.cvMapFareSheet .fareActions{grid-template-columns:1fr}.cvMapFareSheet .fareBtn{min-height:40px;font-size:12px}}

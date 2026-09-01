@@ -14,6 +14,14 @@ const driverService = require(
 );
 
 const {
+  mirrorUploadToSharedStorage,
+  serveSharedUploadByFilename,
+  removeSharedUploadByFilename
+} = require(
+  "../services/sharedUploadStorageService"
+);
+
+const {
   validateDriverLocation
 } = require(
   "../validators/driverValidator"
@@ -436,9 +444,25 @@ async function uploadProfilePhoto(
 
     await driver.save();
 
+    /* Phase 4: mirror new profile upload into shared GridFS, disk stays primary. */
+    await mirrorUploadToSharedStorage(
+      req.file,
+      {
+        kind: "driver-profile",
+        ownerId: driver._id
+      }
+    );
+
     if (oldPhotoPath) {
       removeFile(
         oldPhotoPath
+      );
+
+      await removeSharedUploadByFilename(
+        path.basename(
+          oldPhotoPath
+        ),
+        "driver-profile"
       );
     }
 
@@ -578,6 +602,13 @@ async function uploadDocument(
         removeFile(
           oldPath
         );
+
+        await removeSharedUploadByFilename(
+          path.basename(
+            oldPath
+          ),
+          "driver-document"
+        );
       }
     } else {
       driver
@@ -608,6 +639,15 @@ async function uploadDocument(
 
       await driver.save();
     }
+
+    /* Phase 4: shared copy enables document access on any backend instance. */
+    await mirrorUploadToSharedStorage(
+      req.file,
+      {
+        kind: "driver-document",
+        ownerId: driver._id
+      }
+    );
 
     return res
       .status(200)
@@ -678,6 +718,21 @@ async function downloadDocument(
         filePath
       )
     ) {
+      const sharedServed =
+        await serveSharedUploadByFilename(
+          document.documentUrl,
+          res,
+          {
+            privateFile: true,
+            cacheSeconds: 300,
+            kind: "driver-document"
+          }
+        );
+
+      if (sharedServed) {
+        return;
+      }
+
       throw new ApiError(
         404,
         "Document file not found"

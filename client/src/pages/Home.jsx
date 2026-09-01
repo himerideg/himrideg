@@ -3,7 +3,18 @@ import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import Features from "../components/Features";
 import Footer from "../components/Footer";
-import HomeBookRide from "../components/HomeBookRide";
+// Phase 4: HomeBookRide is lazy-loaded below so Leaflet is not in first paint.
+
+/*
+|--------------------------------------------------------------------------
+| Phase 4 — Lazy Home Booking Map
+|--------------------------------------------------------------------------
+| HomeBookRide imports Leaflet. Loading it only when Book Ride opens keeps
+| the public landing page lighter without changing booking behavior.
+*/
+const HomeBookRide = React.lazy(
+  () => import("../components/HomeBookRide")
+);
 
 function Home({
   onLogin,

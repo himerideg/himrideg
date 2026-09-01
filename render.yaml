@@ -17,6 +17,8 @@ services:
         value: "true"
       - key: COOKIE_SAME_SITE
         value: lax
+      - key: ADMIN_RESET_ON_START
+        value: "false"
       - key: UPLOAD_ROOT
         value: /var/data/himrideg-uploads
       - key: MONGODB_URI
@@ -83,6 +85,35 @@ services:
         value: "true"
       - key: BACKGROUND_JOB_QUEUE
         value: jobs:default
+      # Phase 3 distributed matching + atomic accept protection
+      - key: DISTRIBUTED_DRIVER_AVAILABILITY_ENABLED
+        value: "true"
+      - key: DRIVER_MATCH_REDIS_PREFILTER_ENABLED
+        value: "true"
+      - key: DRIVER_AVAILABILITY_TTL_SECONDS
+        value: "120"
+      - key: DRIVER_LOCATION_STALE_SECONDS
+        value: "180"
+      - key: DRIVER_AVAILABILITY_WARMUP_LIMIT
+        value: "5000"
+      - key: RIDE_ACCEPT_DISTRIBUTED_LOCK_ENABLED
+        value: "true"
+      - key: RIDE_ACCEPT_LOCK_TTL_MS
+        value: "8000"
+
+      # Phase 4 performance + reliability
+      - key: MAP_CACHE_REDIS_ENABLED
+        value: "true"
+      - key: MAP_CACHE_NAMESPACE
+        value: map
+      - key: WEBHOOK_DURABLE_ACK_ENABLED
+        value: "true"
+      - key: WEBHOOK_BACKGROUND_QUEUE_ENABLED
+        value: "true"
+      - key: WEBHOOK_RETRY_MAX_ATTEMPTS
+        value: "5"
+      - key: UPLOAD_STORAGE_MODE
+        value: hybrid-gridfs
     disk:
       name: himrideg-uploads
       mountPath: /var/data/himrideg-uploads

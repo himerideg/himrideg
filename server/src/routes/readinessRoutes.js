@@ -3,7 +3,8 @@ const mongoose = require("mongoose");
 
 const {
   mongo: mongoScalability,
-  observability
+  observability,
+  webhooks: webhookScalability
 } = require(
   "../config/scalability"
 );
@@ -39,6 +40,18 @@ const {
   "../services/distributedLockService"
 );
 
+const {
+  getMapCacheStatus
+} = require(
+  "../services/mapCacheService"
+);
+
+const {
+  getSharedUploadStorageStatus
+} = require(
+  "../services/sharedUploadStorageService"
+);
+
 router.get("/", (req, res) => {
   const livePaymentKey = String(process.env.RAZORPAY_KEY_ID || "").startsWith("rzp_live_");
 
@@ -71,6 +84,12 @@ router.get("/", (req, res) => {
 
   const distributedLockStatus =
     getDistributedLockStatus();
+
+  const mapCacheStatus =
+    getMapCacheStatus();
+
+  const sharedUploadStatus =
+    getSharedUploadStorageStatus();
 
   res.status(200).json({
     success: true,
@@ -116,6 +135,31 @@ router.get("/", (req, res) => {
 
       distributedRideAcceptLock:
         distributedLockStatus,
+
+      mapCache:
+        mapCacheStatus,
+
+      durableWebhooks: {
+        enabled:
+          webhookScalability
+            .durableAckEnabled,
+        backgroundQueueEnabled:
+          webhookScalability
+            .backgroundQueueEnabled,
+        retryMaxAttempts:
+          webhookScalability
+            .retryMaxAttempts
+      },
+
+      uploadStorage: {
+        ...sharedUploadStatus,
+        sharedAcrossInstances:
+          sharedUploadStatus.sharedReady,
+        note:
+          sharedUploadStatus.sharedReady
+            ? "Hybrid local-disk + GridFS mirror active for multi-instance file access."
+            : "Persistent disk fallback active; enable UPLOAD_STORAGE_MODE=hybrid-gridfs before horizontal web-instance scaling."
+      },
 
       backgroundJobs: {
         enabled:

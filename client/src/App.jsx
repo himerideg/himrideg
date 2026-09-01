@@ -10,17 +10,57 @@ import socket from "./socket";
 import { playHimRideGSoundForText } from "./utils/himridegSounds";
 
 import Home from "./pages/Home";
-import AuthPage from "./pages/AuthPage";
-import CustomerLoginPage from "./pages/CustomerLoginPage";
-import AdminLoginPage from "./pages/AdminLoginPage";
-import GoogleBasicInfo from "./pages/GoogleBasicInfo";
-import CustomerDashboard from "./pages/CustomerDashboard";
-import DriverDashboard from "./pages/DriverDashboard";
-import DriverOnboarding from "./pages/DriverOnboarding";
-import AdminDashboard from "./pages/AdminDashboard";
+// Phase 4: AuthPage is loaded lazily below instead of in the initial bundle.
+// Phase 4: CustomerLoginPage is loaded lazily below instead of in the initial bundle.
+// Phase 4: AdminLoginPage is loaded lazily below instead of in the initial bundle.
+// Phase 4: GoogleBasicInfo is loaded lazily below instead of in the initial bundle.
+// Phase 4: CustomerDashboard is loaded lazily below instead of in the initial bundle.
+// Phase 4: DriverDashboard is loaded lazily below instead of in the initial bundle.
+// Phase 4: DriverOnboarding is loaded lazily below instead of in the initial bundle.
+// Phase 4: AdminDashboard is loaded lazily below instead of in the initial bundle.
 
 import "./styles.css";
 import "./hero.css";
+
+/*
+|--------------------------------------------------------------------------
+| Phase 4 — Route-level Lazy Loading
+|--------------------------------------------------------------------------
+| Home remains eager for fastest first paint. Auth/dashboard code is split
+| into separate Vite chunks and downloaded only when that screen is opened.
+| Existing page components and their business logic remain unchanged.
+*/
+const AuthPage = React.lazy(
+  () => import("./pages/AuthPage")
+);
+
+const CustomerLoginPage = React.lazy(
+  () => import("./pages/CustomerLoginPage")
+);
+
+const AdminLoginPage = React.lazy(
+  () => import("./pages/AdminLoginPage")
+);
+
+const GoogleBasicInfo = React.lazy(
+  () => import("./pages/GoogleBasicInfo")
+);
+
+const CustomerDashboard = React.lazy(
+  () => import("./pages/CustomerDashboard")
+);
+
+const DriverDashboard = React.lazy(
+  () => import("./pages/DriverDashboard")
+);
+
+const DriverOnboarding = React.lazy(
+  () => import("./pages/DriverOnboarding")
+);
+
+const AdminDashboard = React.lazy(
+  () => import("./pages/AdminDashboard")
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -55,6 +95,20 @@ const emptyDriverStatus = {
   isAvailable: false,
   loading: false
 };
+
+/*
+|--------------------------------------------------------------------------
+| Phase 4 — Socket-first Fallback Polling
+|--------------------------------------------------------------------------
+| Ride/payment/fare updates already arrive through Socket.IO. These timers
+| are now safety fallback only, which substantially reduces API/DB pressure
+| when thousands of connected clients are online.
+*/
+const REALTIME_FALLBACK_POLL_MS = Object.freeze({
+  driver: 60000,
+  customer: 75000,
+  admin: 120000
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -1872,6 +1926,10 @@ function App() {
     const refreshTimer =
       window.setInterval(
         () => {
+          if (document.visibilityState !== "visible") {
+            return;
+          }
+
           loadBookings();
 
           if (
@@ -1881,11 +1939,9 @@ function App() {
             loadDriverProfile();
           }
         },
-        user.role === "driver"
-          ? 10000
-          : user.role === "customer"
-            ? 15000
-            : 30000
+        REALTIME_FALLBACK_POLL_MS[
+          user.role
+        ] || 120000
       );
 
     return () => {

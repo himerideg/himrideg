@@ -11,6 +11,12 @@ const {
   driverProfileDirectory
 } = require("./config/uploads");
 
+const {
+  serveSharedUploadByFilename
+} = require(
+  "./services/sharedUploadStorageService"
+);
+
 const authRoutes = require("./routes/authRoutes");
 const driverAuthRoutes = require("./routes/driverAuthRoutes");
 const driverRoutes = require("./routes/driverRoutes");
@@ -260,9 +266,46 @@ app.use(
           ? "7d"
           : 0,
 
-      fallthrough: false
+      /*
+      | Phase 4 hybrid storage: local disk remains first; missing local file
+      | falls through to GridFS mirror route below.
+      */
+      fallthrough: true
     }
   )
+);
+
+/*
+|--------------------------------------------------------------------------
+| Phase 4 Shared Profile Upload Fallback
+|--------------------------------------------------------------------------
+| Existing public URL stays identical. Local disk wins; GridFS only serves
+| when the file is not present on this backend instance.
+*/
+app.get(
+  "/uploads/drivers/profile/:fileName",
+  async (req, res, next) => {
+    try {
+      const served =
+        await serveSharedUploadByFilename(
+          req.params.fileName,
+          res,
+          {
+            privateFile: false,
+            cacheSeconds: 604800,
+            kind: "driver-profile"
+          }
+        );
+
+      if (served) {
+        return;
+      }
+
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  }
 );
 
 /*

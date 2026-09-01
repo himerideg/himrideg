@@ -309,6 +309,54 @@ const scalabilityConfig = Object.freeze({
     )
   }),
 
+  /*
+  |------------------------------------------------------------------------
+  | Phase 4 — Shared Map Cache
+  |------------------------------------------------------------------------
+  | Existing in-process map cache remains L1 fallback. Redis becomes L2 so
+  | Geoapify responses can be reused across multiple backend instances.
+  */
+  mapCache: Object.freeze({
+    redisEnabled: booleanValue(
+      process.env.MAP_CACHE_REDIS_ENABLED,
+      true
+    ),
+
+    namespace:
+      String(
+        process.env.MAP_CACHE_NAMESPACE ||
+          "map"
+      )
+        .trim() ||
+      "map"
+  }),
+
+  /*
+  |------------------------------------------------------------------------
+  | Phase 4 — Durable Webhook Processing
+  |------------------------------------------------------------------------
+  */
+  webhooks: Object.freeze({
+    durableAckEnabled: booleanValue(
+      process.env.WEBHOOK_DURABLE_ACK_ENABLED,
+      true
+    ),
+
+    backgroundQueueEnabled: booleanValue(
+      process.env.WEBHOOK_BACKGROUND_QUEUE_ENABLED,
+      true
+    ),
+
+    retryMaxAttempts: positiveInteger(
+      process.env.WEBHOOK_RETRY_MAX_ATTEMPTS,
+      5,
+      {
+        minimum: 1,
+        maximum: 20
+      }
+    )
+  }),
+
   rateLimits: Object.freeze({
     rideMutationPerMinute: positiveInteger(
       process.env.RIDE_MUTATION_LIMIT_PER_MINUTE,

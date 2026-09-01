@@ -7,6 +7,12 @@ const User = require("../models/User");
 const {
   driverDocumentsDirectory
 } = require("../config/uploads");
+
+const {
+  serveSharedUploadByFilename
+} = require(
+  "../services/sharedUploadStorageService"
+);
 const Booking = require("../models/Booking");
 
 const {
@@ -1839,7 +1845,22 @@ async function getDriverDocument(req, res) {
     const filePath = path.join(driverDocumentsDirectory, fileName);
 
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ success: false, message: "Document file disk par nahi mili." });
+      const sharedServed =
+        await serveSharedUploadByFilename(
+          fileName,
+          res,
+          {
+            privateFile: true,
+            cacheSeconds: 300,
+            kind: "driver-document"
+          }
+        );
+
+      if (sharedServed) {
+        return;
+      }
+
+      return res.status(404).json({ success: false, message: "Document file disk/shared storage par nahi mili." });
     }
 
     // Determine content type by extension

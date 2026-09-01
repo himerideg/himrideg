@@ -4067,8 +4067,8 @@ function DriverDashboard({
   |------------------------------------------------------------------------
   | Payment Fallback Poll
   |------------------------------------------------------------------------
-  | payment:cash-selected socket miss ho jaye tab bhi driver ko 4 sec ke
-  | andar Cash Received action mil jaye. Sirf waiting-payment phase me poll.
+  | payment:cash-selected socket primary hai. Socket miss/reconnect case me
+  | 15 sec safety fallback poll rahega; hidden tab me polling pause rahegi.
   |------------------------------------------------------------------------
   */
   useEffect(() => {
@@ -4082,9 +4082,13 @@ function DriverDashboard({
     const timer =
       window.setInterval(
         () => {
+          if (document.visibilityState !== "visible") {
+            return;
+          }
+
           loadBookings?.();
         },
-        4000
+        15000
       );
 
     return () => {

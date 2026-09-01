@@ -188,6 +188,22 @@ const {
   "./server/src/services/backgroundNotificationService"
 );
 
+
+/* Phase 4: durable Razorpay webhook recovery after Redis/Mongo startup. */
+const {
+  recoverPendingDurableRazorpayWebhooks
+} = require(
+  "./server/src/controllers/razorpayWebhookController"
+);
+
+
+/* Phase 4: hybrid disk + GridFS shared upload mirror for scale-out. */
+const {
+  migrateLocalUploadsToSharedStorage
+} = require(
+  "./server/src/services/sharedUploadStorageService"
+);
+
 // Phase 3: Redis GEO registry warmup is best-effort and never blocks fallback.
 const {
   warmDistributedAvailabilityRegistry
@@ -397,6 +413,36 @@ const startServer =
       });
 
       await startBackgroundJobWorker();
+
+    recoverPendingDurableRazorpayWebhooks()
+      .then((result) => {
+        if (result?.enabled && result?.scanned > 0) {
+          console.log(
+            `✅ Durable webhook recovery: ${result.queued} queued, ${result.directProcessed} direct / ${result.scanned} pending`
+          );
+        }
+      })
+      .catch((error) => {
+        console.error(
+          "⚠️ Durable webhook recovery skipped:",
+          error?.message || error
+        );
+      });
+
+      migrateLocalUploadsToSharedStorage()
+        .then((result) => {
+          if (result?.enabled) {
+            console.log(
+              `✅ Shared upload storage: ${result.ready ? "ready" : "fallback"} | migrated ${result.mirrored || 0}`
+            );
+          }
+        })
+        .catch((error) => {
+          console.error(
+            "⚠️ Shared upload migration skipped:",
+            error?.message || error
+          );
+        });
 
       warmDistributedAvailabilityRegistry()
         .then((result) => {

@@ -1,3 +1,10 @@
+const {
+  getMapCache,
+  setMapCache
+} = require(
+  "../services/mapCacheService"
+);
+
 const DEFAULT_CENTER = {
   latitude: 32.1109,
   longitude: 76.5363
@@ -55,6 +62,58 @@ function saveCache(key, value, ttl) {
   });
 
   return value;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Phase 4 Shared Cache Wrapper
+|--------------------------------------------------------------------------
+| Local Map() cache stays L1. Redis is only an additive shared L2 cache.
+| Redis failure never blocks Geoapify or current map behavior.
+*/
+async function cachedAcrossInstances(
+  key,
+  ttl
+) {
+  const localHit = cached(key);
+
+  if (localHit) {
+    return localHit;
+  }
+
+  const redisHit =
+    await getMapCache(key);
+
+  if (!redisHit) {
+    return null;
+  }
+
+  return saveCache(
+    key,
+    redisHit,
+    ttl
+  );
+}
+
+async function saveCacheAcrossInstances(
+  key,
+  value,
+  ttl
+) {
+  const saved = saveCache(
+    key,
+    value,
+    ttl
+  );
+
+  await setMapCache(
+    key,
+    value,
+    ttl
+  );
+
+  return saved;
 }
 
 async function requestJson(url, signal) {
@@ -217,7 +276,10 @@ exports.autocomplete = async (req, res, next) => {
       : DEFAULT_CENTER.longitude;
 
     const cacheKey = `ac:${query.toLowerCase()}:${limit}:${biasLatitude.toFixed(2)}:${biasLongitude.toFixed(2)}`;
-    const hit = cached(cacheKey);
+    const hit = await cachedAcrossInstances(
+      cacheKey,
+      AUTOCOMPLETE_TTL_MS
+    );
     if (hit) return res.status(200).json(hit);
 
     const key = getApiKey();
@@ -251,7 +313,11 @@ exports.autocomplete = async (req, res, next) => {
     };
 
     return res.status(200).json(
-      saveCache(cacheKey, payload, AUTOCOMPLETE_TTL_MS)
+      await saveCacheAcrossInstances(
+        cacheKey,
+        payload,
+        AUTOCOMPLETE_TTL_MS
+      )
     );
   } catch (error) {
     return next(error);
@@ -276,7 +342,10 @@ exports.reverse = async (req, res, next) => {
     }
 
     const cacheKey = `rv:${latitude.toFixed(5)}:${longitude.toFixed(5)}`;
-    const hit = cached(cacheKey);
+    const hit = await cachedAcrossInstances(
+      cacheKey,
+      REVERSE_TTL_MS
+    );
     if (hit) return res.status(200).json(hit);
 
     const key = getApiKey();
@@ -310,7 +379,11 @@ exports.reverse = async (req, res, next) => {
     };
 
     return res.status(200).json(
-      saveCache(cacheKey, payload, REVERSE_TTL_MS)
+      await saveCacheAcrossInstances(
+        cacheKey,
+        payload,
+        REVERSE_TTL_MS
+      )
     );
   } catch (error) {
     return next(error);
@@ -333,7 +406,10 @@ exports.route = async (req, res, next) => {
     }
 
     const cacheKey = `rt:${fromLat.toFixed(5)}:${fromLon.toFixed(5)}:${toLat.toFixed(5)}:${toLon.toFixed(5)}`;
-    const hit = cached(cacheKey);
+    const hit = await cachedAcrossInstances(
+      cacheKey,
+      ROUTE_TTL_MS
+    );
     if (hit) return res.status(200).json(hit);
 
     const key = getApiKey();
@@ -381,7 +457,11 @@ exports.route = async (req, res, next) => {
     };
 
     return res.status(200).json(
-      saveCache(cacheKey, payload, ROUTE_TTL_MS)
+      await saveCacheAcrossInstances(
+        cacheKey,
+        payload,
+        ROUTE_TTL_MS
+      )
     );
   } catch (error) {
     return next(error);

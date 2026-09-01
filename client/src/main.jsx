@@ -6,6 +6,15 @@ import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
+    <React.Suspense
+      fallback={
+        <div className="hrgRouteLoading">
+          <span>HimRideG</span>
+          <small>Loading...</small>
+        </div>
+      }
+    >
+      <App />
+    </React.Suspense>
   </React.StrictMode>
 );

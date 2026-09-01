@@ -13,6 +13,20 @@ const razorpayWebhookEventSchema = new mongoose.Schema(
     },
     entityId: { type: String, trim: true, default: "" },
     errorMessage: { type: String, trim: true, maxlength: 1500, default: "" },
+
+    /*
+    |----------------------------------------------------------------------
+    | Phase 4 durable webhook fields
+    |----------------------------------------------------------------------
+    | Signature verify hone ke baad event ko ACK se pehle MongoDB me store
+    | kiya jata hai. Payload private backend audit/retry ke liye hai.
+    */
+    payload: { type: mongoose.Schema.Types.Mixed, default: null, select: false },
+    attemptCount: { type: Number, default: 0, min: 0 },
+    receivedAt: { type: Date, default: Date.now },
+    queuedAt: { type: Date, default: null },
+    lastAttemptAt: { type: Date, default: null },
+
     processedAt: { type: Date, default: null }
   },
   { timestamps: true }

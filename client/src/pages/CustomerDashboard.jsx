@@ -1415,6 +1415,28 @@ function CustomerDashboard({
     activeRide &&
     !["started", "completed", "cancelled"].includes(activeRide.status);
 
+
+  /*
+  |------------------------------------------------------------------------
+  | Phase 4 — Map-first Fare Negotiation Sheet
+  |------------------------------------------------------------------------
+  | Negotiation map ke upar bottom sheet me dikhegi. Ride started/completed
+  | hote hi sheet hat jayegi; existing fare state/handlers unchanged hain.
+  */
+  const showMapFareSheet = Boolean(
+    activeRide &&
+      ![
+        "started",
+        "completed",
+        "cancelled",
+        "expired"
+      ].includes(
+        String(
+          activeRide.status || ""
+        ).toLowerCase()
+      )
+  );
+
   /* ──────────────────────────────────────────────────────────────────
      Ride Start OTP — customer popup + automatic close after verification
   ────────────────────────────────────────────────────────────────── */
@@ -2525,13 +2547,21 @@ function CustomerDashboard({
                       </span>
                     </div>
 
-                    {/* Fare Negotiation UI */}
-                    <FareNegotiationUI
-                      ride={activeRide}
-                      onAccept={handleFareAccept}
-                      onCounter={handleFareCounter}
-                      onReject={handleFareReject}
-                    />
+                    {/*
+                      Legacy source position preserved for full-code safety.
+                      Phase 4 CSS hides this slot because the same component
+                      now renders as a map bottom-sheet below.
+                    */}
+                    <div className="fareNegotiationLegacySlot">
+                      {!showMapFareSheet && (
+                        <FareNegotiationUI
+                          ride={activeRide}
+                          onAccept={handleFareAccept}
+                          onCounter={handleFareCounter}
+                          onReject={handleFareReject}
+                        />
+                      )}
+                    </div>
                   </div>
 
                   <div className="cvDriverInfo">
@@ -2656,6 +2686,21 @@ function CustomerDashboard({
                 driverLocation={driverLocation}
                 readOnly={Boolean(activeRide)}
               />
+
+              {showMapFareSheet && (
+                <div
+                  className="cvMapFareSheet"
+                  role="region"
+                  aria-label="Fare negotiation"
+                >
+                  <FareNegotiationUI
+                    ride={activeRide}
+                    onAccept={handleFareAccept}
+                    onCounter={handleFareCounter}
+                    onReject={handleFareReject}
+                  />
+                </div>
+              )}
             </div>
 
             <footer>
