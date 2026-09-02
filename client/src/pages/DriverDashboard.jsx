@@ -1840,7 +1840,21 @@ function DriverDashboard({
   const [
     profileTab,
     setProfileTab
-  ] = useState("profile");
+  ] = useState("hub");
+
+  /*
+  |--------------------------------------------------------------------------
+  | Driver Wallet Transaction Filter — ADD-ONLY
+  |--------------------------------------------------------------------------
+  | Wallet ke andar All / Pending / Completed / Failed transaction history
+  | driver profile se directly accessible rahegi.
+  |--------------------------------------------------------------------------
+  */
+
+  const [
+    walletHistoryFilter,
+    setWalletHistoryFilter
+  ] = useState("all");
 
   const [
     profileData,
@@ -1919,8 +1933,21 @@ function DriverDashboard({
   }, []);
 
   useEffect(() => {
-    if (earningsOpen) loadWallet();
-  }, [earningsOpen, loadWallet]);
+    if (
+      earningsOpen ||
+      (
+        profileOpen &&
+        profileTab === "wallet"
+      )
+    ) {
+      loadWallet();
+    }
+  }, [
+    earningsOpen,
+    profileOpen,
+    profileTab,
+    loadWallet
+  ]);
 
   /*
   |--------------------------------------------------------------------------
@@ -4466,6 +4493,73 @@ function DriverDashboard({
 
   /*
   |--------------------------------------------------------------------------
+  | Driver Wallet History — Profile Hub
+  |--------------------------------------------------------------------------
+  */
+
+  const driverWalletTransactions =
+    Array.isArray(
+      walletData?.transactions
+    )
+      ? walletData.transactions
+      : [];
+
+  const getDriverWalletTransactionStatus = (
+    transaction
+  ) => {
+    const rawStatus =
+      String(
+        transaction?.status ||
+          ""
+      )
+        .trim()
+        .toLowerCase();
+
+    if (
+      rawStatus === "pending"
+    ) {
+      return "pending";
+    }
+
+    if (
+      rawStatus === "failed"
+    ) {
+      return "failed";
+    }
+
+    if (
+      rawStatus === "settled" ||
+      rawStatus === "completed" ||
+      rawStatus === "success" ||
+      rawStatus === "processed"
+    ) {
+      return "completed";
+    }
+
+    return "completed";
+  };
+
+  const filteredDriverWalletTransactions =
+    driverWalletTransactions.filter(
+      (transaction) => {
+        if (
+          walletHistoryFilter ===
+          "all"
+        ) {
+          return true;
+        }
+
+        return (
+          getDriverWalletTransactionStatus(
+            transaction
+          ) ===
+          walletHistoryFilter
+        );
+      }
+    );
+
+  /*
+  |--------------------------------------------------------------------------
   | Fixed Driver Wallet QR
   |--------------------------------------------------------------------------
   | QR me amount nahi hota. Sirf driver identity hoti hai. Customer scanner
@@ -5282,15 +5376,162 @@ function DriverDashboard({
                   </div>
                 </div>
 
-                <div className="hgProfileTabs">
-                  {[["profile","👤 Profile"],["documents","📄 Documents"]].map(([tab, label]) => (
-                    <button key={tab} type="button"
+                <div className="hgProfileTabs hgDriverProfileTabs">
+                  {[
+                    ["hub","⌂ Menu"],
+                    ["profile","👤 Profile"],
+                    ["wallet","💰 Wallet"],
+                    ["summary","▥ Summary"],
+                    ["documents","📄 Docs"]
+                  ].map(([tab, label]) => (
+                    <button
+                      key={tab}
+                      type="button"
                       className={`hgProfileTabBtn${profileTab === tab ? " active" : ""}`}
-                      onClick={() => setProfileTab(tab)}
-                    >{label}</button>
+                      onClick={() =>
+                        setProfileTab(
+                          tab
+                        )
+                      }
+                    >
+                      {label}
+                    </button>
                   ))}
                 </div>
               </div>
+
+              {/* ══════ DRIVER PROFILE FEATURE HUB — ADD-ONLY ══════ */}
+              {profileTab === "hub" && (
+                <div className="hgDriverProfileHub">
+                  <div className="hgDriverHubIntro">
+                    <small>DRIVER ACCOUNT</small>
+                    <h2>Profile</h2>
+                    <p>
+                      Profile, wallet, rides aur summary sab ek jagah se manage karo.
+                    </p>
+                  </div>
+
+                  <div className="hgDriverHubCards">
+                    <button
+                      type="button"
+                      className="hgDriverHubCard"
+                      onClick={() =>
+                        setProfileTab(
+                          "profile"
+                        )
+                      }
+                    >
+                      <span className="hgDriverHubIcon">👤</span>
+                      <div>
+                        <strong>Driver Profile</strong>
+                        <small>Personal info, vehicle aur contact details</small>
+                      </div>
+                      <b>›</b>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="hgDriverHubCard wallet"
+                      onClick={() =>
+                        setProfileTab(
+                          "wallet"
+                        )
+                      }
+                    >
+                      <span className="hgDriverHubIcon">💰</span>
+                      <div>
+                        <strong>Wallet & Payments</strong>
+                        <small>
+                          ₹{realDriverWalletBalance.toFixed(0)} available · transactions & withdrawal
+                        </small>
+                      </div>
+                      <b>›</b>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="hgDriverHubCard"
+                      onClick={() =>
+                        setProfileTab(
+                          "summary"
+                        )
+                      }
+                    >
+                      <span className="hgDriverHubIcon">▥</span>
+                      <div>
+                        <strong>Driver Summary</strong>
+                        <small>Requests, completed rides, rating & total earnings</small>
+                      </div>
+                      <b>›</b>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="hgDriverHubCard"
+                      onClick={() => {
+                        setProfileOpen(
+                          false
+                        );
+                        setActiveTab(
+                          "active"
+                        );
+                      }}
+                    >
+                      <span className="hgDriverHubIcon">🚕</span>
+                      <div>
+                        <strong>My Rides</strong>
+                        <small>Active, payment pending aur completed ride history</small>
+                      </div>
+                      <b>›</b>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="hgDriverHubCard"
+                      onClick={() =>
+                        setProfileTab(
+                          "documents"
+                        )
+                      }
+                    >
+                      <span className="hgDriverHubIcon">📄</span>
+                      <div>
+                        <strong>Documents</strong>
+                        <small>Licence, RC, permit aur verification status</small>
+                      </div>
+                      <b>›</b>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="hgDriverHubCard"
+                      onClick={() => {
+                        setProfileOpen(
+                          false
+                        );
+                        setActiveTab(
+                          "requests"
+                        );
+                      }}
+                    >
+                      <span className="hgDriverHubIcon">🔔</span>
+                      <div>
+                        <strong>Ride Requests</strong>
+                        <small>New customer requests aur notifications</small>
+                      </div>
+                      <b>›</b>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="hgDriverHubLogout"
+                    onClick={logout}
+                  >
+                    ↪ Logout Driver
+                  </button>
+                </div>
+              )}
 
               {/* ══════ PROFILE TAB ══════ */}
               {profileTab === "profile" && (
@@ -5439,6 +5680,278 @@ function DriverDashboard({
                 </form>
               )}
 
+              {/* ══════ WALLET TAB — ADD-ONLY ══════ */}
+              {profileTab === "wallet" && (
+                <div className="hgDriverWalletProfileTab">
+                  <section className="hgDriverWalletHero">
+                    <div>
+                      <small>AVAILABLE BALANCE</small>
+                      <strong>₹{realDriverWalletBalance.toFixed(0)}</strong>
+                    </div>
+                    <div>
+                      <small>TOTAL EARNINGS</small>
+                      <strong>₹{Number(
+                        walletData?.wallet?.totalEarned ??
+                          driverWallet.totalEarned ??
+                          0
+                      ).toFixed(0)}</strong>
+                    </div>
+                    <div>
+                      <small>PENDING</small>
+                      <strong>₹{realDriverPendingAmount.toFixed(0)}</strong>
+                    </div>
+                  </section>
+
+                  <div className="hgDriverWalletActions">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        setEarningsOpen(true);
+                      }}
+                    >
+                      💸 Withdraw / Wallet Settings
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setWalletQrOpen(
+                          true
+                        )
+                      }
+                    >
+                      ▦ My Driver QR
+                    </button>
+                    <button
+                      type="button"
+                      disabled={walletLoading}
+                      onClick={loadWallet}
+                    >
+                      {walletLoading
+                        ? "Refreshing..."
+                        : "↻ Refresh"}
+                    </button>
+                  </div>
+
+                  <section className="hgDriverWalletHistory">
+                    <header>
+                      <div>
+                        <small>WALLET</small>
+                        <h3>Transaction History</h3>
+                      </div>
+                    </header>
+
+                    <div className="hgDriverWalletFilters">
+                      {[
+                        ["all","All"],
+                        ["pending","Pending"],
+                        ["completed","Completed"],
+                        ["failed","Failed"]
+                      ].map(
+                        ([
+                          value,
+                          label
+                        ]) => (
+                          <button
+                            type="button"
+                            key={value}
+                            className={
+                              walletHistoryFilter ===
+                              value
+                                ? "active"
+                                : ""
+                            }
+                            onClick={() =>
+                              setWalletHistoryFilter(
+                                value
+                              )
+                            }
+                          >
+                            {label}
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    <div className="hgDriverWalletTransactionList">
+                      {filteredDriverWalletTransactions.length > 0 ? (
+                        filteredDriverWalletTransactions.map(
+                          (
+                            transaction,
+                            index
+                          ) => {
+                            const status =
+                              getDriverWalletTransactionStatus(
+                                transaction
+                              );
+
+                            const direction =
+                              String(
+                                transaction?.direction ||
+                                  ""
+                              )
+                                .trim()
+                                .toLowerCase();
+
+                            const prefix =
+                              direction ===
+                              "credit"
+                                ? "+"
+                                : direction ===
+                                    "debit"
+                                  ? "−"
+                                  : "";
+
+                            return (
+                              <article
+                                key={
+                                  transaction?._id ||
+                                  `${
+                                    transaction?.referenceId ||
+                                    "wallet"
+                                  }-${
+                                    transaction?.createdAt ||
+                                    index
+                                  }`
+                                }
+                              >
+                                <span className={`hgDriverWalletTxIcon ${status}`}>
+                                  {direction === "credit"
+                                    ? "₹"
+                                    : direction === "debit"
+                                      ? "↗"
+                                      : "•"}
+                                </span>
+
+                                <div>
+                                  <strong>
+                                    {transaction?.description ||
+                                      "Wallet transaction"}
+                                  </strong>
+                                  <small>
+                                    {formatDate(
+                                      transaction?.createdAt
+                                    )}
+                                  </small>
+                                </div>
+
+                                <div className="hgDriverWalletTxAmount">
+                                  <b className={direction}>
+                                    {prefix}₹{Number(
+                                      transaction?.amount ||
+                                        0
+                                    ).toFixed(0)}
+                                  </b>
+                                  <em className={status}>
+                                    {status === "completed"
+                                      ? "Completed"
+                                      : status === "pending"
+                                        ? "Pending"
+                                        : "Failed"}
+                                  </em>
+                                </div>
+                              </article>
+                            );
+                          }
+                        )
+                      ) : (
+                        <div className="hgDriverWalletEmpty">
+                          Is filter me abhi koi transaction nahi hai.
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              )}
+
+              {/* ══════ DRIVER SUMMARY TAB — ADD-ONLY ══════ */}
+              {profileTab === "summary" && (
+                <div className="hgDriverProfileSummaryTab">
+                  <div className="hgDriverProfileSummaryGrid">
+                    <article>
+                      <span>🚕</span>
+                      <small>Total Requests</small>
+                      <strong>{displayBookings.length}</strong>
+                    </article>
+                    <article>
+                      <span>⏳</span>
+                      <small>Pending</small>
+                      <strong>{pendingRides}</strong>
+                    </article>
+                    <article>
+                      <span>✅</span>
+                      <small>Accepted</small>
+                      <strong>{acceptedRides}</strong>
+                    </article>
+                    <article>
+                      <span>🛣️</span>
+                      <small>Ongoing</small>
+                      <strong>{startedRides}</strong>
+                    </article>
+                    <article>
+                      <span>💳</span>
+                      <small>Waiting Payment</small>
+                      <strong>{waitingPaymentRides}</strong>
+                    </article>
+                    <article>
+                      <span>🏁</span>
+                      <small>Completed</small>
+                      <strong>{completedRides}</strong>
+                    </article>
+                    <article>
+                      <span>⭐</span>
+                      <small>Rating</small>
+                      <strong>
+                        {Number(
+                          driverView?.driverProfile?.rating ||
+                            0
+                        ).toFixed(1)}
+                      </strong>
+                    </article>
+                    <article>
+                      <span>₹</span>
+                      <small>Total Earnings</small>
+                      <strong>
+                        ₹{Number(
+                          walletData?.wallet?.totalEarned ??
+                            driverWallet.totalEarned ??
+                            0
+                        ).toFixed(0)}
+                      </strong>
+                    </article>
+                    <article>
+                      <span>💰</span>
+                      <small>Wallet Balance</small>
+                      <strong>
+                        ₹{realDriverWalletBalance.toFixed(0)}
+                      </strong>
+                    </article>
+                  </div>
+
+                  <div className="hgDriverProfileSummaryActions">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setProfileTab(
+                          "wallet"
+                        )
+                      }
+                    >
+                      💰 Open Wallet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        setActiveTab("active");
+                      }}
+                    >
+                      🚕 View My Rides
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* ══════ DOCUMENTS TAB ══════ */}
               {profileTab === "documents" && (
                 <div style={{ display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden" }}>
@@ -5548,7 +6061,15 @@ function DriverDashboard({
           <button className={["active", "scheduled", "payment", "completed"].includes(activeTab) ? "active" : ""} type="button" onClick={() => setActiveTab("active")}>My Rides</button>
           <button type="button" onClick={() => setEarningsOpen(true)}>💰 Wallet</button>
           <button type="button" onClick={() => setWalletQrOpen(true)}>My QR</button>
-          <button type="button" onClick={() => setProfileOpen(true)}>Profile</button>
+          <button
+            type="button"
+            onClick={() => {
+              setProfileTab("hub");
+              setProfileOpen(true);
+            }}
+          >
+            Profile
+          </button>
         </nav>
 
         <div className="driverHeaderProfile">
@@ -5563,7 +6084,14 @@ function DriverDashboard({
               onClick={() => updateDriverOnlineStatus?.(!driverStatus.isOnline)}
             ><i /></button>
           </div>
-          <button type="button" className="driverHeaderAvatar" onClick={() => setProfileOpen(true)}>
+          <button
+            type="button"
+            className="driverHeaderAvatar"
+            onClick={() => {
+              setProfileTab("hub");
+              setProfileOpen(true);
+            }}
+          >
             {driverView?.profileImage ? <img src={driverView.profileImage} alt={displayDriverName} /> : (displayDriverName.charAt(0).toUpperCase() || "D")}
           </button>
           <div className="driverHeaderUser"><strong>{displayDriverName}</strong><span>Driver account</span></div>
