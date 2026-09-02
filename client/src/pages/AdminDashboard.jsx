@@ -5,7 +5,21 @@ import"../admin-dashboard.css";
 const bookingTabs=["all","pending","accepted","started","completed","cancelled"];
 
 function isDriverApproved(driver){
-  return Boolean(driver?.driverProfile?.isApproved??driver?.approved);
+  /*
+  | Canonical approval display — same meaning as Driver App.
+  */
+  return Boolean(
+    driver?.driverProfile?.isApproved === true ||
+    driver?.approved === true ||
+    driver?.isApproved === true ||
+    String(driver?.driverProfile?.approvalStatus || "")
+      .trim()
+      .toLowerCase() === "approved" ||
+    (
+      driver?.driverProfile?.approvedAt &&
+      driver?.driverProfile?.approvedBy
+    )
+  );
 }
 
 function isDriverBlocked(driver){

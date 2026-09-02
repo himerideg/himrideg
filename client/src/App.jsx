@@ -159,6 +159,42 @@ function getBookingFromResponse(data) {
   );
 }
 
+/*
+|--------------------------------------------------------------------------
+| Canonical Driver Approval Helper — Phase 10 ADD-ONLY
+|--------------------------------------------------------------------------
+| Historical/live HimRideG driver records approval ko multiple compatible
+| fields me carry kar sakte hain. UI ke har approval decision ko same rule
+| use karna chahiye.
+|--------------------------------------------------------------------------
+*/
+
+function isCanonicalDriverApproved(
+  driver
+) {
+  return Boolean(
+    driver?.approved === true ||
+      driver?.isApproved === true ||
+      driver?.driverProfile
+        ?.isApproved === true ||
+      String(
+        driver?.approvalStatus ||
+          driver?.driverProfile
+            ?.approvalStatus ||
+          ""
+      )
+        .trim()
+        .toLowerCase() ===
+        "approved" ||
+      (
+        driver?.driverProfile
+          ?.approvedAt &&
+        driver?.driverProfile
+          ?.approvedBy
+      )
+  );
+}
+
 function getDriverFromResponse(data) {
   return (
     data?.driver ||
@@ -1681,11 +1717,28 @@ function App() {
               return mergedDriver;
             });
 
+            /*
+            |--------------------------------------------------------------------------
+            | Profile Refresh Approval Conflict Fix — Phase 10
+            |--------------------------------------------------------------------------
+            | Exact live bug: DriverDashboard approvalStatus="approved" ko
+            | approved dikha raha tha, lekin yahan old boolean-only check
+            | driverApproved=false kar deta tha. Parent App phir verification
+            | overlay dobara mount kar deta tha.
+            */
+
+            const approvalSnapshot = {
+              ...(user || {}),
+              ...(driver || {}),
+              driverProfile: {
+                ...(user?.driverProfile || {}),
+                ...(driver?.driverProfile || {})
+              }
+            };
+
             setDriverApproved(
-              Boolean(
-                driver?.approved ||
-                driver?.isApproved ||
-                driver?.driverProfile?.isApproved
+              isCanonicalDriverApproved(
+                approvalSnapshot
               )
             );
           }
@@ -1880,7 +1933,10 @@ function App() {
               )
                 .trim()
                 .toLowerCase() ===
-                "approved"
+                "approved" ||
+              isCanonicalDriverApproved(
+                user
+              )
           );
 
         setDriverApproved(
@@ -1892,7 +1948,19 @@ function App() {
           error
         );
 
-        setDriverApproved(false);
+        /*
+        |--------------------------------------------------------------------------
+        | Approval Fetch Failure Safety — ADD-ONLY
+        |--------------------------------------------------------------------------
+        | Temporary API/network failure ko admin rejection nahi maana jayega.
+        | Existing approved user snapshot ko preserve karte hain.
+        */
+
+        setDriverApproved(
+          isCanonicalDriverApproved(
+            user
+          )
+        );
       }
     }, [user]);
 
@@ -3418,6 +3486,9 @@ function App() {
         */}
         {
           !driverApproved &&
+          !isCanonicalDriverApproved(
+            user
+          ) &&
           (
             <DriverOnboarding
               user={user}

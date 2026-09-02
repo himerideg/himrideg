@@ -58,8 +58,40 @@ const FUEL_TYPES = [
 | Pehle intro screen, "Upload Documents" tap karte hi form khulta hai.
 */
 
-function DriverOnboarding({ onApproved }) {
+function DriverOnboarding({
+  onApproved,
+  user
+}) {
   const [view, setView] = useState("intro");
+
+  /*
+  |--------------------------------------------------------------------------
+  | Parent Approved User Safety — Phase 10 ADD-ONLY
+  |--------------------------------------------------------------------------
+  */
+
+  const parentUserApproved =
+    Boolean(
+      user?.approved === true ||
+        user?.isApproved === true ||
+        user?.driverProfile
+          ?.isApproved === true ||
+        String(
+          user?.approvalStatus ||
+            user?.driverProfile
+              ?.approvalStatus ||
+            ""
+        )
+          .trim()
+          .toLowerCase() ===
+          "approved" ||
+        (
+          user?.driverProfile
+            ?.approvedAt &&
+          user?.driverProfile
+            ?.approvedBy
+        )
+    );
 
   const [onboarding, setOnboarding] =
     useState(null);
@@ -168,7 +200,8 @@ function DriverOnboarding({ onApproved }) {
 
         const canonicalApproved =
           Boolean(
-            status?.isApproved === true ||
+            parentUserApproved ||
+              status?.isApproved === true ||
               String(
                 status?.approvalStatus || ""
               )
@@ -192,13 +225,24 @@ function DriverOnboarding({ onApproved }) {
         setLoading(false);
       }
     },
-    []
+    [
+      parentUserApproved
+    ]
   );
 
   useEffect(() => {
+    if (
+      parentUserApproved
+    ) {
+      onApprovedRef.current?.();
+      return;
+    }
+
     loadStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [
+    parentUserApproved
+  ]);
 
   useEffect(() => {
     if (
