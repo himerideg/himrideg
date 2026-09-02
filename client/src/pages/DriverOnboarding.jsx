@@ -157,7 +157,27 @@ function DriverOnboarding({ onApproved }) {
           }));
         }
 
-        if (status?.isApproved) {
+        /*
+        |------------------------------------------------------------------
+        | Canonical Approved Driver Bypass — ADD-ONLY FIX
+        |------------------------------------------------------------------
+        | Backend ke isApproved ke saath approvalStatus ko bhi accept karo.
+        | Admin-approved driver ko documents stale/missing dikhne par popup
+        | reopen nahi hona chahiye.
+        */
+
+        const canonicalApproved =
+          Boolean(
+            status?.isApproved === true ||
+              String(
+                status?.approvalStatus || ""
+              )
+                .trim()
+                .toLowerCase() ===
+                "approved"
+          );
+
+        if (canonicalApproved) {
           onApprovedRef.current?.();
         }
       } catch (error) {

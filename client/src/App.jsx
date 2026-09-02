@@ -1857,12 +1857,34 @@ function App() {
             "/driver/onboarding"
           );
 
-        setDriverApproved(
+        const onboardingStatus =
+          data?.data?.onboarding ||
+          {};
+
+        /*
+        |--------------------------------------------------------------------------
+        | Canonical Driver Approval — ADD-ONLY FIX
+        |--------------------------------------------------------------------------
+        | Admin approval status authoritative hai. Approved driver ko stale
+        | document checklist ki wajah se onboarding overlay nahi dikhayenge.
+        */
+
+        const canonicalApproved =
           Boolean(
-            data?.data
-              ?.onboarding
-              ?.isApproved
-          )
+            onboardingStatus
+              ?.isApproved === true ||
+              String(
+                onboardingStatus
+                  ?.approvalStatus ||
+                  ""
+              )
+                .trim()
+                .toLowerCase() ===
+                "approved"
+          );
+
+        setDriverApproved(
+          canonicalApproved
         );
       } catch (error) {
         console.error(

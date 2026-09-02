@@ -829,11 +829,33 @@ function getRequestExpiry(
 }
 
 function isDriverApproved(user) {
+  /*
+  |--------------------------------------------------------------------------
+  | Canonical Driver Approval — ADD-ONLY FIX
+  |--------------------------------------------------------------------------
+  | Dashboard, onboarding aur ride-feed sab same admin approval meaning use
+  | karein. approvalStatus=approved ko bhi authoritative signal maana gaya.
+  */
+
   return Boolean(
-    user?.approved ||
-      user?.isApproved ||
+    user?.approved === true ||
+      user?.isApproved === true ||
       user?.driverProfile
-        ?.isApproved
+        ?.isApproved === true ||
+      String(
+        user?.driverProfile
+          ?.approvalStatus ||
+          ""
+      )
+        .trim()
+        .toLowerCase() ===
+        "approved" ||
+      (
+        user?.driverProfile
+          ?.approvedAt &&
+        user?.driverProfile
+          ?.approvedBy
+      )
   );
 }
 
@@ -4491,10 +4513,24 @@ function DriverDashboard({
   const uploadedCount  = docGateStatus.filter(d => d.uploaded).length;
   const verifiedCount  = docGateStatus.filter(d => d.status === "verified").length;
 
-  // Gate 1: Docs missing ya rejected → upload karo
-  const showDocGate    = !allUploaded;
-  // Gate 2: Docs uploaded but pending review ya admin ne approve nahi kiya
-  const showUnderReview = allUploaded && !approved;
+  /*
+  |--------------------------------------------------------------------------
+  | Approved Driver Must Never Re-enter Document Gate — ADD-ONLY FIX
+  |--------------------------------------------------------------------------
+  | Admin approval final authority hai. Agar approved=true hai to historical
+  | upload mirror/cache/document list temporarily empty/stale hone par bhi
+  | driver ko "Verification Baaki Hai" popup nahi dikhaya jayega.
+  */
+
+  // Gate 1: Sirf unapproved driver ke docs missing/rejected hon to upload karo.
+  const showDocGate =
+    !approved &&
+    !allUploaded;
+
+  // Gate 2: Docs uploaded hain lekin admin approval abhi pending hai.
+  const showUnderReview =
+    !approved &&
+    allUploaded;
 
   /*
   |--------------------------------------------------------------------------

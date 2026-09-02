@@ -1488,6 +1488,44 @@ userSchema.methods
           )
         : 0;
 
+    /*
+    |--------------------------------------------------------------------------
+    | Canonical Admin Approval — ADD-ONLY FIX
+    |--------------------------------------------------------------------------
+    | Purane/live driver records me approval ke multiple compatible signals
+    | mil sakte hain. Admin-approved driver ko missing/stale document snapshot
+    | ki wajah se onboarding popup dobara nahi dikhna chahiye.
+    |
+    | Authoritative signals:
+    | - driverProfile.isApproved === true
+    | - driverProfile.approvalStatus === "approved"
+    | - legacy top-level isApproved / approved === true (agar old record me ho)
+    | - approvedAt + approvedBy legacy approval evidence
+    |--------------------------------------------------------------------------
+    */
+
+    const canonicalIsApproved =
+      Boolean(
+        profile.isApproved === true ||
+          String(
+            profile.approvalStatus || ""
+          )
+            .trim()
+            .toLowerCase() === "approved" ||
+          this.isApproved === true ||
+          (
+            Object.prototype.hasOwnProperty.call(
+              this._doc || {},
+              "approved"
+            ) &&
+            this._doc?.approved === true
+          ) ||
+          (
+            profile.approvedAt &&
+            profile.approvedBy
+          )
+      );
+
     return {
       isCommercial,
       plateType:
@@ -1502,13 +1540,21 @@ userSchema.methods
       isComplete,
       progressPercent,
       approvalStatus:
-        profile.approvalStatus ||
-        "not_submitted",
-      isApproved: Boolean(
-        profile.isApproved
-      ),
+        canonicalIsApproved
+          ? "approved"
+          : (
+              profile.approvalStatus ||
+              "not_submitted"
+            ),
+      isApproved:
+        canonicalIsApproved,
       rejectionReason:
-        profile.rejectionReason || ""
+        canonicalIsApproved
+          ? ""
+          : (
+              profile.rejectionReason ||
+              ""
+            )
     };
   };
 
