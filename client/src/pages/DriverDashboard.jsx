@@ -4788,6 +4788,31 @@ function DriverDashboard({
               <article><span>🏁</span><small>Completed</small><strong>{completedRides}</strong></article>
               <article><span>⭐</span><small>Rating</small><strong>{Number(user?.driverProfile?.rating || 0).toFixed(1)}</strong></article>
             </div>
+
+            {/*
+            |------------------------------------------------------------------
+            | Mobile Driver Wallet Access — ADD-ONLY
+            |------------------------------------------------------------------
+            | Mobile CSS desktop navigation ko hide karta hai, isliye wallet ka
+            | direct entry Driver Summary me bhi rakha gaya hai. Existing
+            | earnings/wallet modal aur backend wallet API same hi use hote hain.
+            */}
+            <button
+              type="button"
+              className="driverSummaryWalletButton"
+              onClick={() => {
+                setSummaryOpen(false);
+                setEarningsOpen(true);
+              }}
+            >
+              <span>💰</span>
+              <div>
+                <small>DRIVER WALLET</small>
+                <strong>₹{realDriverWalletBalance.toFixed(0)} available</strong>
+              </div>
+              <b>Open Wallet →</b>
+            </button>
+
             <DriverWarnings
               onProfileUpdate={loadBookings}
             />
@@ -5485,7 +5510,7 @@ function DriverDashboard({
           <button className={activeTab === "dashboard" ? "active" : ""} type="button" onClick={() => setActiveTab("dashboard")}>Dashboard</button>
           <button className={activeTab === "requests" ? "active" : ""} type="button" onClick={() => setActiveTab("requests")}>Requests</button>
           <button className={["active", "scheduled", "payment", "completed"].includes(activeTab) ? "active" : ""} type="button" onClick={() => setActiveTab("active")}>My Rides</button>
-          <button type="button" onClick={() => setEarningsOpen(true)}>Earnings</button>
+          <button type="button" onClick={() => setEarningsOpen(true)}>💰 Wallet</button>
           <button type="button" onClick={() => setWalletQrOpen(true)}>My QR</button>
           <button type="button" onClick={() => setProfileOpen(true)}>Profile</button>
         </nav>
@@ -5521,6 +5546,13 @@ function DriverDashboard({
               </div>
               <div className="driverHeroActions">
                 <span className={approved ? "approved" : "waiting"}>{approved ? "✓ Approved Driver" : "Approval Pending"}</span>
+                <button
+                  type="button"
+                  className="driverHeroWalletButton"
+                  onClick={() => setEarningsOpen(true)}
+                >
+                  💰 Wallet
+                </button>
                 <button type="button" onClick={() => setSummaryOpen(true)}>▥ Driver Summary</button>
               </div>
             </section>
@@ -5902,6 +5934,13 @@ function DriverDashboard({
                 <article><span>🛣️</span><div><small>Active</small><strong>{acceptedRides + startedRides}</strong></div></article>
                 <article><span>₹</span><div><small>Total Earnings</small><strong>₹{Number(driverWallet.totalEarned || 0).toFixed(0)}</strong></div></article>
                 <button type="button" className="driverCustomerSummaryBtn" onClick={() => setSummaryOpen(true)}>View Full Summary →</button>
+                <button
+                  type="button"
+                  className="driverCustomerSummaryBtn driverCustomerWalletBtn"
+                  onClick={() => setEarningsOpen(true)}
+                >
+                  💰 Open Driver Wallet · ₹{realDriverWalletBalance.toFixed(0)}
+                </button>
               </aside>
             </section>
           </>

@@ -2481,3 +2481,122 @@ body:has(.driverDashboardPage) {
 
 /* V27 final-fare pending decision UI */
 .driverFinalFarePendingCard{margin-top:8px;padding:14px;border:1px solid rgba(34,197,94,.48);border-radius:13px;background:linear-gradient(145deg,rgba(18,92,52,.18),rgba(8,13,18,.92))}.driverFinalFarePendingCard>p{margin:0;color:#43df83;font-size:13px;font-weight:900;letter-spacing:.04em}.driverFinalCancelButton{width:100%;margin-top:13px;padding:11px 14px!important;border:1px solid #d94750!important;border-radius:10px!important;background:rgba(142,24,34,.24)!important;color:#ff737b!important;font-weight:900!important}.driverFinalCancelButton:disabled{opacity:.55;cursor:not-allowed}.driverCustomerRideActions button.danger{border-color:#b82c36;background:#311015;color:#ff6972}.driverCustomerRideActions button.danger:disabled{border-color:#4b3438;background:#201518;color:#8d7276}
+
+
+/* ========================================================================== */
+/* Phase 8 — Driver Wallet Mobile Browser Visibility — ADD-ONLY               */
+/* ========================================================================== */
+/*
+  Desktop driver nav intentionally hides on narrower screens in legacy rules.
+  Wallet used to remain reachable only through that hidden "Earnings" tab.
+  These additive styles expose the same existing wallet modal from mobile
+  hero/summary controls without changing wallet, payout, ride or payment logic.
+*/
+
+.driverHeroWalletButton {
+  border-color: rgba(34, 197, 94, .55) !important;
+  background: rgba(34, 197, 94, .08) !important;
+  color: #65e391 !important;
+}
+
+.driverCustomerWalletBtn {
+  border-color: rgba(34, 197, 94, .55) !important;
+  color: #65e391 !important;
+  background: rgba(34, 197, 94, .05) !important;
+}
+
+.driverSummaryWalletButton {
+  width: 100%;
+  min-height: 72px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(34, 197, 94, .38);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(34,197,94,.09), rgba(255,255,255,.96));
+  color: #111827;
+  text-align: left;
+  cursor: pointer;
+}
+
+.driverSummaryWalletButton > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(34,197,94,.12);
+  font-size: 21px;
+}
+
+.driverSummaryWalletButton > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.driverSummaryWalletButton small {
+  color: #15803d !important;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.driverSummaryWalletButton strong {
+  margin-top: 3px;
+  color: #111827;
+  font-size: 17px;
+}
+
+.driverSummaryWalletButton > b {
+  color: #15803d;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .driverHeroActions {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px !important;
+  }
+
+  .driverHeroActions > span {
+    grid-column: 1 / -1;
+  }
+
+  .driverHeroActions > button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 600px) {
+  .driverHeroActions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .driverHeroActions > span,
+  .driverHeroActions > button {
+    padding: 10px 9px !important;
+    font-size: 11px !important;
+  }
+
+  .driverSummaryWalletButton {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .driverSummaryWalletButton > b {
+    grid-column: 1 / -1;
+    padding-left: 54px;
+  }
+
+  .driverEarningsModal {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
