@@ -1781,6 +1781,20 @@ function DriverDashboard({
     message: ""
   });
 
+  /*
+  |--------------------------------------------------------------------------
+  | Driver Payment Receipt — Phase 13 ADD-ONLY
+  |--------------------------------------------------------------------------
+  | Customer online/cash payment complete hote hi Driver Dashboard par clear
+  | received receipt dikhegi. Driver ise Close kar sakta hai.
+  |--------------------------------------------------------------------------
+  */
+
+  const [
+    driverPaymentReceipt,
+    setDriverPaymentReceipt
+  ] = useState(null);
+
   const [
     socketConnected,
     setSocketConnected
@@ -2538,15 +2552,47 @@ function DriverDashboard({
     };
 
     const handlePaymentCompleted = (payload = {}) => {
-      handlePaymentUpdate({
+      const paidPayload = {
         ...payload,
         paymentStatus: "paid"
+      };
+
+      handlePaymentUpdate(
+        paidPayload
+      );
+
+      playHimRideGEventSound(
+        "payment_received_driver"
+      ).catch(() => {});
+
+      const paidMethod =
+        String(
+          payload?.paymentMethod ||
+            ""
+        )
+          .trim()
+          .toLowerCase();
+
+      const paidFare =
+        Number(
+          payload?.fare ||
+            payload?.amount ||
+            0
+        );
+
+      setDriverPaymentReceipt({
+        ...paidPayload,
+        fare: paidFare,
+        paymentMethod:
+          paidMethod ||
+          "online"
       });
-      playHimRideGEventSound("payment_received_driver").catch(() => {});
 
       showNotice(
         "success",
-        "Customer payment complete ho gayi."
+        paidMethod === "cash"
+          ? `Cash Received ₹${paidFare.toFixed(0)} ✅`
+          : `Payment Received ₹${paidFare.toFixed(0)} ✅`
       );
     };
 
@@ -4639,6 +4685,77 @@ function DriverDashboard({
           className={`driverNotice ${notice.type}`}
         >
           {notice.message}
+        </div>
+      )}
+
+      {driverPaymentReceipt && (
+        <div
+          className="driverPaymentReceiptOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Payment received"
+        >
+          <div className="driverPaymentReceiptCard">
+            <button
+              type="button"
+              className="driverPaymentReceiptClose"
+              onClick={() =>
+                setDriverPaymentReceipt(
+                  null
+                )
+              }
+              aria-label="Close payment receipt"
+            >
+              ×
+            </button>
+
+            <div className="driverPaymentReceiptIcon">
+              {String(
+                driverPaymentReceipt?.paymentMethod ||
+                  ""
+              ).toLowerCase() === "cash"
+                ? "💵"
+                : "✅"}
+            </div>
+
+            <small>
+              {String(
+                driverPaymentReceipt?.paymentMethod ||
+                  ""
+              ).toLowerCase() === "cash"
+                ? "CASH RECEIVED"
+                : "PAYMENT RECEIVED"}
+            </small>
+
+            <h2>
+              ₹{Number(
+                driverPaymentReceipt?.fare ||
+                  driverPaymentReceipt?.amount ||
+                  0
+              ).toFixed(0)}
+            </h2>
+
+            <p>
+              {String(
+                driverPaymentReceipt?.paymentMethod ||
+                  ""
+              ).toLowerCase() === "cash"
+                ? "Customer ki cash payment complete ho gayi. Aap next ride le sakte hain."
+                : "Customer ki online payment receive ho gayi. Aap next ride le sakte hain."}
+            </p>
+
+            <button
+              type="button"
+              className="driverPaymentReceiptDone"
+              onClick={() =>
+                setDriverPaymentReceipt(
+                  null
+                )
+              }
+            >
+              Done ✓
+            </button>
+          </div>
         </div>
       )}
 

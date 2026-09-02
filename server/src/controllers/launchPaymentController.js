@@ -10,6 +10,10 @@ const {
   settleCashCommission,
   sameId
 } = require("../services/paymentSettlementService");
+const {
+  sendPushToUser
+} = require("../services/pushNotificationService");
+
 
 /*
 |--------------------------------------------------------------------------
@@ -154,26 +158,89 @@ function emitPaymentUpdate(req, booking, eventName = "payment:plan-updated") {
     const io = req.app?.get("io");
     if (!io || !booking) return;
 
+    const customerId = String(
+      booking.customer?._id ||
+        booking.customer ||
+        ""
+    );
+
+    const driverId = String(
+      booking.driver?._id ||
+        booking.driver ||
+        ""
+    );
+
+    const fare =
+      Number(
+        finalFareOf(booking) ||
+          0
+      );
+
     const payload = {
       bookingId: booking._id,
       status: booking.status,
       fareStatus: booking.fareStatus,
-      finalFare: finalFareOf(booking),
+      finalFare: fare,
+      fare,
       paymentPlan: paymentPlanOf(booking),
       paymentTiming: paymentTimingOf(booking),
       paymentScheduledAt: booking.paymentScheduledAt || booking.travelDate || null,
       paymentMethod: booking.paymentMethod,
       paymentStatus: booking.paymentStatus,
-      paymentChoiceAfterRide: booking.paymentChoiceAfterRide || null
+      paymentChoiceAfterRide: booking.paymentChoiceAfterRide || null,
+      cashSelectedAt: booking.cashSelectedAt || null,
+      message:
+        eventName === "payment:cash-selected"
+          ? `Customer ne ₹${fare} cash payment select ki hai. Cash receive karke confirm karein.`
+          : undefined
     };
 
-    io.to(`booking:${booking._id}`).emit(eventName, payload);
-    if (booking.customer) {
-      io.to(`user:${booking.customer?._id || booking.customer}`).emit(eventName, payload);
+    /*
+    |--------------------------------------------------------------------------
+    | Multi-room Payment Delivery — Phase 13 ADD-ONLY
+    |--------------------------------------------------------------------------
+    | Existing booking:<id> room preserve hai. Real ride:<id>, customer/user
+    | aur driver/user rooms bhi same BroadcastOperator chain me add kiye gaye
+    | hain. Socket.IO union broadcast duplicate delivery ko de-duplicate karta
+    | hai even if driver user:<id> aur driver:<id> dono rooms me joined ho.
+    |--------------------------------------------------------------------------
+    */
+
+    let target =
+      io
+        .to(
+          `booking:${booking._id}`
+        )
+        .to(
+          `ride:${booking._id}`
+        );
+
+    if (customerId) {
+      target =
+        target
+          .to(
+            `user:${customerId}`
+          )
+          .to(
+            `customer:${customerId}`
+          );
     }
-    if (booking.driver) {
-      io.to(`user:${booking.driver?._id || booking.driver}`).emit(eventName, payload);
+
+    if (driverId) {
+      target =
+        target
+          .to(
+            `user:${driverId}`
+          )
+          .to(
+            `driver:${driverId}`
+          );
     }
+
+    target.emit(
+      eventName,
+      payload
+    );
   } catch (error) {
     console.error("Payment socket emit error:", error.message);
   }
@@ -729,7 +796,70 @@ async function selectPaymentMethod(req, res) {
     }
 
     await booking.save();
-    emitPaymentUpdate(req, booking, "payment:method-updated");
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cash Selection Realtime Delivery — Phase 13 FIX
+    |--------------------------------------------------------------------------
+    | Customer PaymentModal /payments/select-method use karta hai. Purana code
+    | yahan sirf payment:method-updated emit karta tha, jabki App ka driver-side
+    | cash alert specifically payment:cash-selected sunta hai. Is mismatch ki
+    | wajah se Cash choice MongoDB me save ho jaati thi lekin driver ko explicit
+    | "Cash Payment Selected / Receive Cash" command reliably nahi milti thi.
+    |
+    | Generic event compatibility ke liye preserve hai; Cash ke liye explicit
+    | event + push fallback additional hai.
+    |--------------------------------------------------------------------------
+    */
+
+    emitPaymentUpdate(
+      req,
+      booking,
+      "payment:method-updated"
+    );
+
+    if (method === "cash") {
+      emitPaymentUpdate(
+        req,
+        booking,
+        "payment:cash-selected"
+      );
+
+      const driverId = String(
+        booking.driver?._id ||
+          booking.driver ||
+          ""
+      );
+
+      if (driverId) {
+        sendPushToUser(
+          driverId,
+          {
+            title:
+              "Cash Payment Selected",
+            body:
+              `Customer ne ₹${fare} cash select kiya. Cash receive karke confirm karein.`,
+            data: {
+              type:
+                "cash_selected",
+              soundEvent:
+                "cash_selected",
+              role:
+                "driver",
+              bookingId:
+                String(
+                  booking._id
+                ),
+              fare,
+              paymentMethod:
+                "cash",
+              paymentStatus:
+                "pending"
+            }
+          }
+        ).catch(() => {});
+      }
+    }
 
     return res.status(200).json({
       success: true,

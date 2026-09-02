@@ -20,6 +20,7 @@ const files = {
   authController: read("server/src/controllers/authController.js"),
   driverAuthController: read("server/src/controllers/driverAuthController.js"),
   paymentController: read("server/src/controllers/paymentController.js"),
+  launchPaymentController: read("server/src/controllers/launchPaymentController.js"),
   rideController: read("server/src/controllers/rideController.js"),
   driverFeed: read("server/src/controllers/driverRideFeedController.js"),
   fareController: read("server/src/controllers/fareController.js"),
@@ -98,6 +99,36 @@ check("Cash select route", files.paymentRoutes.includes('"/cash-select"'), "Cust
 check("Cash confirm route", files.paymentRoutes.includes('"/cash-confirm"'), "Driver/customer confirmation endpoint exists.");
 check("Payment modal online wired", files.paymentModal.includes('"/payments/create-order"') && files.paymentModal.includes('"/payments/verify"'), "Customer online payment UI is wired.");
 check("Cash confirm UI wired", files.driver.includes('"/payments/cash-confirm"') || files.paymentModal.includes('"/payments/cash-confirm"'), "Cash completion UI is wired.");
+
+check(
+  "Cash selection explicit driver socket event",
+  files.launchPaymentController.includes('"payment:cash-selected"') &&
+    files.driver.includes('"payment:cash-selected"'),
+  "Customer Cash selection explicitly reaches Driver Dashboard."
+);
+check(
+  "Cash selection driver room delivery",
+  files.launchPaymentController.includes("`driver:${driverId}`"),
+  "Cash/payment realtime update targets dedicated driver room."
+);
+check(
+  "Cash selection push fallback",
+  files.launchPaymentController.includes("Cash Payment Selected") &&
+    files.launchPaymentController.includes("sendPushToUser"),
+  "Offline/reconnect case has driver push fallback."
+);
+check(
+  "Driver payment received receipt",
+  files.driver.includes("driverPaymentReceipt") &&
+    files.driver.includes("Cash Received"),
+  "Driver gets a closable Cash/Online received receipt."
+);
+check(
+  "Customer paid receipt manual close",
+  files.customer.includes("autoClosePaidReceipt") &&
+    files.paymentModal.includes("paymentDoneBtn"),
+  "Customer paid receipt has explicit Done/Close instead of forced close."
+);
 check("Paid ride releases driver", files.paymentController.includes("releaseDriverAfterPaidBooking") && files.paymentController.includes("isAvailable: true"), "Payment completion clears current ride and releases online driver.");
 check("Payment idempotency guard", files.paymentController.includes("already paid") || files.paymentController.includes('paymentStatus === "paid"'), "Repeated payment does not blindly create a second paid state.");
 

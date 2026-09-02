@@ -2213,11 +2213,39 @@ function CustomerDashboard({
 
     loadBookings?.();
 
-    if (String(paymentData?.paymentStatus || "").toLowerCase() === "paid") {
-      setTimeout(() => {
-        setShowPaymentModal(false);
-        setPaymentBooking(null);
-      }, 3000);
+    if (
+      String(
+        paymentData?.paymentStatus ||
+          ""
+      ).toLowerCase() === "paid"
+    ) {
+      /*
+      |--------------------------------------------------------------------------
+      | Manual Paid Receipt Close — Phase 13
+      |--------------------------------------------------------------------------
+      | PaymentModal me existing Done ✓ / Close button already hai. Paid receipt
+      | ko 3 second me force-close nahi karenge; customer apni marzi se close
+      | karega. Purana auto-close path compatibility/reference ke liye preserve
+      | hai but intentionally disabled.
+      |--------------------------------------------------------------------------
+      */
+
+      const autoClosePaidReceipt =
+        false;
+
+      if (
+        autoClosePaidReceipt
+      ) {
+        setTimeout(() => {
+          setShowPaymentModal(
+            false
+          );
+
+          setPaymentBooking(
+            null
+          );
+        }, 3000);
+      }
     }
   }, [paymentBooking, loadBookings]);
 
