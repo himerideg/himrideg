@@ -15,7 +15,8 @@
     "audit:ride-flow": "node server/scripts/rideFlowContractAudit.js",
     "validate:live": "node server/scripts/finalLaunchValidator.js",
     "load:final": "node server/scripts/finalLoadRampProbe.js",
-    "audit:uploads": "node server/scripts/sharedUploadStorageAudit.js"
+    "audit:uploads": "node server/scripts/sharedUploadStorageAudit.js",
+    "audit:full-journey": "node server/scripts/fullJourneyContractAudit.js"
   },
   "keywords": [
     "himrideg",

@@ -103,6 +103,33 @@ function getFreshToken() {
 |--------------------------------------------------------------------------
 */
 
+/*
+|--------------------------------------------------------------------------
+| Expected Session Role Reader — Phase 11 ADD-ONLY
+|--------------------------------------------------------------------------
+| Socket reconnect ka refresh request bhi wahi role-specific refresh cookie
+| use kare jo normal Axios refresh flow use karta hai.
+|
+*/
+
+function getExpectedSessionRole() {
+  try {
+    const user = JSON.parse(
+      sessionStorage.getItem(
+        "himrideg_user"
+      ) || "null"
+    );
+
+    return String(
+      user?.role || ""
+    )
+      .trim()
+      .toLowerCase();
+  } catch (error) {
+    return "";
+  }
+}
+
 function saveFreshToken(token) {
   const cleanToken = String(
     token || ""
@@ -170,7 +197,15 @@ async function refreshSocketSession() {
           "application/json",
 
         Accept:
-          "application/json"
+          "application/json",
+
+        /*
+        |------------------------------------------------------------------
+        | Role-Isolated Refresh Cookie Selection
+        |------------------------------------------------------------------
+        */
+        "X-HimRideG-Role":
+          getExpectedSessionRole()
       },
 
       body: "{}"

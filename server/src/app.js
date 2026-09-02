@@ -181,6 +181,7 @@ const corsOptions = {
     "Content-Type",
     "Authorization",
     "X-HimRideG-Client",
+    "X-HimRideG-Role",
     "Idempotency-Key"
   ],
 
