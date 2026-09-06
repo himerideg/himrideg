@@ -3187,3 +3187,25 @@ body:has(.driverDashboardPage) {
     border-radius: 20px 20px 14px 14px;
   }
 }
+
+/* V60: exact user-selected HimRideG map car */
+.driverCarMarker {
+  width: 42px;
+  height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  overflow: visible;
+}
+.driverCarMarker img {
+  width: 42px;
+  height: 65px;
+  object-fit: contain;
+  display: block;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}

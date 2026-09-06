@@ -69,7 +69,7 @@ function Hero({ onBookRide }) {
                 <h2>Ready to travel?</h2>
               </div>
               <img
-                src="/himrideg-logo.png"
+                src="/himrideg-logo.webp"
                 alt="HimRideG logo"
                 className="hrBookingLogo"
               />

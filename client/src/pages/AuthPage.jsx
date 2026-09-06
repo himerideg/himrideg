@@ -1651,7 +1651,7 @@ function AuthPage({
           aria-label="Back to home"
         >
           <img
-            src="/himrideg-logo.png"
+            src="/himrideg-logo.webp"
             alt="HimRideG"
             className="authBrandLogo"
           />
@@ -1750,7 +1750,7 @@ function AuthPage({
         >
           <div className="authCard">
             <div style={{textAlign:"center",marginBottom:"12px"}}>
-              <img src="/himrideg-logo.png" alt="HimRideG" style={{height:"48px",width:"auto",objectFit:"contain"}} />
+              <img src="/himrideg-logo.webp" alt="HimRideG" style={{height:"48px",width:"auto",objectFit:"contain"}} />
             </div>
             <div
               className="authCardIcon"

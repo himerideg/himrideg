@@ -423,3 +423,25 @@
 .driverRideMapWrapper{width:100%!important;max-width:none!important;background:transparent!important;border:0!important;box-shadow:none!important;border-radius:12px!important;overflow:hidden!important}.driverCompactMap{width:100%!important;max-width:none!important;height:575px!important;min-height:575px!important;margin:0!important;border:1px solid #26313b!important;border-radius:12px!important}.driverRideMap{height:100%!important;min-height:575px!important}.driverMapActions{grid-template-columns:1fr 1fr!important;gap:12px!important;padding:12px 0 0!important}.driverMapActions button{min-height:72px!important;border:1px solid #14532d!important;border-radius:11px!important;background:#07130d!important;color:#fff!important;font-size:14px!important}.driverMapActions button.secondary{border-color:#7f1d1d!important;background:#160b0d!important;color:#fff!important}.driverMapMessage{margin:0 0 10px!important}
 @media(max-width:1050px){.driverCompactMap,.driverRideMap{height:480px!important;min-height:480px!important}}
 @media(max-width:650px){.driverCompactMap,.driverRideMap{height:360px!important;min-height:360px!important}.driverMapActions{grid-template-columns:1fr!important}}
+
+/* V60: exact user-selected HimRideG map car */
+.driverCarMarker {
+  width: 42px;
+  height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  overflow: visible;
+}
+.driverCarMarker img {
+  width: 42px;
+  height: 65px;
+  object-fit: contain;
+  display: block;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}

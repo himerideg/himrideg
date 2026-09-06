@@ -44,9 +44,9 @@ const dropIcon = L.divIcon({
 
 const driverIcon = L.divIcon({
   className: "driverMapCustomIcon",
-  html: '<div class="driverMapPin driverPin"><span>🚕</span></div>',
-  iconSize: [56, 56],
-  iconAnchor: [28, 56],
+  html: '<div class="driverCarMarker"><img src="/HimRideG_map_car.png" alt="HimRideG car" /></div>',
+  iconSize: [42, 65],
+  iconAnchor: [21, 32],
   popupAnchor: [0, -50],
 });
 

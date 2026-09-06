@@ -14,7 +14,7 @@ function TaxiAnimation() {
         <div className="hrTaxiShadow" />
 
         <img
-          src="/swift-dzire-white.png"
+          src="/swift-dzire-white.webp"
           alt=""
           className="hrTaxiImage"
         />

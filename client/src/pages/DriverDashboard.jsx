@@ -50,7 +50,8 @@ const ACTIVE_RIDE_STATUSES = [
   "fare_accepted",
   "driver_arriving",
   "driver_arrived",
-  "started"
+  "started",
+  "payment_pending"
 ];
 
 const LOCATION_TRACKING_STATUSES = [
@@ -92,6 +93,7 @@ const STATUS_LABELS = {
   driver_arriving: "Going to Pickup",
   driver_arrived: "Arrived",
   started: "Ride Started",
+  payment_pending: "Waiting for Payment",
   completed: "Completed",
   cancelled: "Cancelled",
   expired: "Expired"
@@ -141,16 +143,16 @@ const driverIcon = L.divIcon({
   className: "driverMapCustomIcon",
 
   html:
-    '<div class="driverMapPin driverPin"><span>🚕</span></div>',
+    '<div class="driverCarMarker"><img src="/HimRideG_map_car.png" alt="HimRideG car" /></div>',
 
   iconSize: [
     42,
-    42
+    65
   ],
 
   iconAnchor: [
     21,
-    42
+    32
   ]
 });
 
@@ -456,13 +458,11 @@ function getFinalFare(ride) {
 
 /*
 |--------------------------------------------------------------------------
-| Payment-aware Driver Ride State
+| Payment-aware Driver Ride State — V57
 |--------------------------------------------------------------------------
-|
-| Backend ride `status` physical trip complete hote hi `completed` hota hai.
-| Driver UI me final Completed tab/count tabhi maana jayega jab payment paid ho.
-| Isse customer payment pending phase clearly `Waiting for Payment` dikhega.
-|
+| Driver Complete Ride ke baad unpaid/awaiting-confirmation booking ka
+| authoritative backend status `payment_pending` hai. Legacy completed-but-
+| unpaid records ko bhi recovery ke liye Waiting for Payment maana jata hai.
 */
 function getRidePaymentStatus(ride) {
   return String(
@@ -546,9 +546,11 @@ function canUseDriverRideActions(ride) {
 }
 
 function isWaitingForPaymentRide(ride) {
-  return (
-    ride?.status === "completed" &&
-    !isRidePaymentPaid(ride)
+  const status = String(ride?.status || "").toLowerCase();
+
+  return Boolean(
+    status === "payment_pending" ||
+      (status === "completed" && !isRidePaymentPaid(ride))
   );
 }
 
@@ -592,20 +594,24 @@ function isLegacyCashPendingRide(ride) {
 function canConfirmCashForRide(ride) {
   /*
   |--------------------------------------------------------------------------
-  | Driver Receive Cash Availability
+  | V57 Driver Receive Cash Authority
   |--------------------------------------------------------------------------
-  | FINAL CASH RULE:
-  | - Ride physically complete hote hi driver ko Receive Cash action milega.
-  | - Customer ka Cash Payment tap sirf customer intent / realtime hint hai;
-  |   driver action ko unlock karne ke liye mandatory nahi hai.
-  | - Online payment successful hote hi isWaitingForPaymentRide false ho jata
-  |   hai, isliye Receive Cash action automatically disappear ho jayega.
+  | New `payment_pending` rides me customer ko pehle Cash Payment select karna
+  | mandatory hai. Assigned driver actual cash receive hone ke baad hi confirm
+  | karega. Legacy completed/unpaid rides ka old compatibility path preserve hai.
   |--------------------------------------------------------------------------
   */
-  return Boolean(
-    isWaitingForPaymentRide(ride) &&
-      !isRidePaymentPaid(ride)
-  );
+  if (!isWaitingForPaymentRide(ride) || isRidePaymentPaid(ride)) {
+    return false;
+  }
+
+  const status = String(ride?.status || "").toLowerCase();
+
+  if (status === "payment_pending") {
+    return isCashSelectedForRide(ride);
+  }
+
+  return isCashSelectedForRide(ride) || isLegacyCashPendingRide(ride);
 }
 
 /*
@@ -4158,6 +4164,45 @@ function DriverDashboard({
     waitingPaymentRideList[0] ||
     null;
 
+  const latestWaitingPaymentRideId =
+    getId(latestWaitingPaymentRide);
+
+  /*
+  |------------------------------------------------------------------------
+  | V57 Persistent Driver Payment Popup
+  |------------------------------------------------------------------------
+  | Login/refresh/socket miss ke baad bookings hydrate hote hi payment_pending
+  | ride ko automatically modal me restore karo. `DriverPaymentModal` itself
+  | payment_pending state me non-dismissible hai.
+  |------------------------------------------------------------------------
+  */
+  useEffect(() => {
+    if (!latestWaitingPaymentRideId || !latestWaitingPaymentRide) {
+      return;
+    }
+
+    setDriverPaymentModalRide((current) => {
+      if (getId(current) === latestWaitingPaymentRideId) {
+        return {
+          ...current,
+          ...latestWaitingPaymentRide
+        };
+      }
+
+      return latestWaitingPaymentRide;
+    });
+  }, [
+    latestWaitingPaymentRideId,
+    latestWaitingPaymentRide?.status,
+    latestWaitingPaymentRide?.paymentStatus,
+    latestWaitingPaymentRide?.paymentMethod,
+    latestWaitingPaymentRide?.paymentChoiceAfterRide,
+    latestWaitingPaymentRide?.cashSelectedAt,
+    latestWaitingPaymentRide?.paymentDueAmount,
+    latestWaitingPaymentRide?.postRidePaidAmount,
+    latestWaitingPaymentRide?.advancePaidAmount
+  ]);
+
   /*
   |------------------------------------------------------------------------
   | Payment Fallback Poll
@@ -6866,7 +6911,30 @@ function DriverDashboard({
         {driverPaymentModalRide && (
           <DriverPaymentModal
             ride={driverPaymentModalRide}
-            onClose={() => setDriverPaymentModalRide(null)}
+            onClose={() => {
+              if (String(driverPaymentModalRide?.status || "").toLowerCase() === "payment_pending") {
+                return;
+              }
+              setDriverPaymentModalRide(null);
+            }}
+            onUpdate={(updatedRide) => {
+              const bookingId = getId(updatedRide);
+              if (bookingId) {
+                setLocalBookings((previous) =>
+                  previous.map((ride) =>
+                    getId(ride) === bookingId
+                      ? { ...ride, ...updatedRide }
+                      : ride
+                  )
+                );
+              }
+              setDriverPaymentModalRide((current) =>
+                current && getId(current) === bookingId
+                  ? { ...current, ...updatedRide }
+                  : current
+              );
+              loadBookings?.();
+            }}
           />
         )}
 

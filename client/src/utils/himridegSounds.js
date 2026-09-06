@@ -9,9 +9,15 @@
 */
 
 const SOUND_LIBRARY = {
-  popup: [1, 2, 3, 4, 5].map((n) => `/sounds/popup_${n}.wav`),
-  payment: [1, 2, 3, 4, 5].map((n) => `/sounds/payment_${n}.wav`),
-  notification: [1, 2, 3, 4, 5].map((n) => `/sounds/notification_${n}.wav`),
+  popup: Array(5).fill("/sounds/popup.wav"),
+  payment: [
+    "/sounds/payment_1.wav",
+    "/sounds/payment_2.wav",
+    "/sounds/payment_success.wav",
+    "/sounds/payment_success.wav",
+    "/sounds/payment_success.wav"
+  ],
+  notification: Array(5).fill("/sounds/notification.wav"),
   bell: [1, 2, 3, 4, 5].map((n) => `/sounds/bell_${n}.wav`)
 };
 

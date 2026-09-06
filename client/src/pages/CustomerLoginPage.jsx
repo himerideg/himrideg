@@ -377,7 +377,7 @@ function CustomerLoginPage({
           onClick={onBack}
           aria-label="Back to HimRideG home"
         >
-          <img src="/himrideg-logo.png" alt="HimRideG" />
+          <img src="/himrideg-logo.webp" alt="HimRideG" />
           <span>
             HimRide<span>G</span>
           </span>
@@ -433,7 +433,7 @@ function CustomerLoginPage({
 
         <div className="customerLoginCard">
           <header>
-            <img src="/himrideg-logo.png" alt="HimRideG" />
+            <img src="/himrideg-logo.webp" alt="HimRideG" />
             <span className="customerLoginUserIcon">♙</span>
             <h2>
               {mode === "register"

@@ -71,7 +71,7 @@ function AdminLoginPage({ onSuccess, onBack }) {
     <main className="adminLoginPage">
       <section className="adminLoginShell">
         <button type="button" className="adminLoginBrand" onClick={onBack}>
-          <img src="/himrideg-logo.png" alt="HimRideG" />
+          <img src="/himrideg-logo.webp" alt="HimRideG" />
           <span>HimRide<span>G</span> Admin</span>
         </button>
 

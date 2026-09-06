@@ -31,6 +31,7 @@ const ACTIVE_STATUSES = [
   "driver_arrived",
   "arrived",
   "started",
+  "payment_pending",
 ];
 
 const money = (value) =>
@@ -72,6 +73,14 @@ const lockedFareOf = (ride) =>
       ride?.fare?.finalFare ??
       0
   ) || 0;
+
+const advancePaidOf = (ride) => Math.max(0, Number(ride?.advancePaidAmount || 0) || 0);
+
+const paymentDueOf = (ride) => {
+  const explicit = Number(ride?.paymentDueAmount);
+  if (Number.isFinite(explicit) && explicit >= 0) return explicit;
+  return Math.max(0, lockedFareOf(ride) - advancePaidOf(ride));
+};
 
 const isRidePaid = (ride, paidBookingIds = new Set()) =>
   ride?.paymentStatus === "paid" ||
@@ -118,12 +127,28 @@ const isFinalFareLocked = (ride) =>
 | Legacy paymentPlan/paymentTiming fields preserve hain.
 |--------------------------------------------------------------------------
 */
+const hasActiveAdvanceRequest = (ride) =>
+  Boolean(
+    ride &&
+      String(ride.advanceStatus || "").toLowerCase() === "requested" &&
+      Number(ride.advanceRequestedAmount || 0) > 0 &&
+      Number(ride.advancePaidAmount || 0) <= 0 &&
+      !["started", "payment_pending", "completed", "cancelled"].includes(
+        String(ride.status || "").toLowerCase()
+      )
+  );
+
 const canCustomerPayRide = (ride, paidBookingIds = new Set()) => {
+  const status = String(ride?.status || "").toLowerCase();
   return Boolean(
     ride &&
-      String(ride.status || "").toLowerCase() === "completed" &&
       isFinalFareLocked(ride) &&
-      !isRidePaid(ride, paidBookingIds)
+      (
+        hasActiveAdvanceRequest(ride) ||
+        status === "payment_pending" ||
+        // Legacy compatibility: old completed-but-unpaid records can still pay.
+        (status === "completed" && !isRidePaid(ride, paidBookingIds))
+      )
   );
 };
 
@@ -155,6 +180,7 @@ const statusText = (status) =>
     driver_arrived: "Driver arrived",
     arrived: "Driver arrived",
     started: "Ride started",
+    payment_pending: "Payment pending",
     completed: "Completed",
     cancelled: "Cancelled",
   })[status] || "Pending";
@@ -701,7 +727,7 @@ function CustomerWalletPage({
     paidBookingIds
   );
 
-  const paymentFare = lockedFareOf(pendingPaymentRide);
+  const paymentFare = paymentDueOf(pendingPaymentRide);
 
   return (
     <section
@@ -1337,11 +1363,11 @@ function CustomerDashboard({
 
   /* ADD-ONLY: foreground customer OTP popup shown when driver marks arrived. */
   const [rideOtpPopup, setRideOtpPopup] = useState(null);
+  const rideOtpRecoveryRef = useRef(new Set());
 
   const fileInputRef = useRef(null);
   const paymentShownRef = useRef(new Set());
   const paymentCompletedSeenRef = useRef(new Set());
-  const autoPayOpenedRef = useRef(new Set());
 
   const [profile, setProfile] = useState({
     name: user?.name || "Customer",
@@ -1416,41 +1442,17 @@ function CustomerDashboard({
     activeRide &&
     !["started", "completed", "cancelled"].includes(activeRide.status);
 
+
   /*
-  |--------------------------------------------------------------------------
-  | Auto-open payment modal — ride complete hote hi
-  |--------------------------------------------------------------------------
-  | Jab ride complete ho aur payment pending ho, payment modal automatically
-  | khulta hai. Customer ko kuch click nahi karna padta.
-  | autoPayOpenedRef se ensure karo ek ride ke liye sirf ek baar khule.
-  |--------------------------------------------------------------------------
+  |------------------------------------------------------------------------
+  | Phase 4 — Map-first Fare Negotiation Sheet
+  |------------------------------------------------------------------------
+  | Negotiation map ke upar bottom sheet me dikhegi. Ride started/completed
+  | hote hi sheet hat jayegi; existing fare state/handlers unchanged hain.
   */
-  useEffect(() => {
-    if (!AUTO_PAYMENT_MODAL_ENABLED) return;
-
-    const unpaidCompleted = localBookings.find(
-      (ride) => canCustomerPayRide(ride, paidBookingIds)
-    );
-
-    if (!unpaidCompleted) return;
-
-    const rideId = idOf(unpaidCompleted);
-    if (!rideId || autoPayOpenedRef.current.has(rideId)) return;
-
-    autoPayOpenedRef.current.add(rideId);
-    setPaymentBooking(unpaidCompleted);
-    setShowPaymentModal(true);
-  }, [
-    localBookings,
-    paidBookingIds,
-    showPaymentModal,
-  ]);
   const showMapFareSheet = Boolean(
     activeRide &&
       ![
-        "fare_accepted",
-        "driver_arriving",
-        "driver_arrived",
         "started",
         "completed",
         "cancelled",
@@ -1467,12 +1469,21 @@ function CustomerDashboard({
   ────────────────────────────────────────────────────────────────── */
   useEffect(() => {
     const handleOtpGenerated = (payload = {}) => {
-      const otp = String(payload?.data?.otp || payload?.otp || "").trim();
+      const otp = String(
+        payload?.data?.otp ||
+        payload?.otp ||
+        payload?.data?.rideStartOtp ||
+        payload?.rideStartOtp ||
+        ""
+      ).trim();
       const status = String(
         payload?.status || payload?.data?.booking?.status || ""
       ).toLowerCase();
 
-      if (!otp || status !== "driver_arrived") {
+      if (
+        !/^\d{4,6}$/.test(otp) ||
+        !["driver_arrived", "arrived"].includes(status)
+      ) {
         return;
       }
 
@@ -1501,6 +1512,93 @@ function CustomerDashboard({
       socket.off("ride:otp-verified", handleOtpVerified);
     };
   }, []);
+
+  /* ──────────────────────────────────────────────────────────────────
+     OTP recovery after refresh/relogin/socket miss
+     Backend stores only the secure OTP hash, so when the plain OTP socket
+     packet is missed the customer requests one fresh OTP after a short grace.
+  ────────────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    const bookingId = idOf(activeRide);
+    const status = String(activeRide?.status || "").toLowerCase();
+    const verified = Boolean(
+      activeRide?.startOtpVerified ||
+      activeRide?.rideStartOtp?.verified ||
+      activeRide?.otpVerified
+    );
+
+    if (
+      !bookingId ||
+      !["driver_arrived", "arrived"].includes(status) ||
+      verified ||
+      (rideOtpPopup && rideOtpPopup.bookingId === bookingId)
+    ) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const timer = window.setTimeout(async () => {
+      if (
+        cancelled ||
+        rideOtpRecoveryRef.current.has(bookingId)
+      ) {
+        return;
+      }
+
+      rideOtpRecoveryRef.current.add(bookingId);
+
+      try {
+        const response = await api.post(
+          `/rides/${bookingId}/regenerate-start-otp`,
+          { recovery: true }
+        );
+
+        if (cancelled) return;
+
+        const result = response?.data?.data || response?.data || {};
+        const otp = String(
+          result?.rideStartOtp ||
+          result?.otp ||
+          result?.data?.rideStartOtp ||
+          result?.data?.otp ||
+          ""
+        ).trim();
+
+        if (/^\d{4,6}$/.test(otp)) {
+          setRideOtpPopup({
+            bookingId,
+            otp,
+            expiresAt:
+              result?.otpExpiresAt ||
+              result?.expiresAt ||
+              result?.data?.otpExpiresAt ||
+              result?.data?.expiresAt ||
+              null
+          });
+
+          playHimRideGEventSound("otp").catch(() => {});
+        }
+      } catch {
+        // Socket event or next dashboard hydration can still recover the OTP.
+      } finally {
+        rideOtpRecoveryRef.current.delete(bookingId);
+      }
+    }, 1200);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      rideOtpRecoveryRef.current.delete(bookingId);
+    };
+  }, [
+    activeRide?._id,
+    activeRide?.status,
+    activeRide?.startOtpVerified,
+    activeRide?.rideStartOtp?.verified,
+    activeRide?.otpVerified,
+    rideOtpPopup
+  ]);
 
   /* ──────────────────────────────────────────────────────────────────
      Socket Event Listeners — Fare Negotiation + Payment
@@ -1673,6 +1771,45 @@ function CustomerDashboard({
       }
     };
 
+    const handleAdvanceRequested = (data = {}) => {
+      const bid = String(data?.bookingId || "");
+      if (!bid) return;
+      playHimRideGEventSound("popup").catch(() => {});
+
+      const currentRide = localBookings.find((ride) => idOf(ride) === bid);
+      const mergedRide = {
+        ...(currentRide || {}),
+        ...(data || {}),
+        _id: currentRide?._id || data?._id || bid,
+        advanceStatus: "requested",
+      };
+
+      setLocalBookings((prev) =>
+        prev.map((ride) => (idOf(ride) === bid ? { ...ride, ...mergedRide } : ride))
+      );
+      setPaymentBooking(mergedRide);
+      setShowPaymentModal(true);
+    };
+
+    const handlePaidAwaitingDriver = (data = {}) => {
+      const bid = String(data?.bookingId || "");
+      if (!bid) return;
+      playHimRideGEventSound("online_payment_success").catch(() => {});
+      setLocalBookings((prev) =>
+        prev.map((ride) =>
+          idOf(ride) === bid
+            ? { ...ride, ...data, status: "payment_pending", paymentStatus: "paid", paymentMethod: "online" }
+            : ride
+        )
+      );
+      setPaymentBooking((current) =>
+        current && idOf(current) === bid
+          ? { ...current, ...data, status: "payment_pending", paymentStatus: "paid", paymentMethod: "online" }
+          : current
+      );
+      setShowPaymentModal(true);
+    };
+
     const handlePaymentPlanUpdated = (data = {}) => {
       const bid = String(data?.bookingId || "");
       if (!bid) return;
@@ -1770,6 +1907,8 @@ function CustomerDashboard({
     socket.on("fare:final-rejected", handleFareRejected);
     socket.on("fare:rejected", handleFareRejected);
     socket.on("payment:requested", handlePaymentRequested);
+    socket.on("payment:advance-requested", handleAdvanceRequested);
+    socket.on("payment:paid-awaiting-driver", handlePaidAwaitingDriver);
     socket.on("payment:plan-updated", handlePaymentPlanUpdated);
     socket.on("payment:method-updated", handlePaymentPlanUpdated);
     socket.on("payment:completed", handlePaymentCompleted);
@@ -1785,6 +1924,8 @@ function CustomerDashboard({
       socket.off("fare:final-rejected", handleFareRejected);
       socket.off("fare:rejected", handleFareRejected);
       socket.off("payment:requested", handlePaymentRequested);
+      socket.off("payment:advance-requested", handleAdvanceRequested);
+      socket.off("payment:paid-awaiting-driver", handlePaidAwaitingDriver);
       socket.off("payment:plan-updated", handlePaymentPlanUpdated);
       socket.off("payment:method-updated", handlePaymentPlanUpdated);
       socket.off("payment:completed", handlePaymentCompleted);
@@ -1809,48 +1950,37 @@ function CustomerDashboard({
   }, [loadBookings]);
 
   /* ──────────────────────────────────────────────────────────────────
-     Auto Payment Modal — Fare Lock + Waiting Payment
+     Persistent Payment Modal — Advance Request + Post-Ride Payment Pending
+     Backend state is authoritative, so refresh/login/socket miss ke baad bhi
+     account load hote hi required popup dobara khul jayega.
   ────────────────────────────────────────────────────────────────── */
   useEffect(() => {
-    if (!AUTO_PAYMENT_MODAL_ENABLED) {
-      return undefined;
-    }
+    if (!AUTO_PAYMENT_MODAL_ENABLED) return;
 
     const paymentFlowRide = localBookings.find((ride) =>
       canCustomerPayRide(ride, paidBookingIds)
     );
 
     if (!paymentFlowRide) {
-      return undefined;
+      const currentStatus = String(paymentBooking?.status || "").toLowerCase();
+      if (showPaymentModal && currentStatus === "completed") {
+        setShowPaymentModal(false);
+        setPaymentBooking(null);
+      }
+      return;
     }
 
     const bid = idOf(paymentFlowRide);
-    const plan = paymentPlanOf(paymentFlowRide);
+    if (!bid) return;
 
-    const stage =
-      !plan
-        ? "fare-plan"
-        : paymentFlowRide.status === "completed"
-          ? `complete-${plan}`
-          : `${plan}-pay-now`;
-
-    const stageKey = `${bid}:${stage}`;
-
-    if (paymentShownRef.current.has(stageKey)) {
-      return undefined;
-    }
-
-    const timer = setTimeout(() => {
-      paymentShownRef.current.add(stageKey);
-      setPaymentBooking(paymentFlowRide);
-      setShowPaymentModal(true);
-    }, paymentFlowRide.status === "completed" ? 900 : 350);
-
-    return () => clearTimeout(timer);
-  }, [
-    localBookings,
-    paidBookingIds,
-  ]);
+    setPaymentBooking((current) => {
+      if (current && idOf(current) === bid) {
+        return { ...current, ...paymentFlowRide };
+      }
+      return paymentFlowRide;
+    });
+    setShowPaymentModal(true);
+  }, [localBookings, paidBookingIds, paymentBooking?.status, showPaymentModal]);
 
   /* ──────────────────────────────────────────────────────────────────
      Auto Rating Modal — Ride Complete + Payment Done ke baad
@@ -2232,7 +2362,11 @@ function CustomerDashboard({
     | aur driver ko ek-dusre ke UI acknowledgement ka wait nahi karna.
     */
 
-    if (bid && String(paymentData?.paymentStatus || "").toLowerCase() === "paid") {
+    if (
+      bid &&
+      String(paymentData?.paymentStatus || "").toLowerCase() === "paid" &&
+      String(paymentData?.status || paymentData?.booking?.status || "").toLowerCase() === "completed"
+    ) {
       setPaidBookingIds((prev) => new Set([...prev, bid]));
     }
 
@@ -3145,6 +3279,7 @@ function CustomerDashboard({
           onSuccess={handlePaymentSuccess}
           onBookingUpdate={handlePaymentBookingUpdate}
           onClose={() => {
+            if (canCustomerPayRide(paymentBooking, paidBookingIds)) return;
             setShowPaymentModal(false);
             setPaymentBooking(null);
           }}

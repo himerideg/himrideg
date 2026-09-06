@@ -1,1008 +1,385 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api";
+import { playHimRideGEventSound } from "../utils/himridegSounds";
 
 /*
 |--------------------------------------------------------------------------
-| PaymentModal — HimRideG Fare-Lock + Payment Flow
+| HimRideG V57 Customer Payment Modal
 |--------------------------------------------------------------------------
-|
-| FINAL RULES
-|
-| 1. Final fare lock ke bina payment option choose nahi hoga.
-| 2. Payment amount sirf FINAL LOCKED FARE se aayega.
-| 3. Customer ko fare lock hote hi 3 payment plans milenge:
-|      A. Payment Online    = ride complete hone ke baad Online/Cash
-|      B. Payment Advance   = full locked fare abhi online pay
-|      C. Scheduled Payment = later pay; Pay Now hamesha available
-| 4. Advance select hone par driver pickup action payment paid hone tak locked.
-| 5. Scheduled Payment me customer kabhi bhi Pay Now kar sakta hai.
-| 6. Ride complete + payment pending = Waiting for Payment.
-| 7. Cash me customer Payment Done ya driver Receive Cash — first confirm wins.
-| 8. Payment paid hote hi driver release; mutual acknowledgement required nahi.
-| 9. estimatedFare / driverOfferedFare ko payment amount ke liye use nahi karna.
-|
+| One backend-authoritative flow for website + app:
+| - Driver can request an advance after final fare lock.
+| - Customer gets only Pay Online / Pay Later for advance.
+| - Complete Ride moves unpaid ride to payment_pending, never completed.
+| - Partial advance is deducted; only remaining amount is payable.
+| - Customer can choose Online or Cash for remaining amount.
+| - Online payment is Razorpay-verified but ride stays payment_pending until
+|   assigned driver confirms Payment Received.
+| - Cash selection stays payment_pending until assigned driver confirms cash.
+| - Full advance is handled by backend: Complete Ride -> auto completed.
+| - Required payment modal cannot be dismissed while server state requires it.
 |--------------------------------------------------------------------------
 */
 
-const STEP = Object.freeze({
-  PLAN: "plan",
-  PLAN_STATUS: "plan_status",
-  METHOD: "method",
-  PROCESSING: "processing",
-  SUCCESS: "success",
-  ERROR: "error",
-  LOCKED: "locked",
-});
-
-const PLAN = Object.freeze({
-  ONLINE_AFTER_RIDE: "online_after_ride",
-  ADVANCE: "advance",
-  SCHEDULED: "scheduled",
-});
-
-const METHOD = Object.freeze({
-  ONLINE: "online",
-  CASH: "cash",
-});
-
-/* Legacy advance-plan code preserve hai; latest flow me pre-ride payment off hai. */
-const ALLOW_ADVANCE_PAYMENT = false;
-
-function bookingIdOf(booking) {
-  return String(
-    booking?._id ||
-      booking?.id ||
-      booking?.bookingId ||
-      ""
-  );
-}
-
-function lockedFareOf(booking) {
-  return (
-    Number(
-      booking?.finalFare ??
-        booking?.fare?.finalFare ??
-        0
-    ) || 0
-  );
-}
-
-function isFareLocked(booking) {
-  return (
-    String(booking?.fareStatus || "") === "fare_accepted" &&
-    lockedFareOf(booking) > 0
-  );
-}
-
-function isRideCompleted(booking) {
-  return String(booking?.status || "").toLowerCase() === "completed";
-}
-
-function isScheduledBooking(booking) {
-  if (String(booking?.bookingMode || "").toLowerCase() === "schedule") {
-    return true;
-  }
-
-  const travelTime = new Date(
-    booking?.travelDate || booking?.scheduledAt || 0
-  ).getTime();
-
-  const createdTime = new Date(
-    booking?.createdAt || booking?.bookedAt || 0
-  ).getTime();
-
-  if (!travelTime || !createdTime) {
-    return false;
-  }
-
-  return travelTime - createdTime > 5 * 60 * 1000;
-}
-
-function assignedDriverIdOf(booking) {
-  return String(
-    booking?.driver?._id ||
-      booking?.driver?.id ||
-      booking?.driver ||
-      booking?.assignedDriver?._id ||
-      booking?.assignedDriver?.id ||
-      booking?.assignedDriver ||
-      ""
-  );
-}
-
-function parseDriverWalletQr(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-
-  try {
-    const json = JSON.parse(raw);
-    return String(json?.driverId || json?.driver || json?.id || "").trim();
-  } catch {
-    // Non-JSON payload can still be a HimRideG wallet URI.
-  }
-
-  try {
-    const normalized = raw.replace(/^himrideg:\/\//i, "https://himrideg.local/");
-    const url = new URL(normalized);
-    return String(
-      url.searchParams.get("driverId") ||
-        url.searchParams.get("driver") ||
-        ""
-    ).trim();
-  } catch {
-    return "";
-  }
-}
-
-function isAlreadyPaid(booking) {
-  return (
-    booking?.paymentStatus === "paid" ||
-    booking?.payment?.status === "paid"
-  );
-}
-
-function paymentPlanOf(booking) {
-  const plan = String(booking?.paymentPlan || "").trim();
-
-  if (
-    [
-      PLAN.ONLINE_AFTER_RIDE,
-      PLAN.ADVANCE,
-      PLAN.SCHEDULED,
-    ].includes(plan)
-  ) {
-    return plan;
-  }
-
-  if (booking?.paymentTiming === "pay_now") {
-    return PLAN.ADVANCE;
-  }
-
-  return null;
-}
-
-function formatMoney(amount) {
-  return new Intl.NumberFormat("en-IN", {
+const money = (value) =>
+  new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(Number(amount) || 0);
-}
+  }).format(Number(value) || 0);
 
-function formatSchedule(value) {
-  if (!value) {
-    return "Ride schedule ke according";
-  }
+const idOf = (booking) =>
+  String(booking?._id || booking?.id || booking?.bookingId || "");
 
-  const date = new Date(value);
+const finalFareOf = (booking) =>
+  Number(booking?.finalFare ?? booking?.fare?.finalFare ?? 0) || 0;
 
-  if (Number.isNaN(date.getTime())) {
-    return "Ride schedule ke according";
-  }
+const advancePaidOf = (booking) =>
+  Math.max(0, Number(booking?.advancePaidAmount || 0) || 0);
 
-  return date.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+const advanceRequestedOf = (booking) =>
+  Math.max(0, Number(booking?.advanceRequestedAmount || 0) || 0);
 
-function rideLabel(booking) {
-  const pickup =
-    booking?.pickup?.address ||
-    booking?.pickupAddress ||
-    (typeof booking?.pickup === "string" ? booking.pickup : "") ||
-    "Pickup";
+const remainingDueOf = (booking) => {
+  const explicit = Number(booking?.paymentDueAmount);
+  if (Number.isFinite(explicit) && explicit >= 0) return explicit;
+  return Math.max(0, finalFareOf(booking) - advancePaidOf(booking));
+};
 
-  const drop =
-    booking?.dropoff?.address ||
-    booking?.drop?.address ||
-    booking?.dropAddress ||
-    (typeof booking?.dropoff === "string" ? booking.dropoff : "") ||
-    (typeof booking?.drop === "string" ? booking.drop : "") ||
-    "Destination";
+const paymentStatusOf = (booking) =>
+  String(booking?.paymentStatus ?? booking?.payment?.status ?? "pending")
+    .trim()
+    .toLowerCase();
 
-  return { pickup, drop };
-}
+const paymentMethodOf = (booking) =>
+  String(booking?.paymentMethod ?? booking?.payment?.method ?? "")
+    .trim()
+    .toLowerCase();
+
+const cashSelectedOf = (booking) =>
+  Boolean(
+    booking?.cashSelectedAt ||
+      booking?.payment?.cashSelectedAt ||
+      (paymentMethodOf(booking) === "cash" && paymentStatusOf(booking) !== "paid")
+  );
 
 function loadRazorpayScript() {
   return new Promise((resolve) => {
-    if (typeof window === "undefined") {
-      resolve(false);
-      return;
-    }
-
-    if (window.Razorpay) {
-      resolve(true);
-      return;
-    }
+    if (typeof window === "undefined") return resolve(false);
+    if (window.Razorpay) return resolve(true);
 
     const existing = document.querySelector(
       'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
     );
-
     if (existing) {
-      existing.addEventListener("load", () => resolve(true), {
+      existing.addEventListener("load", () => resolve(Boolean(window.Razorpay)), {
         once: true,
       });
-      existing.addEventListener("error", () => resolve(false), {
-        once: true,
-      });
+      existing.addEventListener("error", () => resolve(false), { once: true });
       return;
     }
 
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
-    script.onload = () => resolve(true);
+    script.onload = () => resolve(Boolean(window.Razorpay));
     script.onerror = () => resolve(false);
     document.body.appendChild(script);
   });
 }
 
-function initialStep(booking) {
-  if (!isFareLocked(booking)) {
-    return STEP.LOCKED;
-  }
-
-  if (isAlreadyPaid(booking)) {
-    return STEP.SUCCESS;
-  }
-
-  /* Payment options sirf completed ride ke baad. */
-  if (!isRideCompleted(booking)) {
-    return STEP.LOCKED;
-  }
-
-  return STEP.METHOD;
-}
-
-function PaymentModal({
+export default function PaymentModal({
   booking,
   onSuccess,
   onBookingUpdate,
   onClose,
 }) {
-  const bookingId = useMemo(
-    () => bookingIdOf(booking),
-    [booking]
-  );
-
-  const finalFare = useMemo(
-    () => lockedFareOf(booking),
-    [booking]
-  );
-
-  const route = useMemo(
-    () => rideLabel(booking),
-    [booking]
-  );
-
-  const fareLocked = isFareLocked(booking);
-  const completed = isRideCompleted(booking);
-  const alreadyPaid = isAlreadyPaid(booking);
-
-  const [plan, setPlan] = useState(() => paymentPlanOf(booking));
-  const [step, setStep] = useState(() => initialStep(booking));
-  const [paymentMethod, setPaymentMethod] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const [receipt, setReceipt] = useState(null);
-  const [scheduledAt, setScheduledAt] = useState(
-    booking?.paymentScheduledAt || booking?.travelDate || null
-  );
-
-  const scheduledBooking = useMemo(
-    () => isScheduledBooking(booking),
-    [booking]
-  );
-
-  const assignedDriverId = useMemo(
-    () => assignedDriverIdOf(booking),
-    [booking]
-  );
-
-  const [showQrScanner, setShowQrScanner] = useState(false);
-  const [qrVerified, setQrVerified] = useState(false);
-  const [qrMessage, setQrMessage] = useState("");
-  const scannerRef = useRef(null);
-  const qrVideoRef = useRef(null);
-
-  // ADD-ONLY: payment failure audit so real-money failures remain traceable.
-  const reportPaymentFailure = useCallback(async (reason, details = {}) => {
-    try {
-      await api.post("/payments/failed", {
-        bookingId,
-        reason: String(reason || "Payment failed").slice(0, 450),
-        ...details,
-      });
-    } catch {
-      // Audit failure must never block customer retry UX.
-    }
-  }, [bookingId]);
+  const [localBooking, setLocalBooking] = useState(booking || null);
+  const openedSoundRef = useRef("");
 
   useEffect(() => {
-    setPlan(paymentPlanOf(booking));
-    setStep(initialStep(booking));
-    setPaymentMethod(null);
-    setLoading(false);
-    setError("");
-    setReceipt(
-      isAlreadyPaid(booking)
-        ? {
-            paymentMethod:
-              booking?.paymentMethod ||
-              booking?.payment?.method ||
-              METHOD.ONLINE,
-            paymentStatus: "paid",
-            fare: lockedFareOf(booking),
-            paymentId: booking?.razorpayPaymentId || null,
-          }
-        : null
-    );
-    setScheduledAt(
-      booking?.paymentScheduledAt || booking?.travelDate || null
-    );
-    setShowQrScanner(false);
-    setQrVerified(false);
-    setQrMessage("");
-  }, [bookingId, booking]);
+    setLocalBooking(booking || null);
+  }, [booking]);
+
+  const ride = localBooking || booking || {};
+  const bookingId = idOf(ride);
+  const status = String(ride?.status || "").trim().toLowerCase();
+  const fare = finalFareOf(ride);
+  const advancePaid = advancePaidOf(ride);
+  const advanceRequested = advanceRequestedOf(ride);
+  const advanceStatus = String(ride?.advanceStatus || "none").toLowerCase();
+  const paymentStatus = paymentStatusOf(ride);
+  const paymentMethod = paymentMethodOf(ride);
+  const cashSelected = cashSelectedOf(ride);
+  const remaining = remainingDueOf(ride);
+
+  const advanceRequestActive =
+    advanceStatus === "requested" &&
+    advanceRequested > 0 &&
+    advancePaid <= 0 &&
+    !["started", "payment_pending", "completed", "cancelled"].includes(status);
+
+  const postRideRequired = status === "payment_pending";
+  const onlinePaidAwaitingDriver =
+    postRideRequired && paymentStatus === "paid" && paymentMethod === "online";
+
+  const required = advanceRequestActive || postRideRequired;
+  const context = advanceRequestActive ? "advance" : "post_ride";
+  const payableAmount = advanceRequestActive ? advanceRequested : remaining;
+
+  const title = useMemo(() => {
+    if (advanceRequestActive) return "Advance Payment Request";
+    if (onlinePaidAwaitingDriver) return "Payment Received — Driver Confirmation Pending";
+    if (cashSelected) return "Cash Payment — Driver Confirmation Pending";
+    if (postRideRequired) return "Ride Payment Pending";
+    return "Payment Status";
+  }, [advanceRequestActive, onlinePaidAwaitingDriver, cashSelected, postRideRequired]);
 
   useEffect(() => {
-    if (!showQrScanner) {
-      return undefined;
-    }
-
-    let active = true;
-    let animationFrame = 0;
-    let mediaStream = null;
-
-    const stopScanner = () => {
-      active = false;
-
-      if (animationFrame) {
-        window.cancelAnimationFrame(animationFrame);
-      }
-
-      if (mediaStream) {
-        mediaStream.getTracks().forEach((track) => track.stop());
-      }
-
-      if (qrVideoRef.current) {
-        try {
-          qrVideoRef.current.pause();
-          qrVideoRef.current.srcObject = null;
-        } catch {
-          // Browser cleanup fallback.
-        }
-      }
-
-      scannerRef.current = null;
-    };
-
-    const startScanner = async () => {
-      try {
-        if (typeof window.BarcodeDetector !== "function") {
-          throw new Error(
-            "Is browser me built-in QR camera scanner support nahi hai. Latest Chrome/Android Chrome use karein."
-          );
-        }
-
-        if (!navigator?.mediaDevices?.getUserMedia) {
-          throw new Error(
-            "Camera access available nahi hai. HTTPS site aur camera permission required hai."
-          );
-        }
-
-        const detector = new window.BarcodeDetector({
-          formats: ["qr_code"],
-        });
-
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-          audio: false,
-        });
-
-        scannerRef.current = { mediaStream };
-
-        const video = qrVideoRef.current;
-        if (!video) {
-          throw new Error("Camera preview ready nahi hua.");
-        }
-
-        video.srcObject = mediaStream;
-        video.setAttribute("playsinline", "true");
-        await video.play();
-
-        const scanFrame = async () => {
-          if (!active) return;
-
-          try {
-            if (video.readyState >= 2) {
-              const barcodes = await detector.detect(video);
-              const decodedText = barcodes?.[0]?.rawValue || "";
-
-              if (decodedText) {
-                const scannedDriverId = parseDriverWalletQr(decodedText);
-
-                if (!assignedDriverId) {
-                  setQrMessage(
-                    "Assigned driver ID ride me available nahi hai. Ride refresh karke dobara try karein."
-                  );
-                } else if (!scannedDriverId) {
-                  setQrMessage("Yeh valid HimRideG Driver Wallet QR nahi hai.");
-                } else if (scannedDriverId !== assignedDriverId) {
-                  setQrMessage(
-                    "Yeh QR is ride ke assigned driver ka nahi hai. Payment roki gayi."
-                  );
-                } else {
-                  setQrVerified(true);
-                  setQrMessage(
-                    "✅ Driver Wallet QR verified. Ab locked fare UPI se pay karein."
-                  );
-                  setPaymentMethod(METHOD.ONLINE);
-                  stopScanner();
-                  setShowQrScanner(false);
-                  return;
-                }
-              }
-            }
-          } catch {
-            // Frame decode miss ko ignore karke scanner continue rakho.
-          }
-
-          animationFrame = window.requestAnimationFrame(scanFrame);
-        };
-
-        animationFrame = window.requestAnimationFrame(scanFrame);
-      } catch (scannerError) {
-        setQrMessage(
-          scannerError?.message ||
-            "Camera QR scanner start nahi ho saka. Camera permission check karein."
-        );
-        stopScanner();
-      }
-    };
-
-    startScanner();
-
-    return () => {
-      stopScanner();
-    };
-  }, [assignedDriverId, showQrScanner]);
-
-  const planTitle = useMemo(() => {
-    if (completed) return "Ride Payment";
-    if (plan === PLAN.ADVANCE) return "Advance Payment";
-    if (plan === PLAN.SCHEDULED) return "Scheduled Payment";
-    if (plan === PLAN.ONLINE_AFTER_RIDE) return "Payment Online";
-    return "Choose Payment Option";
-  }, [completed, plan]);
-
-  const paymentLockMessage = useMemo(() => {
-    if (!bookingId) {
-      return "Booking ID missing hai. Ride refresh karke dobara try karein.";
-    }
-
-    if (!fareLocked) {
-      return "Final fare lock hone ke baad payment page enable hoga.";
-    }
-
-    if (!completed) {
-      return "Payment options driver ke ride complete karne ke baad hi enable honge.";
-    }
-
-    return "Payment abhi available nahi hai.";
-  }, [bookingId, completed, fareLocked]);
-
-  const selectPlan = useCallback(
-    async (nextPlan) => {
-      if (!fareLocked || !bookingId || loading) {
-        return;
-      }
-
-      setLoading(true);
-      setError("");
-
-      try {
-        const { data } = await api.post(
-          "/payments/select-plan",
-          {
-            bookingId,
-            plan: nextPlan,
-          }
-        );
-
-        if (!data?.success) {
-          throw new Error(
-            data?.message || "Payment option select nahi hua"
-          );
-        }
-
-        const updated = data?.data || {};
-
-        setPlan(nextPlan);
-        setScheduledAt(
-          updated.paymentScheduledAt || booking?.travelDate || null
-        );
-        setStep(
-          nextPlan === PLAN.ONLINE_AFTER_RIDE && completed
-            ? STEP.METHOD
-            : STEP.PLAN_STATUS
-        );
-
-        onBookingUpdate?.({
-          bookingId,
-          paymentPlan: nextPlan,
-          paymentTiming: updated.paymentTiming,
-          paymentScheduledAt: updated.paymentScheduledAt || null,
-          paymentStatus: updated.paymentStatus || "pending",
-        });
-      } catch (planError) {
-        setError(
-          planError?.response?.data?.message ||
-            planError?.message ||
-            "Payment option select nahi ho saka"
-        );
-        setStep(STEP.ERROR);
-      } finally {
-        setLoading(false);
-      }
-    }, [
-      bookingId,
-      booking?.travelDate,
-      completed,
-      fareLocked,
-      loading,
-      onBookingUpdate,
-    ]
-  );
-
-  const handleOnlinePayment = useCallback(async () => {
-    if (!fareLocked || !bookingId || alreadyPaid) {
-      setError(paymentLockMessage);
-      setStep(STEP.LOCKED);
-      return;
-    }
-
-    if (!completed) {
-      setError("Payment driver ke ride complete karne ke baad hi start hogi.");
-      setStep(STEP.LOCKED);
-      return;
-    }
-
-    /* Legacy plan data preserve hai; completed ride par direct UPI allowed. */
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const scriptLoaded = await loadRazorpayScript();
-
-      if (!scriptLoaded || !window.Razorpay) {
-        throw new Error(
-          "Razorpay load nahi hua. Internet connection check karke dobara try karein."
-        );
-      }
-
-      const { data } = await api.post(
-        "/payments/create-order",
-        { bookingId }
-      );
-
-      if (!data?.success) {
-        throw new Error(
-          data?.message || "Payment order create nahi hua"
-        );
-      }
-
-      if (data?.data?.alreadyPaid) {
-        const paidReceipt = {
-          paymentMethod: METHOD.ONLINE,
-          paymentStatus: "paid",
-          paymentId: data?.data?.paymentId || null,
-          fare: Number(data?.data?.fare || finalFare),
-          paymentPlan: plan,
-        };
-
-        setReceipt(paidReceipt);
-        setStep(STEP.SUCCESS);
-        onSuccess?.(paidReceipt);
-        return;
-      }
-
-      const {
-        keyId,
-        orderId,
-        amount,
-        currency,
-        fare: serverFare,
-        customerName,
-        customerPhone,
-        paymentContext,
-      } = data.data || {};
-
-      if (!keyId || !orderId || !amount) {
-        throw new Error("Payment gateway details incomplete hain");
-      }
-
-      const backendLockedFare = Number(serverFare || 0);
-
-      if (
-        backendLockedFare <= 0 ||
-        Math.round(backendLockedFare * 100) !== Number(amount)
-      ) {
-        throw new Error(
-          "Locked fare aur payment amount match nahi kar rahe. Ride refresh karke dobara try karein."
-        );
-      }
-
-      setStep(STEP.PROCESSING);
-
-      const options = {
-        key: keyId,
-        amount,
-        currency: currency || "INR",
-        order_id: orderId,
-        name: "HimRideG",
-        description:
-          plan === PLAN.ADVANCE
-            ? "Advance Ride Payment"
-            : plan === PLAN.SCHEDULED
-              ? "Scheduled Ride Payment - Pay Now"
-              : "Ride Payment",
-        image: "/himrideg-logo.png",
-
-        prefill: {
-          name: customerName || "",
-          contact: customerPhone || "",
-          email: booking?.customer?.email || booking?.customerEmail || "",
-        },
-
-        notes: {
-          bookingId,
-          platform: "HimRideG",
-          paymentPlan: plan,
-          paymentContext: paymentContext || "post_ride",
-          platformCommissionPercent: "10",
-          driverWalletSharePercent: "90",
-          settlementMode: "driver_earnings_wallet",
-        },
-
-        theme: {
-          color: "#fbbf24",
-        },
-
-        config: {
-          display: {
-            blocks: {
-              himrideg_upi: {
-                name: "Pay via Paytm / UPI",
-                instruments: [{ method: "upi" }],
-              },
-            },
-            sequence: ["block.himrideg_upi"],
-            preferences: {
-              show_default_blocks: false,
-            },
-          },
-        },
-
-        modal: {
-          escape: true,
-          backdropclose: false,
-          ondismiss: () => {
-            setStep(
-              plan === PLAN.ONLINE_AFTER_RIDE && completed
-                ? STEP.METHOD
-                : STEP.PLAN_STATUS
-            );
-            setLoading(false);
-          },
-        },
-
-        handler: async (response) => {
-          try {
-            const verifyRes = await api.post(
-              "/payments/verify",
-              {
-                bookingId,
-                razorpay_order_id:
-                  response.razorpay_order_id,
-                razorpay_payment_id:
-                  response.razorpay_payment_id,
-                razorpay_signature:
-                  response.razorpay_signature,
-              }
-            );
-
-            if (!verifyRes?.data?.success) {
-              throw new Error(
-                verifyRes?.data?.message || "Payment verify nahi hui"
-              );
-            }
-
-            const verified = verifyRes.data.data || {};
-
-            const paidReceipt = {
-              paymentMethod: METHOD.ONLINE,
-              paymentPlan: plan,
-              paymentStatus: "paid",
-              fare:
-                Number(verified.fare) ||
-                backendLockedFare,
-              paymentId:
-                response.razorpay_payment_id,
-              ...verified,
-            };
-
-            setReceipt(paidReceipt);
-            setStep(STEP.SUCCESS);
-
-            onBookingUpdate?.({
-              bookingId,
-              paymentPlan: plan,
-              paymentStatus: "paid",
-              paymentMethod: METHOD.ONLINE,
-              razorpayPaymentId:
-                response.razorpay_payment_id,
-            });
-
-            onSuccess?.(paidReceipt);
-          } catch (verifyError) {
-            const failureMessage =
-              verifyError?.response?.data?.message ||
-              verifyError?.message ||
-              "Payment verify karne mein error aaya";
-            await reportPaymentFailure(failureMessage, { stage: "verify" });
-            setError(failureMessage);
-            setStep(STEP.ERROR);
-          }
-        },
-      };
-
-      const razorpay = new window.Razorpay(options);
-
-      razorpay.on("payment.failed", async (response) => {
-        const failureMessage =
-          response?.error?.description ||
-          response?.error?.reason ||
-          "Payment fail ho gayi. Dobara try karein.";
-        await reportPaymentFailure(failureMessage, {
-          stage: "checkout",
-          razorpay_order_id: response?.error?.metadata?.order_id || "",
-          razorpay_payment_id: response?.error?.metadata?.payment_id || "",
-          code: response?.error?.code || "",
-        });
-        setError(failureMessage);
-        setStep(STEP.ERROR);
-        setLoading(false);
-      });
-
-      razorpay.open();
-    } catch (onlineError) {
-      const failureMessage =
-        onlineError?.response?.data?.message ||
-        onlineError?.message ||
-        "Online payment start nahi ho saka";
-      await reportPaymentFailure(failureMessage, { stage: "create_order" });
-      setError(failureMessage);
-      setStep(STEP.ERROR);
-    } finally {
-      setLoading(false);
-    }
+    if (!required || !bookingId) return;
+    const key = `${bookingId}:${context}:${paymentStatus}:${advanceStatus}:${cashSelected ? "cash" : ""}`;
+    if (openedSoundRef.current === key) return;
+    openedSoundRef.current = key;
+    playHimRideGEventSound(
+      advanceRequestActive ? "popup" : onlinePaidAwaitingDriver ? "payment_success" : "payment_required"
+    ).catch(() => {});
   }, [
-    alreadyPaid,
+    required,
     bookingId,
-    completed,
-    fareLocked,
-    finalFare,
-    onBookingUpdate,
-    onSuccess,
-    paymentLockMessage,
-    plan,
-    reportPaymentFailure,
+    context,
+    paymentStatus,
+    advanceStatus,
+    cashSelected,
+    advanceRequestActive,
+    onlinePaidAwaitingDriver,
   ]);
 
-  const handleCashPayment = useCallback(async () => {
-    if (
-      !fareLocked ||
-      !completed
-    ) {
-      setError(
-        "Cash payment sirf completed ride ke baad available hai."
-      );
-      setStep(STEP.ERROR);
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    setStep(STEP.PROCESSING);
-
-    try {
-      const { data } = await api.post(
-        "/payments/select-method",
-        {
-          bookingId,
-          method: METHOD.CASH,
-        }
-      );
-
-      if (!data?.success) {
-        throw new Error(
-          data?.message || "Cash payment select nahi ho saka"
-        );
-      }
-
-      const selectedFare =
-        Number(data?.data?.fare) || finalFare;
-
-      const cashReceipt = {
-        paymentMethod: METHOD.CASH,
-        paymentPlan: plan,
-        paymentStatus: "pending",
-        cashSelected: true,
-        fare: selectedFare,
-        finalFare: selectedFare,
-        message:
-          "Driver ko locked fare cash dijiye. Cash dene ke baad Payment Done dabayein; driver bhi Receive Cash karke complete kar sakta hai.",
-      };
-
-      setReceipt(cashReceipt);
-      setStep(STEP.SUCCESS);
-
-      onBookingUpdate?.({
-        bookingId,
-        paymentPlan: plan,
-        paymentMethod: METHOD.CASH,
-        paymentChoiceAfterRide: METHOD.CASH,
-        paymentStatus: "pending",
-      });
-
-      // Cash selection abhi PAID nahi hai; customer Payment Done ya driver
-      // Receive Cash me se koi ek confirmation payment complete karega.
-    } catch (cashError) {
-      setError(
-        cashError?.response?.data?.message ||
-          cashError?.message ||
-          "Cash payment select nahi ho saka"
-      );
-      setStep(STEP.ERROR);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    bookingId,
-    completed,
-    fareLocked,
-    finalFare,
-    onBookingUpdate,
-    onSuccess,
-    plan,
-  ]);
-
-  const handleCustomerCashDone = useCallback(async () => {
-    if (!fareLocked || !completed) {
-      setError("Cash Payment Done sirf completed ride ke baad available hai.");
-      setStep(STEP.ERROR);
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const { data } = await api.post("/payments/cash-confirm", { bookingId });
-
-      if (!data?.success) {
-        throw new Error(data?.message || "Cash Payment Done nahi ho saka");
-      }
-
-      const paidFare = Number(data?.data?.fare) || finalFare;
-      const paidMethod = String(data?.data?.paymentMethod || METHOD.CASH).toLowerCase();
-      const paidReceipt = {
-        ...data?.data,
-        paymentMethod: paidMethod,
-        paymentPlan: plan,
-        paymentStatus: "paid",
-        fare: paidFare,
-        finalFare: paidFare,
-        confirmedBy: "customer",
-        message: data?.message || "Cash Payment Done",
-      };
-
-      setReceipt(paidReceipt);
-      setStep(STEP.SUCCESS);
-
-      onBookingUpdate?.({
-        bookingId,
-        paymentPlan: plan,
-        paymentMethod: paidMethod,
-        paymentChoiceAfterRide: paidMethod,
-        paymentStatus: "paid",
-        paidAt: data?.data?.paidAt || new Date().toISOString(),
-      });
-
-      onSuccess?.(paidReceipt);
-    } catch (cashDoneError) {
-      setError(
-        cashDoneError?.response?.data?.message ||
-          cashDoneError?.message ||
-          "Cash Payment Done nahi ho saka"
-      );
-      setStep(STEP.ERROR);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    bookingId,
-    completed,
-    fareLocked,
-    finalFare,
-    onBookingUpdate,
-    onSuccess,
-    plan,
-  ]);
-
-  const closeAllowed = step !== STEP.PROCESSING;
-
-  const retryStep = () => {
-    setError("");
-
-    if (!fareLocked || !completed) {
-      setStep(STEP.LOCKED);
-      return;
-    }
-
-    setStep(STEP.METHOD);
+  const mergeBooking = (patch = {}) => {
+    const merged = { ...ride, ...patch };
+    setLocalBooking(merged);
+    onBookingUpdate?.(merged);
+    return merged;
   };
+
+  const refreshStatus = async () => {
+    if (!bookingId) return ride;
+    try {
+      const { data } = await api.get(`/payments/status/${bookingId}`);
+      const fresh = data?.data?.booking || data?.data || data?.booking || null;
+      if (fresh && typeof fresh === "object") return mergeBooking(fresh);
+    } catch {
+      // Dashboard polling/socket remains a second source of truth.
+    }
+    return ride;
+  };
+
+  const payOnline = async () => {
+    if (!bookingId || payableAmount <= 0) {
+      setError("Payable amount valid nahi hai");
+      return;
+    }
+
+    setBusy("online");
+    setError("");
+
+    try {
+      const sdkReady = await loadRazorpayScript();
+      if (!sdkReady || !window.Razorpay) {
+        throw new Error("Razorpay checkout load nahi ho saka");
+      }
+
+      const { data: orderResponse } = await api.post("/payments/create-order", {
+        bookingId,
+        paymentContext: context,
+      });
+
+      const order = orderResponse?.data || {};
+      if (!order?.orderId || !order?.keyId || !Number(order?.amount)) {
+        throw new Error(orderResponse?.message || "Payment order ready nahi hua");
+      }
+
+      const expectedPaise = Math.round(payableAmount * 100);
+      if (Number(order.amount) !== expectedPaise) {
+        throw new Error("Server payment amount ride amount se match nahi karti");
+      }
+
+      await new Promise((resolve, reject) => {
+        const checkout = new window.Razorpay({
+          key: order.keyId,
+          amount: order.amount,
+          currency: order.currency || "INR",
+          name: "HimRideG",
+          description:
+            context === "advance"
+              ? `Advance ${money(payableAmount)}`
+              : `Remaining ride payment ${money(payableAmount)}`,
+          order_id: order.orderId,
+          prefill: {
+            name: order.customerName || "",
+            email: order.customerEmail || "",
+            contact: order.customerPhone || "",
+          },
+          notes: {
+            bookingId,
+            paymentContext: context,
+          },
+          theme: { color: "#f5c518" },
+          handler: async (response) => {
+            try {
+              const { data: verified } = await api.post("/payments/verify", {
+                bookingId,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              });
+
+              if (!verified?.success) {
+                throw new Error(verified?.message || "Payment verify nahi hui");
+              }
+
+              const payload = verified?.data || {};
+              if (context === "advance") {
+                const merged = mergeBooking({
+                  advanceStatus: "paid",
+                  advancePaidAmount: Number(payload.advancePaidAmount || payableAmount),
+                  advancePaidAt: payload.paidAt || new Date().toISOString(),
+                  advancePaymentMethod: "online",
+                  paymentDueAmount: Number(payload.remainingAmount ?? Math.max(0, fare - payableAmount)),
+                });
+                playHimRideGEventSound("payment_success").catch(() => {});
+                onSuccess?.({
+                  ...payload,
+                  booking: merged,
+                  paymentContext: "advance",
+                  method: "advance-online",
+                });
+              } else {
+                const merged = mergeBooking({
+                  status: "payment_pending",
+                  paymentStatus: "paid",
+                  paymentMethod: "online",
+                  postRidePaidAmount: Number(payload.paidAmount || payableAmount),
+                  paidAt: payload.paidAt || new Date().toISOString(),
+                });
+                playHimRideGEventSound("online_payment_success").catch(() => {});
+                onSuccess?.({
+                  ...payload,
+                  booking: merged,
+                  paymentContext: "post_ride",
+                  method: "online",
+                  requiresDriverConfirmation: true,
+                });
+              }
+
+              await refreshStatus();
+              resolve();
+            } catch (verifyError) {
+              reject(verifyError);
+            }
+          },
+          modal: {
+            ondismiss: () => resolve(),
+          },
+        });
+        checkout.on("payment.failed", (failure) => {
+          api
+            .post("/payments/failed", {
+              bookingId,
+              reason:
+                failure?.error?.description ||
+                failure?.error?.reason ||
+                "Payment failed",
+            })
+            .catch(() => {});
+          reject(new Error(failure?.error?.description || "Payment failed"));
+        });
+        checkout.open();
+      });
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || "Payment failed");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const payAdvanceLater = async () => {
+    if (!bookingId || !advanceRequestActive) return;
+    setBusy("later");
+    setError("");
+    try {
+      const { data } = await api.post("/payments/advance/pay-later", { bookingId });
+      if (!data?.success) throw new Error(data?.message || "Pay Later save nahi hua");
+      const merged = mergeBooking({ advanceStatus: "pay_later" });
+      onSuccess?.({
+        ...(data?.data || {}),
+        booking: merged,
+        paymentContext: "advance",
+        method: "pay-later",
+      });
+      onClose?.();
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || "Pay Later save nahi hua");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const selectCash = async () => {
+    if (!bookingId || !postRideRequired || remaining <= 0) return;
+    setBusy("cash");
+    setError("");
+    try {
+      const { data } = await api.post("/payments/cash-select", { bookingId });
+      if (!data?.success) throw new Error(data?.message || "Cash select nahi hua");
+      const merged = mergeBooking({
+        status: "payment_pending",
+        paymentStatus: "pending",
+        paymentMethod: "cash",
+        cashSelectedAt: data?.data?.cashSelectedAt || new Date().toISOString(),
+      });
+      playHimRideGEventSound("cash_selected").catch(() => {});
+      onSuccess?.({
+        ...(data?.data || {}),
+        booking: merged,
+        paymentContext: "post_ride",
+        method: "cash-selected",
+        requiresDriverConfirmation: true,
+      });
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || "Cash select nahi hua");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  if (!bookingId) return null;
 
   return (
     <div
       className="paymentModalOverlay"
-      onMouseDown={(event) => {
-        if (
-          event.target === event.currentTarget &&
-          closeAllowed
-        ) {
-          onClose?.();
-        }
-      }}
       role="presentation"
+      onMouseDown={(event) => {
+        if (!required && event.target === event.currentTarget) onClose?.();
+      }}
     >
       <div
-        className="paymentModal paymentPlanModal"
+        className="paymentModal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="himrideg-payment-title"
       >
         <div className="paymentModalHeader">
-          <div className="paymentModalLogo">🚖</div>
-
+          <div className="paymentModalLogo">💳</div>
           <div className="paymentModalTitleGroup">
-            <h2 id="himrideg-payment-title">
-              {planTitle}
-            </h2>
+            <h2 id="himrideg-payment-title">{title}</h2>
             <small>
-              Final fare locked · Secure HimRideG payment
+              {required
+                ? "Ye popup required payment state clear hone tak rahega"
+                : "HimRideG payment status"}
             </small>
           </div>
-
-          {closeAllowed && (
+          {!required && (
             <button
               type="button"
               className="paymentModalClose"
@@ -1014,577 +391,119 @@ function PaymentModal({
           )}
         </div>
 
-        <div className="paymentRideSummary">
-          <div className="paymentRouteLine">
-            <span className="paymentRouteDot pickup" />
-            <div>
-              <small>Pickup</small>
-              <strong>{route.pickup}</strong>
-            </div>
-          </div>
-
-          <div className="paymentRouteConnector" />
-
-          <div className="paymentRouteLine">
-            <span className="paymentRouteDot drop" />
-            <div>
-              <small>Destination</small>
-              <strong>{route.drop}</strong>
-            </div>
-          </div>
-        </div>
-
         <div className="paymentFareBox">
           <div>
             <span>Final Locked Fare</span>
-            <small>
-              Payment amount automatically locked fare se aayega
-            </small>
+            <small>Advance automatically minus hota hai</small>
           </div>
-          <strong>{formatMoney(finalFare)}</strong>
+          <strong>{money(fare)}</strong>
         </div>
 
-        {step === STEP.LOCKED && (
-          <div className="paymentLockedState">
-            <div className="paymentLockedIcon">🔒</div>
-            <h3>Payment Options Locked</h3>
-            <p>{paymentLockMessage}</p>
-            <div className="paymentLockedRules">
-              <span>
-                {fareLocked ? "✅" : "○"}
-                Customer final fare accept kare
-              </span>
-              <span>
-                {finalFare > 0 ? "✅" : "○"}
-                Locked fare available ho
-              </span>
-              <span>
-                {completed ? "✅" : "○"}
-                Driver ride complete kare
-              </span>
+        <div className="driverPaymentRules">
+          <span>Advance Received: {money(advancePaid)}</span>
+          <span>Remaining: {money(remaining)}</span>
+          <span>Ride Status: {status || "pending"}</span>
+        </div>
+
+        {advanceRequestActive && (
+          <div className="paymentPlanSelectedBanner advance">
+            <span>⚡</span>
+            <div>
+              <small>DRIVER REQUESTED ADVANCE</small>
+              <strong>{money(advanceRequested)}</strong>
+              <p>
+                Advance pay hone par final fare se automatically minus hoga. Pay Later choose karne par ride process continue ho sakti hai aur amount end me remaining payment me rahega.
+              </p>
             </div>
+          </div>
+        )}
+
+        {postRideRequired && (
+          <div className="paymentPlanSelectedBanner">
+            <span>🏁</span>
+            <div>
+              <small>RIDE ENDED — PAYMENT REQUIRED</small>
+              <strong>Remaining {money(remaining)}</strong>
+              <p>
+                Payment receive/confirm hone tak ride Completed nahi hogi aur driver/customer next ride ke liye release nahi honge.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {onlinePaidAwaitingDriver && (
+          <div className="driverPaymentStatusBox paid">
+            <span>✅</span>
+            <div>
+              <small>ONLINE PAYMENT VERIFIED</small>
+              <strong>Waiting for Driver Payment Received confirmation</strong>
+              <p>
+                Aapka payment server par verify ho chuka hai. Driver confirmation ke baad ride automatically Completed hogi.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {postRideRequired && cashSelected && paymentStatus !== "paid" && (
+          <div className="driverPaymentStatusBox pending">
+            <span>💵</span>
+            <div>
+              <small>CASH SELECTED</small>
+              <strong>Driver ko {money(remaining)} cash dein</strong>
+              <p>
+                Driver Cash Received confirm karega. Tabhi ride Completed hogi.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!onlinePaidAwaitingDriver && !(postRideRequired && cashSelected) && (
+          <div className="paymentMethodGrid">
             <button
               type="button"
-              className="paymentCancelBtn"
-              onClick={onClose}
+              className="paymentMethodCard"
+              disabled={Boolean(busy) || payableAmount <= 0}
+              onClick={payOnline}
             >
-              Close
-            </button>
-          </div>
-        )}
-
-        {step === STEP.PLAN && (
-          <div className="paymentChoose paymentPlanChoose">
-            <p className="paymentChooseLabel">
-              Payment option chuniye:
-            </p>
-
-            <div className="paymentPlanGrid">
-              <button
-                type="button"
-                className="paymentPlanCard"
-                disabled={loading}
-                onClick={() => selectPlan(PLAN.ONLINE_AFTER_RIDE)}
-              >
-                <span className="paymentPlanIcon">📱</span>
-                <strong>Payment Online</strong>
-                <small>
-                  Ride complete hone ke baad Online/UPI payment. Cash option bhi post-ride available rahega.
-                </small>
-                <em>After Ride →</em>
-              </button>
-
-              {ALLOW_ADVANCE_PAYMENT && (
-              <button
-                type="button"
-                className="paymentPlanCard advance"
-                disabled={loading}
-                onClick={() => selectPlan(PLAN.ADVANCE)}
-              >
-                <span className="paymentPlanIcon">⚡</span>
-                <strong>Payment Advance</strong>
-                <small>
-                  Full locked fare abhi Pay Now. Payment paid hone ke baad driver ride actions unlock honge.
-                </small>
-                <em>Pay Before Ride →</em>
-              </button>
-              )}
-
-              {scheduledBooking && (
-              <button
-                type="button"
-                className="paymentPlanCard scheduled"
-                disabled={loading}
-                onClick={() => selectPlan(PLAN.SCHEDULED)}
-              >
-                <span className="paymentPlanIcon">📅</span>
-                <strong>Scheduled Payment</strong>
-                <small>
-                  Payment later scheduled rahegi. Pay Now button kisi bhi time use kar sakte ho.
-                </small>
-                <em>Schedule + Pay Now →</em>
-              </button>
-              )}
-            </div>
-
-            {loading && (
-              <div className="paymentInlineStatus">
-                Payment option save ho raha hai...
-              </div>
-            )}
-
-            {error && (
-              <div className="paymentError">⚠️ {error}</div>
-            )}
-          </div>
-        )}
-
-        {step === STEP.PLAN_STATUS && (
-          <div className="paymentChoose paymentPlanStatus">
-            {plan === PLAN.ONLINE_AFTER_RIDE && (
-              <>
-                <div className="paymentPlanSelectedBanner">
-                  <span>📱</span>
-                  <div>
-                    <small>SELECTED</small>
-                    <strong>Payment Online</strong>
-                    <p>
-                      Ride complete hone ke baad Pay Online / Cash options khulenge.
-                    </p>
-                  </div>
-                </div>
-
-                {!completed ? (
-                  <div className="paymentWaitingBox">
-                    <span>🚕</span>
-                    <strong>Ride Complete Hone Ka Wait</strong>
-                    <p>
-                      Driver ride complete karega tab payment popup automatically khulega.
-                    </p>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="paymentConfirmBtn"
-                    onClick={() => setStep(STEP.METHOD)}
-                  >
-                    Choose Online / Cash · {formatMoney(finalFare)}
-                  </button>
-                )}
-              </>
-            )}
-
-            {plan === PLAN.ADVANCE && (
-              <>
-                <div className="paymentPlanSelectedBanner advance">
-                  <span>⚡</span>
-                  <div>
-                    <small>SELECTED</small>
-                    <strong>Payment Advance</strong>
-                    <p>
-                      Driver ke ride-action buttons advance payment complete hone tak locked rahenge.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="paymentConfirmBtn"
-                  disabled={loading}
-                  onClick={handleOnlinePayment}
-                >
-                  {loading
-                    ? "Processing..."
-                    : `Pay Advance Now · ${formatMoney(finalFare)}`}
-                </button>
-              </>
-            )}
-
-            {plan === PLAN.SCHEDULED && (
-              <>
-                <div className="paymentPlanSelectedBanner scheduled">
-                  <span>📅</span>
-                  <div>
-                    <small>SCHEDULED</small>
-                    <strong>Scheduled Payment</strong>
-                    <p>
-                      Scheduled for: {formatSchedule(scheduledAt)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="paymentScheduledActions">
-                  <button
-                    type="button"
-                    className="paymentConfirmBtn"
-                    disabled={loading}
-                    onClick={handleOnlinePayment}
-                  >
-                    {loading
-                      ? "Processing..."
-                      : `Pay Now · ${formatMoney(finalFare)}`}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="paymentCancelBtn"
-                    disabled={loading}
-                    onClick={onClose}
-                  >
-                    Pay Later — Keep Scheduled
-                  </button>
-                </div>
-              </>
-            )}
-
-            <button
-              type="button"
-              className="paymentChangePlanBtn"
-              disabled={loading || completed}
-              onClick={() => setStep(STEP.PLAN)}
-            >
-              Change Payment Option
+              <span>📱</span>
+              <strong>{busy === "online" ? "Opening…" : `Pay Online ${money(payableAmount)}`}</strong>
+              <small>Razorpay verified payment</small>
             </button>
 
-            {error && (
-              <div className="paymentError">⚠️ {error}</div>
-            )}
-          </div>
-        )}
-
-        {step === STEP.METHOD && (
-          <div className="paymentChoose">
-            <p className="paymentChooseLabel">
-              Ride complete hai — payment method chuniye:
-            </p>
-
-            <div className="paymentMethods">
-              <button
-                type="button"
-                className={`paymentMethodCard ${
-                  paymentMethod === METHOD.ONLINE ? "selected" : ""
-                }`}
-                onClick={() => setPaymentMethod(METHOD.ONLINE)}
-              >
-                <div className="paymentMethodIcon">📱</div>
-                <div className="paymentMethodInfo">
-                  <strong>Pay Online — UPI</strong>
-                  <small>Paytm / UPI App / QR Scanner</small>
-                </div>
-                <div className="paymentMethodCheck">
-                  {paymentMethod === METHOD.ONLINE ? "✅" : "○"}
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className={`paymentMethodCard ${
-                  paymentMethod === METHOD.CASH ? "selected" : ""
-                }`}
-                onClick={() => setPaymentMethod(METHOD.CASH)}
-              >
-                <div className="paymentMethodIcon">💵</div>
-                <div className="paymentMethodInfo">
-                  <strong>Cash Payment</strong>
-                  <small>Driver ko locked fare cash dein</small>
-                </div>
-                <div className="paymentMethodCheck">
-                  {paymentMethod === METHOD.CASH ? "✅" : "○"}
-                </div>
-              </button>
-            </div>
-
-            <div
-              style={{
-                marginTop: 12,
-                padding: 12,
-                border: "1px solid #d6d9df",
-                borderRadius: 12,
-                background: "#f8fafc",
-              }}
-            >
+            {advanceRequestActive ? (
               <button
                 type="button"
                 className="paymentMethodCard"
-                style={{ width: "100%" }}
-                disabled={loading || !completed}
-                onClick={() => {
-                  setQrMessage("");
-                  setShowQrScanner((current) => !current);
-                }}
+                disabled={Boolean(busy)}
+                onClick={payAdvanceLater}
               >
-                <div className="paymentMethodIcon">📷</div>
-                <div className="paymentMethodInfo">
-                  <strong>Camera Scanner — Driver QR</strong>
-                  <small>Assigned driver ka fixed Wallet QR scan karein</small>
-                </div>
-                <div className="paymentMethodCheck">
-                  {qrVerified ? "✅" : "▦"}
-                </div>
+                <span>⏳</span>
+                <strong>{busy === "later" ? "Saving…" : "Pay Later"}</strong>
+                <small>Advance skip; final remaining later</small>
               </button>
-
-              {showQrScanner && (
-                <div style={{ marginTop: 12, padding: 10, borderRadius: 10, background: "#fff" }}>
-                  <video
-                    ref={qrVideoRef}
-                    muted
-                    playsInline
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      minHeight: 240,
-                      maxHeight: 360,
-                      objectFit: "cover",
-                      borderRadius: 10,
-                      background: "#111827",
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="paymentCancelBtn"
-                    style={{ width: "100%", marginTop: 8 }}
-                    onClick={() => setShowQrScanner(false)}
-                  >
-                    Close Camera
-                  </button>
-                </div>
-              )}
-
-              {qrMessage && (
-                <div
-                  className={qrVerified ? "paymentAmountLockedNote" : "paymentError"}
-                  style={{ marginTop: 10 }}
-                >
-                  {qrMessage}
-                </div>
-              )}
-            </div>
-
-            {scheduledBooking && (
-              <div
-                style={{
-                  marginTop: 10,
-                  padding: 11,
-                  borderRadius: 10,
-                  border: "1px solid #fde68a",
-                  background: "#fffbeb",
-                  color: "#713f12",
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                }}
-              >
-                📅 <strong>Scheduled booking:</strong> Schedule Payment option sirf
-                scheduled booking ke liye rakha gaya hai. Actual payment ride
-                complete hone ke baad hi enable hota hai.
-              </div>
-            )}
-
-            {paymentMethod === METHOD.ONLINE && (
-              <div className="paymentUpiHelp">
-                <div>
-                  <span>📱</span>
-                  <p>
-                    <strong>Phone:</strong> UPI app intent open ho sakta hai.
-                  </p>
-                </div>
-                <div>
-                  <span>▦</span>
-                  <p>
-                    <strong>Computer:</strong> UPI QR ko phone se scan karke pay karein.
-                  </p>
-                </div>
-                <div className="paymentAmountLockedNote">
-                  🔒 Amount {formatMoney(finalFare)} locked hai.
-                </div>
-              </div>
-            )}
-
-            {paymentMethod === METHOD.CASH && (
-              <div className="paymentCashNotice">
-                <span>💵</span>
-                <p>
-                  Driver ko exactly
-                  <strong> {formatMoney(finalFare)} </strong>
-                  cash dijiye. Cash dene ke baad aap Payment Done kar sakte hain; driver bhi Receive Cash kar sakta hai.
-                </p>
-              </div>
-            )}
-
-            {error && (
-              <div className="paymentError">⚠️ {error}</div>
-            )}
-
-            <button
-              type="button"
-              className="paymentConfirmBtn"
-              disabled={!paymentMethod || loading}
-              onClick={() => {
-                if (paymentMethod === METHOD.ONLINE) {
-                  handleOnlinePayment();
-                  return;
-                }
-                if (paymentMethod === METHOD.CASH) {
-                  handleCashPayment();
-                }
-              }}
-            >
-              {loading
-                ? "Processing..."
-                : paymentMethod === METHOD.ONLINE
-                  ? `Pay Online · ${formatMoney(finalFare)}`
-                  : paymentMethod === METHOD.CASH
-                    ? `Select Cash · ${formatMoney(finalFare)}`
-                    : `Choose Payment · ${formatMoney(finalFare)}`}
-            </button>
-          </div>
-        )}
-
-        {step === STEP.PROCESSING && (
-          <div className="paymentProcessing">
-            <div className="paymentSpinner">⏳</div>
-            <h3>Payment process ho raha hai</h3>
-            <p>
-              Payment process complete hone tak window band na karein.
-            </p>
-            <small>Locked amount: {formatMoney(finalFare)}</small>
-          </div>
-        )}
-
-        {step === STEP.SUCCESS && (
-          <div className="paymentSuccess">
-            <div className="paymentSuccessIcon">
-              {receipt?.paymentMethod === METHOD.CASH && receipt?.paymentStatus !== "paid"
-                ? "💵"
-                : "✅"}
-            </div>
-
-            <h3>
-              {receipt?.paymentMethod === METHOD.CASH
-                ? receipt?.paymentStatus === "paid"
-                  ? "Cash Payment Successful! ✅"
-                  : "Cash Payment Selected"
-                : "Payment Successful! 🎉"}
-            </h3>
-
-            {receipt?.paymentMethod === METHOD.CASH && receipt?.paymentStatus !== "paid" ? (
-              <div className="paymentCashInstructions">
-                <div className="cashInstRow">
-                  <span>💰</span>
-                  <p>
-                    Driver ko
-                    <strong> {formatMoney(receipt?.fare || finalFare)}</strong>
-                    {" "}cash dijiye.
-                  </p>
-                </div>
-                <div className="cashInstRow">
-                  <span>✅</span>
-                  <p>
-                    Cash dene ke baad <strong>Payment Done</strong> dabayein. Driver bhi Receive Cash dabakar payment complete kar sakta hai. Dono me se ek confirmation enough hai.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="paymentConfirmBtn"
-                  disabled={loading}
-                  onClick={handleCustomerCashDone}
-                >
-                  {loading ? "Completing..." : `Payment Done · ${formatMoney(receipt?.fare || finalFare)}`}
-                </button>
-              </div>
             ) : (
-              <div className="paymentReceiptBox">
-                <div className="receiptRow">
-                  <span>Amount Paid</span>
-                  <strong>{formatMoney(receipt?.fare || finalFare)}</strong>
-                </div>
-                <div className="receiptRow">
-                  <span>Payment Plan</span>
-                  <strong>
-                    {receipt?.paymentMethod === METHOD.CASH ||
-                     booking?.paymentMethod === "cash"
-                      ? "Cash"
-                      : plan === PLAN.ADVANCE
-                        ? "Advance"
-                        : plan === PLAN.SCHEDULED
-                          ? "Scheduled / Pay Now"
-                          : "Online"}
-                  </strong>
-                </div>
-                {receipt?.paymentId && (
-                  <div className="receiptRow">
-                    <span>Payment ID</span>
-                    <strong className="paymentId">
-                      {receipt.paymentId}
-                    </strong>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <button
-              type="button"
-              className="paymentDoneBtn"
-              onClick={onClose}
-            >
-              {receipt?.paymentMethod === METHOD.CASH && receipt?.paymentStatus !== "paid"
-                ? "Close"
-                : "Done ✓"}
-            </button>
-          </div>
-        )}
-
-        {step === STEP.ERROR && (
-          <div className="paymentErrorState">
-            <div className="paymentErrorIcon">❌</div>
-            <h3>Payment Action Complete Nahi Hua</h3>
-            <p>
-              {error || "Kuch galat ho gaya. Dobara try karein."}
-            </p>
-            <div className="paymentErrorActions">
               <button
                 type="button"
-                className="paymentRetryBtn"
-                onClick={retryStep}
+                className="paymentMethodCard"
+                disabled={Boolean(busy) || remaining <= 0}
+                onClick={selectCash}
               >
-                Dobara Pay Online Try Karo
+                <span>💵</span>
+                <strong>{busy === "cash" ? "Selecting…" : `Cash Payment ${money(remaining)}`}</strong>
+                <small>Driver Cash Received confirm karega</small>
               </button>
-
-              {completed && fareLocked && !alreadyPaid && (
-                <button
-                  type="button"
-                  className="paymentConfirmBtn"
-                  disabled={loading}
-                  onClick={handleCashPayment}
-                >
-                  {loading
-                    ? "Processing..."
-                    : `Cash Payment · ${formatMoney(finalFare)}`}
-                </button>
-              )}
-
-              <button
-                type="button"
-                className="paymentCancelBtn"
-                onClick={onClose}
-              >
-                Cancel
-              </button>
-            </div>
-
-            {completed && fareLocked && !alreadyPaid && (
-              <small style={{display:"block",marginTop:"10px",color:"#aab0b8",lineHeight:1.5}}>
-                Online transaction fail hone par Cash Payment choose kar sakte hain. Customer Payment Done ya driver Receive Cash — dono me se koi ek payment complete karega.
-              </small>
             )}
           </div>
         )}
 
-        <p className="paymentSecurityNote paymentGlobalSecurityNote">
-          🔐 Payment amount backend ke final locked fare se hi create hota hai.
-        </p>
+        {error && <div className="paymentErrorBox">{error}</div>}
+
+        {required && (
+          <div className="paymentLockNotice">
+            🔒 Account refresh/reopen par ye payment state server se wapas load hogi.
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-export default PaymentModal;

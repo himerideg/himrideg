@@ -608,7 +608,7 @@ function App() {
                 text,
 
               icon:
-                "/himrideg-logo.png"
+                "/himrideg-logo.webp"
             }
           );
 
