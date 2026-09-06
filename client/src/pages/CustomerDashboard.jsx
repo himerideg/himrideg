@@ -1341,6 +1341,7 @@ function CustomerDashboard({
   const fileInputRef = useRef(null);
   const paymentShownRef = useRef(new Set());
   const paymentCompletedSeenRef = useRef(new Set());
+  const autoPayOpenedRef = useRef(new Set());
 
   const [profile, setProfile] = useState({
     name: user?.name || "Customer",
@@ -1415,17 +1416,41 @@ function CustomerDashboard({
     activeRide &&
     !["started", "completed", "cancelled"].includes(activeRide.status);
 
-
   /*
-  |------------------------------------------------------------------------
-  | Phase 4 — Map-first Fare Negotiation Sheet
-  |------------------------------------------------------------------------
-  | Negotiation map ke upar bottom sheet me dikhegi. Ride started/completed
-  | hote hi sheet hat jayegi; existing fare state/handlers unchanged hain.
+  |--------------------------------------------------------------------------
+  | Auto-open payment modal — ride complete hote hi
+  |--------------------------------------------------------------------------
+  | Jab ride complete ho aur payment pending ho, payment modal automatically
+  | khulta hai. Customer ko kuch click nahi karna padta.
+  | autoPayOpenedRef se ensure karo ek ride ke liye sirf ek baar khule.
+  |--------------------------------------------------------------------------
   */
+  useEffect(() => {
+    if (!AUTO_PAYMENT_MODAL_ENABLED) return;
+
+    const unpaidCompleted = localBookings.find(
+      (ride) => canCustomerPayRide(ride, paidBookingIds)
+    );
+
+    if (!unpaidCompleted) return;
+
+    const rideId = idOf(unpaidCompleted);
+    if (!rideId || autoPayOpenedRef.current.has(rideId)) return;
+
+    autoPayOpenedRef.current.add(rideId);
+    setPaymentBooking(unpaidCompleted);
+    setShowPaymentModal(true);
+  }, [
+    localBookings,
+    paidBookingIds,
+    showPaymentModal,
+  ]);
   const showMapFareSheet = Boolean(
     activeRide &&
       ![
+        "fare_accepted",
+        "driver_arriving",
+        "driver_arrived",
         "started",
         "completed",
         "cancelled",
