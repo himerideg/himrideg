@@ -228,6 +228,32 @@ const startServer = async () => {
           "========================================"
         );
         console.log("");
+
+        /*
+        |------------------------------------------------------------------
+        | Render Free Tier — Keep-Alive Self Ping
+        |------------------------------------------------------------------
+        | Render free tier server 15 min inactivity ke baad so jaata hai.
+        | Har 14 min pe /api/v2/health endpoint ko ping karke server
+        | ko jaag rakhte hain — cold start timeout errors band ho jayenge.
+        | SELF_PING_ENABLED=false set karke disable kar sakte hain.
+        |------------------------------------------------------------------
+        */
+        if (process.env.NODE_ENV === "production" &&
+            process.env.SELF_PING_ENABLED !== "false") {
+          const PING_URL =
+            process.env.APP_URL
+              ? `${String(process.env.APP_URL).replace(/\/+$/, "")}/api/v2/health`
+              : `http://localhost:${PORT}/api/v2/health`;
+
+          setInterval(() => {
+            fetch(PING_URL)
+              .then(() => console.log(`[keep-alive] ping ok → ${PING_URL}`))
+              .catch((err) => console.warn("[keep-alive] ping failed:", err.message));
+          }, 14 * 60 * 1000); // 14 minutes
+
+          console.log(`🏓 Keep-alive ping active → ${PING_URL}`);
+        }
       }
     );
   } catch (error) {

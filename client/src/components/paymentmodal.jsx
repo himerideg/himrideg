@@ -1500,11 +1500,14 @@ function PaymentModal({
                 <div className="receiptRow">
                   <span>Payment Plan</span>
                   <strong>
-                    {plan === PLAN.ADVANCE
-                      ? "Advance"
-                      : plan === PLAN.SCHEDULED
-                        ? "Scheduled / Pay Now"
-                        : "Online"}
+                    {receipt?.paymentMethod === METHOD.CASH ||
+                     booking?.paymentMethod === "cash"
+                      ? "Cash"
+                      : plan === PLAN.ADVANCE
+                        ? "Advance"
+                        : plan === PLAN.SCHEDULED
+                          ? "Scheduled / Pay Now"
+                          : "Online"}
                   </strong>
                 </div>
                 {receipt?.paymentId && (
