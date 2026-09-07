@@ -74,6 +74,7 @@ check("Driver reject route", files.rideRoutes.includes('"/:bookingId/reject"'), 
 // Fare negotiation
 check("Driver initial fare route", files.fareRoutes.includes('"/:bookingId/driver-offer"'), "Driver sends initial fare.");
 check("Customer counter route", files.fareRoutes.includes('"/:bookingId/customer-counter"'), "Customer one-time counter endpoint exists.");
+check("Driver accepts customer counter", files.fareRoutes.includes('"/:bookingId/accept"') && files.fareController.includes("driverCanAcceptCustomerCounter") && files.driver.includes("acceptCustomerCounter"), "Driver can accept customer counter directly or send a final fare.");
 check("Driver final fare route", files.fareRoutes.includes('"/:bookingId/driver-final"'), "Driver final fare endpoint exists.");
 check("Customer final accept route", files.fareRoutes.includes('"/:bookingId/customer-accept-final"'), "Final fare can be locked by customer.");
 check("Customer final reject route", files.fareRoutes.includes('"/:bookingId/customer-reject-final"'), "Customer can reject final fare.");

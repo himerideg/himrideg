@@ -34,6 +34,11 @@ const checks = [
     fareRoutes.includes('/:bookingId/customer-counter')
   ],
   [
+    "driver can accept customer counter",
+    fareRoutes.includes('/:bookingId/accept') &&
+      fareController.includes("driverCanAcceptCustomerCounter")
+  ],
+  [
     "driver final fare route",
     fareRoutes.includes('/:bookingId/driver-final')
   ],

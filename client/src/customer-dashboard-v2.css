@@ -220,3 +220,16 @@
 .cvMapFareSheet .fareCounterInput input{background:#11151b}
 @media(max-width:720px){.cvMapFareSheet{left:8px;right:8px;bottom:8px;max-height:76%;border-radius:14px}.cvMapFareSheet>.fareNegotiateBox,.cvMapFareSheet>.fareWaitBox,.cvMapFareSheet>.fareLockedBox{padding:12px}.cvMapFareSheet .fareActions{display:grid;grid-template-columns:1fr 1fr}.cvMapFareSheet .fareBtn{width:100%;min-width:0}.cvMapFareSheet .fareCounterInput{gap:7px}}
 @media(max-width:430px){.cvLiveMap .cvMapFrame{height:350px}.cvMapFareSheet{max-height:72%}.cvMapFareSheet .fareOfferHeader strong{font-size:21px}.cvMapFareSheet .fareActions{grid-template-columns:1fr}.cvMapFareSheet .fareBtn{min-height:40px;font-size:12px}}
+
+
+/* ==========================================================================
+   V61 — Fare sheet visibility + mobile browser parity (ADD-ONLY)
+   ========================================================================== */
+.cvMapFareSheet,.cvMapFareSheet *{box-sizing:border-box}
+.cvMapFareSheet .fareLockedBox p{color:#e5e7eb!important;line-height:1.45}
+.cvMapFareSheet .fareLockedBox small{color:#86efac!important}
+.cvMapFareSheet .fareNegotiateBox p,.cvMapFareSheet .fareWaitBox p{overflow-wrap:anywhere}
+.cvMapFareSheet .fareActions,.cvMapFareSheet .fareCounterActions{width:100%;min-width:0}
+.cvMapFareSheet .fareCounterInput,.cvMapFareSheet .fareCounterInput input{width:100%;min-width:0;max-width:100%}
+@media(max-width:720px){.cvMapFareSheet{width:auto;max-width:none;overflow-x:hidden}.cvMapFareSheet .fareOfferHeader{gap:8px;align-items:flex-start}.cvMapFareSheet .fareOfferHeader span{min-width:0;overflow-wrap:anywhere}.cvMapFareSheet .fareCounterActions{display:grid;grid-template-columns:1fr 1fr}.cvMapFareSheet .fareCounterActions .fareBtn{min-height:44px}}
+@media(max-width:430px){.cvMapFareSheet .fareCounterActions{grid-template-columns:1fr}.cvMapFareSheet .fareNegotiateBox,.cvMapFareSheet .fareWaitBox{max-width:100%;overflow:hidden}.cvMapFareSheet .fareOfferHeader{flex-wrap:wrap}.cvMapFareSheet .fareOfferHeader strong{width:100%;text-align:left}}

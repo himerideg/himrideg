@@ -3269,36 +3269,84 @@ function DriverDashboard({
 
   const acceptCustomerCounter = async (ride) => {
     const bookingId = getId(ride);
+    const customerCounterFare = Number(ride?.customerCounterFare || 0);
 
     if (!bookingId) {
+      showNotice("error", "Booking ID nahi mili.");
+      return;
+    }
+
+    if (!Number.isFinite(customerCounterFare) || customerCounterFare <= 0) {
+      showNotice("error", "Customer counter fare valid nahi hai.");
       return;
     }
 
     setFareAction(`${bookingId}:accept`);
 
-    socket.emit(
-      "fare:accept",
-      { bookingId },
-      async (response) => {
-        setFareAction("");
+    try {
+      /*
+      |--------------------------------------------------------------------
+      | V61 — Driver can accept customer's one-time counter directly
+      |--------------------------------------------------------------------
+      | REST controller canonical state save karta hai aur socket rooms ko
+      | fare:accepted / ride:updated emit karta hai. Isliye browser desktop
+      | aur mobile dono same persisted flow dekhte hain.
+      |--------------------------------------------------------------------
+      */
+      const { data } = await api.post(
+        `/fares/${bookingId}/accept`
+      );
 
-        if (!response?.success) {
-          showNotice(
-            "error",
-            response?.message ||
-              "Counter offer accept nahi hua."
-          );
-          return;
-        }
+      const result = data?.data || data || {};
+      const acceptedFare = Number(
+        result.finalFare || customerCounterFare
+      );
 
-        showNotice(
-          "success",
-          "Customer ka counter offer accept ho gaya."
-        );
+      setLocalBookings((previous) =>
+        previous.map((item) =>
+          getId(item) === bookingId
+            ? {
+                ...item,
+                finalFare: acceptedFare,
+                fareStatus: "fare_accepted",
+                status: result.rideStatus || "fare_accepted",
+                fareAcceptedAt: result.fareAcceptedAt || new Date().toISOString(),
+                platformCommissionAmount: Number(
+                  result.platformCommissionAmount ||
+                    item.platformCommissionAmount ||
+                    0
+                ),
+                driverPayableAmount: Number(
+                  result.driverPayableAmount ||
+                    item.driverPayableAmount ||
+                    0
+                )
+              }
+            : item
+        )
+      );
 
-        await loadBookings?.();
-      }
-    );
+      setFareInputs((current) => ({
+        ...current,
+        [bookingId]: ""
+      }));
+
+      showNotice(
+        "success",
+        `Customer ka ₹${acceptedFare.toFixed(0)} counter accept ho gaya. Fare locked.`
+      );
+
+      await loadBookings?.();
+    } catch (error) {
+      showNotice(
+        "error",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Counter offer accept nahi hua."
+      );
+    } finally {
+      setFareAction("");
+    }
   };
 
   const rejectCustomerCounter = async (ride) => {
@@ -6436,24 +6484,40 @@ function DriverDashboard({
                           <div className="driverCustomerCounter">
                             <p>Customer One-Time Counter</p>
                             <strong>₹{selectedCustomerCounterFare.toFixed(0)}</strong>
-                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Ab aap ek FINAL fare bhejein. Iske baad customer dashboard par sirf Accept / Reject aayega.</small>
-                            <div className="driverCustomerFareInput" style={{marginTop:"12px"}}>
-                              <span>₹</span>
-                              <input
-                                type="number"
-                                min="50"
-                                max="10000"
-                                placeholder="Driver FINAL fare enter kare"
-                                value={fareInputs[selectedRideIdValue] ?? ""}
-                                onChange={(event) => setFareInputs((current) => ({...current,[selectedRideIdValue]: event.target.value}))}
-                              />
+                            <small style={{display:"block",marginTop:"8px",color:"#d5dbe2",lineHeight:1.5}}>Ab 2 option hain: customer ka counter Accept karke fare turant lock karein, ya apna FINAL fare bhejein.</small>
+
+                            <div className="driverCustomerCounterActionsV61" style={{marginTop:"12px"}}>
                               <button
                                 type="button"
+                                className="accept driverCounterAcceptButtonV61"
                                 disabled={Boolean(fareAction)}
-                                onClick={() => sendDriverFare(selectedRide)}
+                                onClick={() => acceptCustomerCounter(selectedRide)}
                               >
-                                Send Final Fare
+                                {fareAction === `${selectedRideIdValue}:accept`
+                                  ? "Accepting..."
+                                  : `✅ Accept ₹${selectedCustomerCounterFare.toFixed(0)}`}
                               </button>
+
+                              <div className="driverCustomerFareInput driverFinalFareInputV61">
+                                <span>₹</span>
+                                <input
+                                  type="number"
+                                  min="50"
+                                  max="10000"
+                                  placeholder="Apna FINAL fare"
+                                  value={fareInputs[selectedRideIdValue] ?? ""}
+                                  onChange={(event) => setFareInputs((current) => ({...current,[selectedRideIdValue]: event.target.value}))}
+                                />
+                                <button
+                                  type="button"
+                                  disabled={Boolean(fareAction)}
+                                  onClick={() => sendDriverFare(selectedRide)}
+                                >
+                                  {fareAction === `${selectedRideIdValue}:final`
+                                    ? "Sending..."
+                                    : "Send Final Fare"}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ) : selectedFareStage === "driver_offered" ? (

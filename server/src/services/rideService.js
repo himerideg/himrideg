@@ -892,7 +892,7 @@ async function createRide({
   /*
   | ADD-ONLY: HimRideG driver-only fare mode. Legacy auto calculator preserve
   | hai, lekin production booking me customer ko automatic fare assign nahi hota.
-  | Driver initial fare -> customer counter -> driver final -> customer accept.
+  | Driver initial fare -> customer counter -> driver accepts counter OR driver final -> customer accept.
   */
   const DRIVER_ONLY_FARE_MODE = true;
 

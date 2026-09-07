@@ -286,7 +286,7 @@ function emitFareUpdate(
     } else if (eventName === "fare:customer-countered") {
       pushTarget = driverId;
       pushTitle = "Customer Counter Offer";
-      pushBody = `Customer ne ₹${Number(booking.customerCounterFare || 0)} counter bheja. Ab apna FINAL fare bhejein.`;
+      pushBody = `Customer ne ₹${Number(booking.customerCounterFare || 0)} counter bheja. Accept karein ya apna FINAL fare bhejein.`;
       pushSoundEvent = "fare_counter";
     } else if (eventName === "fare:final-offered") {
       pushTarget = customerId;
@@ -1015,9 +1015,9 @@ exports.acceptFare = async (
     |--------------------------------------------------------------------------
     | Legacy /accept compatibility gate
     |--------------------------------------------------------------------------
-    | Final production rule me customer driver ke INITIAL fare ko bhi direct
-    | Accept kar sakta hai. Agar customer Counter karta hai to driver ka next
-    | offer FINAL hota hai. Driver customer counter ko direct accept nahi karega.
+    | Final production rule me customer driver ke INITIAL fare ko direct Accept
+    | kar sakta hai. Customer Counter ke baad driver ke paas 2 valid actions hain:
+    | counter Accept karke fare lock kare, ya apna FINAL fare customer ko bheje.
     | Purane /accept clients ko canonical customer acceptance endpoint par
     | route karke app + website + older clients compatible rakhe ja rahe hain.
     |--------------------------------------------------------------------------
@@ -1041,21 +1041,48 @@ exports.acceptFare = async (
         );
     }
 
+    const driverCanAcceptCustomerCounter =
+      role === "driver" &&
+      sameId(
+        booking.driver,
+        userId
+      ) &&
+      booking.fareStatus ===
+        "customer_countered" &&
+      booking.fareOfferedBy ===
+        "customer" &&
+      Number(
+        booking.customerCounterFare || 0
+      ) > 0;
+
     if (
-      role === "driver"
+      role === "driver" &&
+      !driverCanAcceptCustomerCounter
     ) {
       return res.status(409).json({
         success: false,
         message:
-          "Driver customer counter accept nahi karega. Customer counter ke baad driver FINAL fare bhejega."
+          "Driver sirf customer ke active counter offer ko Accept kar sakta hai. Warna FINAL fare bhejein."
       });
     }
 
-    return res.status(409).json({
-      success: false,
-      message:
-        "Customer sirf active driver fare ko accept kar sakta hai."
-    });
+    if (
+      role !== "driver"
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Customer sirf active driver fare ko accept kar sakta hai."
+      });
+    }
+
+    /*
+    |--------------------------------------------------------------------
+    | V61 — valid driver counter acceptance continues into legacy-safe
+    | calculation block below. The existing code already validates the
+    | assigned driver, locks customerCounterFare and emits fare:accepted.
+    |--------------------------------------------------------------------
+    */
 
     let acceptedFare = null;
 
@@ -1198,6 +1225,48 @@ exports.acceptFare = async (
       booking,
       "fare:accepted"
     );
+
+    /*
+    |--------------------------------------------------------------------
+    | V61 — If driver accepted the customer's counter, notify customer too.
+    |--------------------------------------------------------------------
+    | Generic fare:accepted push historically targets the driver because the
+    | customer usually performed the final accept. Counter-accept reverses the
+    | actor, so customer receives a direct lock notification as well.
+    |--------------------------------------------------------------------
+    */
+    if (role === "driver") {
+      const customerId = String(
+        booking?.customer?._id ||
+          booking?.customer ||
+          ""
+      );
+
+      if (customerId) {
+        sendPushToUser(
+          customerId,
+          {
+            title: "Fare Locked ✅",
+            body: `Driver ne aapka ₹${acceptedFare} counter accept kar liya. Fare lock ho gaya.`,
+            data: {
+              type: "fare_update",
+              soundEvent: "fare_locked",
+              eventName: "fare:accepted",
+              bookingId: String(booking._id),
+              role: "customer",
+              fareStatus: "fare_accepted",
+              rideStatus: "fare_accepted",
+              finalFare: Number(acceptedFare || 0)
+            }
+          }
+        ).catch((error) => {
+          console.error(
+            "Driver counter accept customer push error:",
+            error?.message || error
+          );
+        });
+      }
+    }
 
     return res.status(200).json({
       success: true,

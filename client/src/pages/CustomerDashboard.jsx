@@ -1451,7 +1451,11 @@ function CustomerDashboard({
   */
   const showMapFareSheet = Boolean(
     activeRide &&
+      String(
+        activeRide.fareStatus || ""
+      ).toLowerCase() !== "fare_accepted" &&
       ![
+        "fare_accepted",
         "started",
         "completed",
         "cancelled",

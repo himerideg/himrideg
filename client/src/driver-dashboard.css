@@ -3209,3 +3209,17 @@ body:has(.driverDashboardPage) {
   border: 0 !important;
   box-shadow: none !important;
 }
+
+
+/* ==========================================================================
+   V61 — Counter Accept / Final Fare mobile parity + visibility (ADD-ONLY)
+   ========================================================================== */
+.driverCustomerCounterActionsV61{display:grid!important;grid-template-columns:minmax(150px,.72fr) minmax(0,1.55fr);gap:10px;align-items:stretch;width:100%;min-width:0}
+.driverCustomerCounterActionsV61>.driverCounterAcceptButtonV61{min-height:48px;padding:10px 12px;border:0;border-radius:10px;background:#14984c;color:#fff;font-weight:900;white-space:normal;line-height:1.25}
+.driverCustomerCounterActionsV61>.driverCounterAcceptButtonV61:disabled{opacity:.58;cursor:not-allowed}
+.driverCustomerCounterActionsV61>.driverFinalFareInputV61{margin:0!important;width:100%;min-width:0}
+.driverCustomerCounterActionsV61>.driverFinalFareInputV61 input{width:100%;min-width:0;font-size:16px}
+.driverCustomerCounterActionsV61>.driverFinalFareInputV61 button{min-height:48px;white-space:normal;line-height:1.2}
+.driverCustomerCounter p,.driverCustomerCounter small{overflow-wrap:anywhere}
+@media(max-width:700px){.driverCustomerCounterActionsV61{grid-template-columns:1fr}.driverCustomerCounterActionsV61>.driverCounterAcceptButtonV61{width:100%}.driverCustomerCounterActionsV61>.driverFinalFareInputV61{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"currency input" "send send"}.driverCustomerCounterActionsV61>.driverFinalFareInputV61>span{grid-area:currency}.driverCustomerCounterActionsV61>.driverFinalFareInputV61>input{grid-area:input;min-height:46px}.driverCustomerCounterActionsV61>.driverFinalFareInputV61>button{grid-area:send;width:100%;padding:11px 12px}.driverCustomerFareCard{overflow:visible}.driverCustomerFareCard,.driverCustomerCounter{min-width:0}}
+@media(max-width:430px){.driverCustomerCounter>strong{font-size:23px}.driverCustomerCounterActionsV61{gap:8px}.driverCustomerCounterActionsV61>.driverCounterAcceptButtonV61,.driverCustomerCounterActionsV61>.driverFinalFareInputV61 button{min-height:46px;font-size:13px}}
