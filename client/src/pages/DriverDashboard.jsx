@@ -4464,6 +4464,25 @@ function DriverDashboard({
         ) === currentUserId
     ) || null;
 
+  /*
+  |------------------------------------------------------------------------
+  | V63 Persistent Live GPS Source
+  |------------------------------------------------------------------------
+  | Pehle tracker sirf selectedRide par mount tha. Driver list close kare,
+  | refresh kare ya dashboard tab change kare to GPS send ruk sakta tha.
+  | Assigned active ride ko authority bana kar tracker always-on rahega.
+  */
+  const locationTrackingRide =
+    blockingCurrentRide &&
+    LOCATION_TRACKING_STATUSES.includes(
+      String(blockingCurrentRide?.status || "").toLowerCase()
+    )
+      ? blockingCurrentRide
+      : null;
+
+  const locationTrackingRideId =
+    getId(locationTrackingRide);
+
   const selectedRideIdValue =
     getId(selectedRide);
 
@@ -7028,7 +7047,12 @@ function DriverDashboard({
           />
         )}
 
-        {selectedRide && selectedAssignedToMe && LOCATION_TRACKING_STATUSES.includes(selectedRide.status) && <DriverLocationTracker bookingId={selectedRideIdValue} rideStatus={selectedRide.status}/>} 
+        {locationTrackingRide && locationTrackingRideId && (
+          <DriverLocationTracker
+            bookingId={locationTrackingRideId}
+            rideStatus={locationTrackingRide.status}
+          />
+        )}
       </main>
     </div>)}
     </div>

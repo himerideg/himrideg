@@ -23,6 +23,9 @@ function DriverLocationTracker({
   const lastSentAtRef = useRef(0);
 
   useEffect(() => {
+    /* V63: new/rehydrated ride ko first GPS point immediately bhejna. */
+    lastSentAtRef.current = 0;
+
     if (!bookingId) {
       setMessage("");
       return undefined;

@@ -25,6 +25,20 @@ const money = (value) =>
     Number(value) || 0
   );
 
+/*
+|--------------------------------------------------------------------------
+| Booking Vehicle Options — V63 ADD-ONLY
+|--------------------------------------------------------------------------
+| Customer dashboard booking modal me requested vehicle type explicitly
+| visible rahega. Existing App booking.vehicleType + backend field same hai.
+*/
+const BOOKING_VEHICLE_OPTIONS = [
+  ["hatchback", "Mini / Hatchback"],
+  ["sedan", "Sedan"],
+  ["suv", "SUV"],
+  ["traveller", "Traveller"],
+];
+
 function LocationSearchField({
   label,
   type,
@@ -785,6 +799,43 @@ function CustomerBookRide({
                 />
               </label>
             </div>
+
+            {/*
+              V63 ADD-ONLY: dashboard booking flow me vehicle type missing tha.
+              Same booking.vehicleType field POST /rides me already persist hota hai.
+            */}
+            <label>
+              Vehicle Type
+
+              <b>*</b>
+
+              <select
+                value={
+                  booking.vehicleType ||
+                  "sedan"
+                }
+                required
+                onChange={(
+                  event
+                ) => {
+                  changeBooking({
+                    vehicleType:
+                      event.target.value,
+                  });
+                }}
+              >
+                {BOOKING_VEHICLE_OPTIONS.map(
+                  ([value, label]) => (
+                    <option
+                      key={value}
+                      value={value}
+                    >
+                      {label}
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
 
             <div className="cvPaymentTiming">
               <span>

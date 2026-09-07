@@ -38,6 +38,23 @@ const ACTIVE_STATUSES = [
 const money = (value) =>
   new Intl.NumberFormat("en-IN").format(Number(value) || 0);
 
+/* V63 ADD-ONLY: requested booking vehicle ko customer-friendly label me dikhana. */
+const vehicleTypeText = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+
+  return (
+    {
+      hatchback: "Mini / Hatchback",
+      mini: "Mini / Hatchback",
+      sedan: "Sedan",
+      suv: "SUV",
+      traveller: "Traveller",
+      traveler: "Traveller",
+    }[normalized] ||
+    (normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : "Sedan")
+  );
+};
+
 const idOf = (value) =>
   String(value?._id || value?.id || value || "");
 
@@ -1318,6 +1335,23 @@ function CustomerDashboard({
   const showDashboardWalletShortcut = false;
 
   const [rideTab, setRideTab] = useState("active");
+
+  /*
+  |------------------------------------------------------------------------
+  | V63 Live Route Summary
+  |------------------------------------------------------------------------
+  | Active RideMap driver->pickup / driver->destination route ka live
+  | distance + ETA yahan return karta hai, desktop/mobile dono ke liye.
+  */
+  const [liveRouteInfo, setLiveRouteInfo] = useState({
+    pickup: null,
+    drop: null,
+    distance: 0,
+    duration: 0,
+    routeCoordinates: [],
+    routeProvider: "",
+  });
+
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
 
@@ -1450,10 +1484,124 @@ function CustomerDashboard({
     driver?.currentLocation ||
     null;
 
+  const requestedVehicleType =
+    vehicleTypeText(
+      activeRide?.vehicleType ||
+      booking?.vehicleType ||
+      "sedan"
+    );
+
+  const liveEtaMinutes =
+    Number(liveRouteInfo?.duration || 0) > 0
+      ? Math.max(1, Math.round(Number(liveRouteInfo.duration)))
+      : 0;
+
+  const liveDistanceKm =
+    Number(liveRouteInfo?.distance || 0) > 0
+      ? Number(liveRouteInfo.distance)
+      : 0;
+
   const canCancel =
     activeRide &&
     !["started", "completed", "cancelled"].includes(activeRide.status);
 
+
+  /*
+  |------------------------------------------------------------------------
+  | V63 Driver Live Location — customer realtime bridge
+  |------------------------------------------------------------------------
+  | Backend do compatible payload shapes emit karta hai:
+  | 1) REST/service: { bookingId, data: { location } }
+  | 2) socket handler: { bookingId, location }
+  | Dono ko normalize karke matching active booking me merge karte hain.
+  */
+  useEffect(() => {
+    const handleDriverLocationUpdated = (payload = {}) => {
+      const bookingId = String(
+        payload?.bookingId ||
+        payload?.data?.bookingId ||
+        ""
+      );
+
+      const location =
+        payload?.data?.location ||
+        payload?.location ||
+        payload?.driverLocation ||
+        null;
+
+      if (!bookingId || !location) {
+        return;
+      }
+
+      setLocalBookings((current) =>
+        current.map((ride) =>
+          idOf(ride) === bookingId
+            ? {
+                ...ride,
+                driverLocation: location,
+                currentDriverLocation: location,
+                ...(payload?.rideStatus || payload?.status
+                  ? { status: payload?.rideStatus || payload?.status }
+                  : {}),
+              }
+            : ride
+        )
+      );
+    };
+
+    socket.on(
+      "driver:location:updated",
+      handleDriverLocationUpdated
+    );
+
+    return () => {
+      socket.off(
+        "driver:location:updated",
+        handleDriverLocationUpdated
+      );
+    };
+  }, []);
+
+  /*
+  |------------------------------------------------------------------------
+  | V63 Active Ride Room Join — reconnect-safe live map
+  |------------------------------------------------------------------------
+  | Customer default room ke saath active ride room bhi join karta hai,
+  | taaki reconnect / cross-instance socket event me live GPS miss na ho.
+  */
+  useEffect(() => {
+    const activeRideId = idOf(activeRide);
+
+    if (!activeRideId) {
+      return undefined;
+    }
+
+    const joinActiveRideRoom = () => {
+      socket.emit(
+        "ride:join",
+        { bookingId: activeRideId },
+        () => {}
+      );
+    };
+
+    if (socket.connected) {
+      joinActiveRideRoom();
+    }
+
+    socket.on("connect", joinActiveRideRoom);
+
+    return () => {
+      socket.off("connect", joinActiveRideRoom);
+
+      if (socket.connected) {
+        socket.emit(
+          "ride:leave",
+          { bookingId: activeRideId },
+          () => {}
+        );
+      }
+    };
+  }, [idOf(activeRide)]);
 
   /*
   |------------------------------------------------------------------------
@@ -2796,6 +2944,17 @@ function CustomerDashboard({
                     </div>
                     <p>{vehicleNumber}</p>
                     <p>{vehicleName}</p>
+                    <p className="cvRequestedVehicle">
+                      <strong>Requested:</strong> {requestedVehicleType}
+                    </p>
+                    {liveEtaMinutes > 0 && (
+                      <p className="cvDriverEta">
+                        <strong>ETA:</strong> {liveEtaMinutes} min
+                        {liveDistanceKm > 0
+                          ? ` • ${liveDistanceKm.toFixed(1)} km`
+                          : ""}
+                      </p>
+                    )}
                     <b className="cvStatusPill">● {statusText(activeRide.status)}</b>
                   </div>
                 </div>
@@ -2865,13 +3024,22 @@ function CustomerDashboard({
           <article className="cvLiveMap">
             <header>
               <h2>Live Route</h2>
-              <span>{activeRide ? statusText(activeRide.status) : "Ready"}</span>
+              <span>
+                {activeRide
+                  ? `${statusText(activeRide.status)}${
+                      liveEtaMinutes > 0
+                        ? ` • ${liveEtaMinutes} min`
+                        : ""
+                    }`
+                  : "Ready"}
+              </span>
             </header>
 
             <div className="cvMapFrame">
               <RideMap
                 key={activeRide ? idOf(activeRide) : "booking-map"}
-                onLocationChange={() => {}}
+                ride={activeRide}
+                onLocationChange={setLiveRouteInfo}
                 onAddressChange={() => {}}
                 pickupAddress={
                   activeRide
