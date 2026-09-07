@@ -495,6 +495,8 @@ const cancellationSchema = new mongoose.Schema(
         "customer",
         "driver",
         "admin",
+        // V62 ADD-ONLY: automatic no-response timeout cancellation actor.
+        "system",
         null
       ],
       default: null

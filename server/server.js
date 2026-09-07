@@ -34,6 +34,12 @@ const {
   stopPayoutScheduler
 } = require("./src/services/payoutScheduler");
 
+/* V62: pre-confirmation ride no-response auto-cancel/release scheduler. */
+const {
+  startRideResponseTimeoutScheduler,
+  stopRideResponseTimeoutScheduler
+} = require("./src/services/rideResponseTimeoutScheduler");
+
 /*
 |--------------------------------------------------------------------------
 | Phase 2 Scalability Runtime — Redis / Queue
@@ -189,6 +195,9 @@ const startServer = async () => {
 
     startPayoutScheduler();
 
+    // V62 ADD-ONLY: driver/customer response timeout is backend authoritative.
+    startRideResponseTimeoutScheduler();
+
     httpServer.listen(
       PORT,
       HOST,
@@ -267,6 +276,7 @@ const startServer = async () => {
     console.error("");
 
     stopPayoutScheduler();
+    stopRideResponseTimeoutScheduler();
 
     try {
       await stopBackgroundJobWorker();
@@ -338,6 +348,7 @@ const shutdown = async (signal) => {
   forceShutdownTimer.unref();
 
   stopPayoutScheduler();
+  stopRideResponseTimeoutScheduler();
 
   try {
     await stopBackgroundJobWorker();

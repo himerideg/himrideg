@@ -27,6 +27,7 @@ import DriverLocationTracker from "../DriverLocationTracker";
 import DriverRideMap from "../DriverRideMap";
 import DriverWarnings from "../components/DriverWarnings";
 import DriverPaymentModal from "../components/DriverPaymentModal";
+import ResponseTimeoutBadge from "../components/ResponseTimeoutBadge";
 
 import "../driver-dashboard.css";
 import "../payment-modal.css";
@@ -592,6 +593,24 @@ function isLegacyCashPendingRide(ride) {
 }
 
 function canConfirmCashForRide(ride) {
+  /*
+  |------------------------------------------------------------------------
+  | V62 ADD-ONLY — Driver cash confirmation is independent of customer UI
+  |------------------------------------------------------------------------
+  | Ride completed + unpaid + locked fare means assigned driver may confirm
+  | cash immediately after physically receiving it, even if customer closes
+  | the browser/app without tapping Cash Payment. Legacy gates remain below.
+  |------------------------------------------------------------------------
+  */
+  const v62IndependentDriverCashAllowed =
+    isWaitingForPaymentRide(ride) &&
+    !isRidePaymentPaid(ride) &&
+    isFinalFareLocked(ride);
+
+  if (v62IndependentDriverCashAllowed) {
+    return true;
+  }
+
   /*
   |--------------------------------------------------------------------------
   | V57 Driver Receive Cash Authority
@@ -6436,6 +6455,11 @@ function DriverDashboard({
                     {selectedAssignedToMe && ["accepted","fare_offered","negotiating","fare_accepted"].includes(selectedRide.status) && (
                       <section className="driverCustomerFareCard">
                         <header><div><small>FARE NEGOTIATION</small><h3>Driver → Customer → Final</h3></div><b>{Math.min(Number(selectedRide.fareOfferCount || 0), 3)}/3 Steps</b></header>
+                        <ResponseTimeoutBadge
+                          ride={selectedRide}
+                          role="driver"
+                          onExpired={() => loadBookings?.()}
+                        />
                         {selectedFareStage === "fare_accepted" ? (
                           <div className="driverCustomerFareFinal">
                             <article><small>FINAL FARE</small><strong>₹{getFinalFare(selectedRide).toFixed(0)}</strong></article>

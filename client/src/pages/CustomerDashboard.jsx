@@ -11,6 +11,7 @@ import socket from "../socket";
 import RideMap from "../RideMap";
 import CustomerBookRide from "../components/CustomerBookRide";
 import PaymentModal from "../components/paymentmodal";
+import ResponseTimeoutBadge from "../components/ResponseTimeoutBadge";
 import { playHimRideGEventSound } from "../utils/himridegSounds";
 
 import "../dashboard.css";
@@ -235,6 +236,12 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
 
   const bookingId = ride?._id || ride?.id;
   const fareStatus = String(ride?.fareStatus || "not_offered").toLowerCase();
+  const responseTimeoutBadge = (
+    <ResponseTimeoutBadge
+      ride={ride}
+      role="customer"
+    />
+  );
   const rideStatus = String(ride?.status || "").toLowerCase();
   const driverOffer = Number(ride?.driverOfferedFare || 0);
   const customerCounter = Number(ride?.customerCounterFare || 0);
@@ -305,6 +312,7 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
   if (finalFareSyncPending) {
     return (
       <div className="fareWaitBox">
+        {responseTimeoutBadge}
         <div className="fareWaitIcon">⚠</div>
 
         <div>
@@ -324,6 +332,7 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
   if (hasDriverFinal) {
     return (
       <div className="fareNegotiateBox fareFinalDecisionBox">
+        {responseTimeoutBadge}
         <div className="fareOfferHeader">
           <span>🔐 Driver FINAL Fare</span>
 
@@ -375,6 +384,7 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
   if (hasCustomerCounter || counterSent) {
     return (
       <div className="fareWaitBox">
+        {responseTimeoutBadge}
         <div className="fareWaitIcon">⏳</div>
 
         <div>
@@ -400,6 +410,7 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
   if (hasDriverOffer) {
     return (
       <div className="fareNegotiateBox">
+        {responseTimeoutBadge}
         <div className="fareOfferHeader">
           <span>🚖 Driver Fare</span>
 
@@ -517,6 +528,7 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
   if (fareStatus === "fare_rejected") {
     return (
       <div className="fareWaitBox">
+        {responseTimeoutBadge}
         <div className="fareWaitIcon">↻</div>
 
         <div>
@@ -533,6 +545,7 @@ function FareNegotiationUI({ ride, onAccept, onCounter, onReject }) {
   ) {
     return (
       <div className="fareWaitBox">
+        {responseTimeoutBadge}
         <div className="fareWaitIcon">₹</div>
 
         <div>

@@ -148,6 +148,59 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
 
   /*
   |------------------------------------------------------------------------
+  | V62 Independent Driver Cash Receipt — ADD-ONLY
+  |------------------------------------------------------------------------
+  | Completed unpaid ride me driver ka Receive Cash customer ke Cash button
+  | par depend nahi karega. Customer cash dekar app/browser band kar de to bhi
+  | assigned driver yahin se payment confirm karke immediately release hoga.
+  | Existing V60 cash-selected-only UI below rollback compatibility ke liye
+  | untouched preserve hai.
+  |------------------------------------------------------------------------
+  */
+  const v62IndependentCashAwaitingConfirm =
+    locked &&
+    paymentStatus !== "paid" &&
+    due > 0;
+
+  if (v62IndependentCashAwaitingConfirm) {
+    return (
+      <div className="paymentModalOverlay driverPaymentOverlay v60PaymentOverlay" role="presentation">
+        <div
+          className="paymentModal driverPaymentModal compactPaymentModal v60PaymentModal v60DriverCashModal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="driver-v62-payment-title"
+        >
+          <div className="v60PaymentTitle" id="driver-v62-payment-title">
+            Payment
+          </div>
+
+          <div className="v60PaymentFare">
+            <span>Final Fare</span>
+            <strong>{money(fare)}</strong>
+          </div>
+
+          <button
+            type="button"
+            className="v60PaymentAction primary v60CashReceivedButton"
+            disabled={Boolean(busy)}
+            onClick={() => runConfirm("cash")}
+          >
+            {busy === "cash" ? "Confirming…" : `Cash Received ${money(due)}`}
+          </button>
+
+          <small style={{ display: "block", marginTop: 10, textAlign: "center", opacity: 0.78 }}>
+            Cash physically milne ke baad hi confirm karein. Customer response required nahi hai.
+          </small>
+
+          {error && <div className="paymentErrorBox v60PaymentError">{error}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  /*
+  |------------------------------------------------------------------------
   | V60 Driver Cash-Only Payment Popup — ADD-ONLY
   |------------------------------------------------------------------------
   | Driver ko payment popup tabhi dikhna chahiye jab customer Cash select kare.

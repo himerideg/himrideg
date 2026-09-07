@@ -61,6 +61,59 @@ const DEFAULT_RIDE_EXPIRY_MINUTES = 15;
 const DEFAULT_OTP_EXPIRY_MINUTES = 10;
 const MAX_OTP_ATTEMPTS = 5;
 
+/*
+|------------------------------------------------------------------------
+| V62 — 10 Minute No-Response Safety Window
+|------------------------------------------------------------------------
+| Driver accept ke baad pre-confirmation negotiation ke har response stage
+| ko maximum 10 minutes milte hain. Existing acceptedAt/fareOfferedAt fields
+| hi authoritative anchor hain, isliye desktop/mobile/refresh sab same timer
+| dekhte hain aur extra client-only state ki zarurat nahi padti.
+|------------------------------------------------------------------------
+*/
+const NO_RESPONSE_TIMEOUT_MINUTES = 10;
+const NO_RESPONSE_TIMEOUT_MS = NO_RESPONSE_TIMEOUT_MINUTES * 60 * 1000;
+const NO_RESPONSE_SWEEP_LIMIT = 100;
+
+function getNoResponseStage(booking) {
+  const status = String(booking?.status || "").toLowerCase();
+  const fareStatus = String(booking?.fareStatus || "not_offered").toLowerCase();
+
+  if (["accepted", "driver_assigned"].includes(status) && fareStatus === "not_offered") {
+    return {
+      waitingFor: "driver",
+      stage: "driver_initial_fare",
+      anchor: booking?.acceptedAt || null
+    };
+  }
+
+  if (status === "fare_offered" && fareStatus === "driver_offered") {
+    return {
+      waitingFor: "customer",
+      stage: "customer_initial_response",
+      anchor: booking?.fareOfferedAt || null
+    };
+  }
+
+  if (status === "negotiating" && fareStatus === "customer_countered") {
+    return {
+      waitingFor: "driver",
+      stage: "driver_counter_response",
+      anchor: booking?.fareOfferedAt || null
+    };
+  }
+
+  if (status === "negotiating" && fareStatus === "driver_final") {
+    return {
+      waitingFor: "customer",
+      stage: "customer_final_response",
+      anchor: booking?.fareOfferedAt || null
+    };
+  }
+
+  return null;
+}
+
 /* Cash commission due ledger me rahega, par next ride acceptance ko block nahi karega. */
 const COMMISSION_DUE_BLOCKS_NEW_RIDES = false;
 
@@ -3743,6 +3796,144 @@ async function cancelRide({
 
 /*
 |--------------------------------------------------------------------------
+| V62 — Auto Cancel Pre-Confirmation Ride On 10 Minute No Response
+|--------------------------------------------------------------------------
+| Any side can disappear, close browser, lose network, or simply not answer.
+| The backend is authoritative: after 10 minutes of inactivity in the current
+| negotiation stage the booking is cancelled and the assigned driver is
+| released automatically. Multiple server instances are safe because each
+| candidate is claimed with an atomic status/fareStatus/timestamp match.
+|--------------------------------------------------------------------------
+*/
+async function sweepNoResponseRides({ now = new Date() } = {}) {
+  const cutoff = new Date(now.getTime() - NO_RESPONSE_TIMEOUT_MS);
+
+  const candidates = await Booking.find({
+    driver: { $ne: null },
+    status: { $in: ["accepted", "driver_assigned", "fare_offered", "negotiating"] },
+    fareStatus: { $ne: "fare_accepted" },
+    $or: [
+      {
+        status: { $in: ["accepted", "driver_assigned"] },
+        fareStatus: "not_offered",
+        acceptedAt: { $lte: cutoff }
+      },
+      {
+        status: "fare_offered",
+        fareStatus: "driver_offered",
+        fareOfferedAt: { $lte: cutoff }
+      },
+      {
+        status: "negotiating",
+        fareStatus: { $in: ["customer_countered", "driver_final"] },
+        fareOfferedAt: { $lte: cutoff }
+      }
+    ]
+  })
+    .select("_id customer driver status fareStatus acceptedAt fareOfferedAt cancellation")
+    .limit(NO_RESPONSE_SWEEP_LIMIT);
+
+  let cancelled = 0;
+
+  for (const candidate of candidates) {
+    const stage = getNoResponseStage(candidate);
+    const anchor = stage?.anchor ? new Date(stage.anchor) : null;
+
+    if (!stage || !anchor || !Number.isFinite(anchor.getTime())) {
+      continue;
+    }
+
+    if (anchor.getTime() > cutoff.getTime()) {
+      continue;
+    }
+
+    const driverId = candidate.driver;
+    const customerId = candidate.customer;
+    const reason =
+      stage.waitingFor === "customer"
+        ? `${NO_RESPONSE_TIMEOUT_MINUTES} minute tak customer response nahi aaya. Ride automatically cancel ho gayi.`
+        : `${NO_RESPONSE_TIMEOUT_MINUTES} minute tak driver response nahi aaya. Ride automatically cancel ho gayi.`;
+
+    const exactAnchorField =
+      stage.stage === "driver_initial_fare" ? "acceptedAt" : "fareOfferedAt";
+
+    const claimed = await Booking.findOneAndUpdate(
+      {
+        _id: candidate._id,
+        driver: driverId,
+        status: candidate.status,
+        fareStatus: candidate.fareStatus,
+        [exactAnchorField]: anchor
+      },
+      {
+        $set: {
+          status: "cancelled",
+          "cancellation.cancelledBy": "system",
+          "cancellation.reason": reason,
+          "cancellation.charge": 0,
+          "cancellation.cancelledAt": now
+        }
+      },
+      { new: true }
+    );
+
+    if (!claimed) {
+      continue;
+    }
+
+    if (driverId) {
+      await releaseDriver(driverId, claimed._id);
+    }
+
+    safeEmit(emitRideCancelled, {
+      booking: claimed,
+      cancelledBy: "system",
+      reason
+    });
+
+    safeEmit(emitRideStatusUpdated, {
+      booking: claimed,
+      status: claimed.status
+    });
+
+    safePush(customerId, {
+      title: "Ride Auto Cancelled",
+      body: reason,
+      data: {
+        type: "ride_cancelled",
+        soundEvent: "ride_cancelled",
+        role: "customer",
+        bookingId: String(claimed._id),
+        status: "cancelled",
+        reason: "no_response_timeout"
+      }
+    });
+
+    safePush(driverId, {
+      title: "Ride Released",
+      body: `${reason} Aap next ride ke liye available hain.`,
+      data: {
+        type: "ride_cancelled",
+        soundEvent: "ride_cancelled",
+        role: "driver",
+        bookingId: String(claimed._id),
+        status: "cancelled",
+        reason: "no_response_timeout"
+      }
+    });
+
+    cancelled += 1;
+  }
+
+  return {
+    scanned: candidates.length,
+    cancelled,
+    timeoutMinutes: NO_RESPONSE_TIMEOUT_MINUTES
+  };
+}
+
+/*
+|--------------------------------------------------------------------------
 | Expire Booking
 |--------------------------------------------------------------------------
 */
@@ -4416,6 +4607,10 @@ module.exports = {
 
   expireDriverRequests,
   expireBooking,
+
+  // V62 ADD-ONLY: server-authoritative 10 minute no-response auto cancel.
+  sweepNoResponseRides,
+  getNoResponseStage,
 
   markDriverArriving,
   markDriverArrived,
