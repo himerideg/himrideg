@@ -146,7 +146,6 @@ const canCustomerPayRide = (ride, paidBookingIds = new Set()) => {
       (
         hasActiveAdvanceRequest(ride) ||
         status === "payment_pending" ||
-        // Legacy compatibility: old completed-but-unpaid records can still pay.
         (status === "completed" && !isRidePaid(ride, paidBookingIds))
       )
   );
@@ -1787,8 +1786,13 @@ function CustomerDashboard({
       setLocalBookings((prev) =>
         prev.map((ride) => (idOf(ride) === bid ? { ...ride, ...mergedRide } : ride))
       );
-      setPaymentBooking(mergedRide);
-      setShowPaymentModal(true);
+
+      // Launch-safe: advance events are preserved as data, but payment UI opens
+      // only after the backend-authoritative completed + unpaid state.
+      if (canCustomerPayRide(mergedRide, paidBookingIds)) {
+        setPaymentBooking(mergedRide);
+        setShowPaymentModal(true);
+      }
     };
 
     const handlePaidAwaitingDriver = (data = {}) => {
@@ -1798,13 +1802,13 @@ function CustomerDashboard({
       setLocalBookings((prev) =>
         prev.map((ride) =>
           idOf(ride) === bid
-            ? { ...ride, ...data, status: "payment_pending", paymentStatus: "paid", paymentMethod: "online" }
+            ? { ...ride, ...data, status: "completed", paymentStatus: "paid", paymentMethod: "online" }
             : ride
         )
       );
       setPaymentBooking((current) =>
         current && idOf(current) === bid
-          ? { ...current, ...data, status: "payment_pending", paymentStatus: "paid", paymentMethod: "online" }
+          ? { ...current, ...data, status: "completed", paymentStatus: "paid", paymentMethod: "online" }
           : current
       );
       setShowPaymentModal(true);
@@ -1862,6 +1866,11 @@ function CustomerDashboard({
           ? { ...current, ...data, paymentStatus: "paid" }
           : current
       );
+
+      if (idOf(paymentBooking) === bid) {
+        setShowPaymentModal(false);
+        setPaymentBooking(null);
+      }
     };
 
     /*

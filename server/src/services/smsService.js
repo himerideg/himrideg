@@ -145,18 +145,20 @@ function sendFast2SMS(phone, otp) {
 
 async function sendOtpSms(phone, otp) {
   if (!SMS_ENABLED) {
-    /*
-    | SMS disabled hai — development mode
-    | OTP console pe print karo
-    */
-    console.log(
-      `[SMS DEV] OTP for ${phone}: ${otp} (SMS_ENABLED=false, SMS send nahi hua)`
-    );
+    const isProduction = process.env.NODE_ENV === "production";
+
+    if (!isProduction) {
+      console.log(
+        `[SMS DEV] OTP for ${phone}: ${otp} (SMS_ENABLED=false, SMS send nahi hua)`
+      );
+    } else {
+      console.error("[SMS] SMS provider disabled/misconfigured in production; OTP was not logged.");
+    }
 
     return {
       sent: false,
-      provider: "console",
-      devOtp: otp
+      provider: isProduction ? "disabled" : "console",
+      ...(isProduction ? {} : { devOtp: otp })
     };
   }
 

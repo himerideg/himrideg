@@ -53,13 +53,24 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
   const paymentMethod = paymentMethodOf(ride);
   const cashSelected = cashSelectedOf(ride);
   const advanceStatus = String(ride?.advanceStatus || "none").toLowerCase();
-  const locked = status === "payment_pending";
-  const canRequestAdvance =
+
+  // FULL CODE RULE: keep the previous decision logic available for rollback/audit.
+  // Launch mode intentionally gates these legacy branches off without deleting them.
+  const legacyLocked = status === "payment_pending";
+  const legacyCanRequestAdvance =
     ["fare_accepted", "driver_arriving", "driver_arrived"].includes(status) &&
     fare > 0 &&
     advancePaid <= 0 &&
     !["requested", "paid", "pay_later"].includes(advanceStatus);
-  const onlineAwaitingConfirm = locked && paymentStatus === "paid" && paymentMethod === "online";
+  const legacyOnlineAwaitingConfirm =
+    legacyLocked && paymentStatus === "paid" && paymentMethod === "online";
+  void legacyCanRequestAdvance;
+  void legacyOnlineAwaitingConfirm;
+
+  const showLegacyAdvanceInfo = false;
+  const locked = ["completed", "payment_pending"].includes(status) && paymentStatus !== "paid";
+  const canRequestAdvance = false; // Launch-safe: stale advance request API is intentionally hidden.
+  const onlineAwaitingConfirm = false; // Razorpay verification is authoritative; no driver online-confirm step.
   const cashAwaitingConfirm = locked && cashSelected && paymentStatus !== "paid";
 
   useEffect(() => {
@@ -121,8 +132,8 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
     setBusy(kind);
     setError("");
     try {
-      const endpoint = kind === "online" ? "/payments/receive-confirm" : "/payments/cash-confirm";
-      const { data } = await api.post(endpoint, { bookingId });
+      if (kind !== "cash") return;
+      const { data } = await api.post("/payments/cash-confirm", { bookingId });
       if (!data?.success) throw new Error(data?.message || "Payment confirm nahi hui");
       playHimRideGEventSound(
         kind === "cash" ? "cash_payment_success" : "online_payment_success"
@@ -144,7 +155,7 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
       }}
     >
       <div
-        className="paymentModal driverPaymentModal"
+        className="paymentModal driverPaymentModal compactPaymentModal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="driver-payment-modal-title"
@@ -153,12 +164,10 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
           <div className="paymentModalLogo">💳</div>
           <div className="paymentModalTitleGroup">
             <h2 id="driver-payment-modal-title">
-              {locked ? "Payment Received Confirmation" : "Customer Payment"}
+              {locked ? "Payment" : "Payment Status"}
             </h2>
             <small>
-              {locked
-                ? "Payment confirm hone tak ride Completed nahi hogi"
-                : "Driver payment status"}
+              {cashAwaitingConfirm ? "Cash selected by customer" : locked ? "Waiting for customer" : "Payment complete"}
             </small>
           </div>
           {!locked && (
@@ -175,17 +184,18 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
 
         <div className="paymentFareBox">
           <div>
-            <span>Final Locked Fare</span>
-            <small>Advance deducted automatically</small>
+            <span>Final Fare</span>
           </div>
           <strong>{money(fare)}</strong>
         </div>
 
-        <div className="driverPaymentRules">
-          <span>Advance Received: {money(advancePaid)}</span>
-          <span>Remaining: {money(due)}</span>
-          <span>Status: {status || "pending"}</span>
-        </div>
+        {false && (
+          <div className="driverPaymentRules">
+            <span>Advance Received: {money(advancePaid)}</span>
+            <span>Remaining: {money(due)}</span>
+            <span>Status: {status || "pending"}</span>
+          </div>
+        )}
 
         {canRequestAdvance && (
           <div className="driverPaymentStatusBox pending">
@@ -227,7 +237,7 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
           </div>
         )}
 
-        {advanceStatus === "pay_later" && (
+        {showLegacyAdvanceInfo && advanceStatus === "pay_later" && (
           <div className="paymentPlanSelectedBanner">
             <span>➡️</span>
             <div>
@@ -238,7 +248,7 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
           </div>
         )}
 
-        {advanceStatus === "requested" && (
+        {showLegacyAdvanceInfo && advanceStatus === "requested" && (
           <div className="paymentPlanSelectedBanner advance">
             <span>⚡</span>
             <div>
@@ -249,7 +259,7 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
           </div>
         )}
 
-        {advanceStatus === "paid" && (
+        {showLegacyAdvanceInfo && advanceStatus === "paid" && (
           <div className="paymentPlanSelectedBanner advance">
             <span>✅</span>
             <div>
@@ -264,11 +274,8 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
           <div className="driverPaymentStatusBox pending">
             <span>⏳</span>
             <div>
-              <small>WAITING FOR CUSTOMER</small>
-              <strong>Customer payment choice pending</strong>
-              <p>
-                Customer ke account me Pay Online / Cash Payment popup compulsory rahega.
-              </p>
+              <small>WAITING</small>
+              <strong>Customer payment pending</strong>
             </div>
           </div>
         )}
@@ -300,24 +307,21 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
           <div className="driverPaymentStatusBox pending">
             <span>💵</span>
             <div>
-              <small>CUSTOMER SELECTED CASH</small>
-              <strong>Receive Cash {money(due)}</strong>
-              <p>
-                Cash physically receive hone ke baad hi confirm karein. Confirm hote hi ride Completed + both accounts released.
-              </p>
+              <small>CASH</small>
+              <strong>Receive {money(due)}</strong>
               <button
                 type="button"
                 className="driverCashReceivedPrimary"
                 disabled={Boolean(busy)}
                 onClick={() => runConfirm("cash")}
               >
-                {busy === "cash" ? "Confirming…" : `💵 Receive Cash ${money(due)}`}
+                {busy === "cash" ? "Confirming…" : `Cash Received ${money(due)}`}
               </button>
             </div>
           </div>
         )}
 
-        {status === "completed" && (
+        {status === "completed" && paymentStatus === "paid" && (
           <div className="driverPaymentStatusBox paid">
             <span>✅</span>
             <div>
@@ -330,10 +334,8 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
 
         {error && <div className="paymentErrorBox">{error}</div>}
 
-        {locked && (
-          <div className="paymentLockNotice">
-            🔒 Ye popup account refresh/reopen par backend se wapas load hoga.
-          </div>
+        {locked && cashAwaitingConfirm && (
+          <div className="paymentLockNotice compactLockNotice">Confirm only after receiving cash</div>
         )}
       </div>
     </div>

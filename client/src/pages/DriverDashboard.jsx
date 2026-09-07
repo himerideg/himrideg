@@ -2453,14 +2453,14 @@ function DriverDashboard({
       };
 
       handleFareUpdate(mergedRide);
-      setDriverPaymentModalRide(mergedRide);
+      // Payment popup opens only after ride completion / actual payment action.
 
       playHimRideGEventSound("fare_locked").catch(() => {});
 
       showNotice(
         "success",
         payload.message ||
-          "Fare final lock ho gaya. Customer payment option choose karega."
+          "Fare final lock ho gaya. Ride continue karein."
       );
     };
 
@@ -2585,6 +2585,8 @@ function DriverDashboard({
             payload?.amount ||
             0
         );
+
+      setDriverPaymentModalRide(null);
 
       setDriverPaymentReceipt({
         ...paidPayload,

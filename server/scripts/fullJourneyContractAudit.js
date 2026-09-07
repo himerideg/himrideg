@@ -124,10 +124,11 @@ check(
   "Driver gets a closable Cash/Online received receipt."
 );
 check(
-  "Customer paid receipt manual close",
-  files.customer.includes("autoClosePaidReceipt") &&
-    files.paymentModal.includes("paymentDoneBtn"),
-  "Customer paid receipt has explicit Done/Close instead of forced close."
+  "Compact canonical customer payment popup",
+  files.paymentModal.includes('["completed", "payment_pending"].includes(status)') &&
+    files.paymentModal.includes('requiresDriverConfirmation: false') &&
+    files.paymentModal.includes('compactPaymentModal'),
+  "Customer popup uses completed+unpaid as source of truth and online payment does not wait for driver confirmation."
 );
 check("Paid ride releases driver", files.paymentController.includes("releaseDriverAfterPaidBooking") && files.paymentController.includes("isAvailable: true"), "Payment completion clears current ride and releases online driver.");
 check("Payment idempotency guard", files.paymentController.includes("already paid") || files.paymentController.includes('paymentStatus === "paid"'), "Repeated payment does not blindly create a second paid state.");

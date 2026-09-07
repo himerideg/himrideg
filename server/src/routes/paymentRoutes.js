@@ -8,6 +8,8 @@ const {
   selectCashPayment,
   getPaymentStatus,
   confirmCashPayment,
+  confirmOnlinePaymentReceipt,
+  rejectLegacyAdvancePayment,
   getPaymentReceipt
 } = require("../controllers/paymentController");
 
@@ -82,6 +84,13 @@ router.post("/cash-select", selectCashPayment);
 */
 router.post("/cash-confirm", confirmCashPayment);
 
+/* Legacy web/app compatibility: online verification is already authoritative. */
+router.post("/receive-confirm", confirmOnlinePaymentReceipt);
+
+/* Legacy advance calls return a clear launch-safe response instead of 404. */
+router.post("/advance/request", rejectLegacyAdvancePayment);
+router.post("/advance/pay-later", rejectLegacyAdvancePayment);
+
 /* Admin retry for legacy Route settlement; instant wallet settlement remains separate. */
 router.post("/:bookingId/retry-settlement", retrySettlement);
 
@@ -92,6 +101,9 @@ router.post("/:bookingId/retry-settlement", retrySettlement);
 |--------------------------------------------------------------------------
 */
 router.get("/:bookingId/status", getPaymentStatus);
+
+/* Legacy client compatibility for older /payments/status/:bookingId callers. */
+router.get("/status/:bookingId", getPaymentStatus);
 
 /*
 |--------------------------------------------------------------------------

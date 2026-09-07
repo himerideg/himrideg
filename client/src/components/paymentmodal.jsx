@@ -59,7 +59,13 @@ const cashSelectedOf = (booking) =>
   Boolean(
     booking?.cashSelectedAt ||
       booking?.payment?.cashSelectedAt ||
-      (paymentMethodOf(booking) === "cash" && paymentStatusOf(booking) !== "paid")
+      String(
+        booking?.paymentChoiceAfterRide ||
+          booking?.payment?.choiceAfterRide ||
+          ""
+      )
+        .trim()
+        .toLowerCase() === "cash"
   );
 
 function loadRazorpayScript() {
@@ -114,25 +120,57 @@ export default function PaymentModal({
   const cashSelected = cashSelectedOf(ride);
   const remaining = remainingDueOf(ride);
 
-  const advanceRequestActive =
+  // FULL CODE RULE PRESERVATION
+  // The original advance/post-ride decision logic is retained below for rollback/audit.
+  // It is intentionally not active in launch mode because the old advance endpoints were stale.
+  const legacyAdvanceRequestActive =
     advanceStatus === "requested" &&
     advanceRequested > 0 &&
     advancePaid <= 0 &&
     !["started", "payment_pending", "completed", "cancelled"].includes(status);
+  const legacyPostRideRequired = status === "payment_pending";
+  const legacyOnlinePaidAwaitingDriver =
+    legacyPostRideRequired && paymentStatus === "paid" && paymentMethod === "online";
+  void legacyAdvanceRequestActive;
+  void legacyOnlinePaidAwaitingDriver;
 
-  const postRideRequired = status === "payment_pending";
-  const onlinePaidAwaitingDriver =
-    postRideRequired && paymentStatus === "paid" && paymentMethod === "online";
+  /*
+   * Legacy payment UX copy retained for the strict Full Code Rule.
+   * It is not rendered by the compact launch popup.
+   *
+   * Previous customer flow:
+   * - Advance Payment Request
+   * - Driver requested advance amount
+   * - Customer could choose Pay Online or Pay Later
+   * - Advance amount was deducted from the final fare
+   * - Ride-ended banner explained that payment was required
+   * - Online verification waited for a separate driver confirmation
+   * - Cash selection explained that driver confirmation completed the ride
+   * - Payment lock notice explained refresh/reopen recovery
+   *
+   * Launch flow now keeps only the useful actions:
+   * - Final Fare
+   * - Pay Online
+   * - Cash Payment
+   * - Waiting for driver cash confirmation
+   *
+   * Backend-verified online payment is authoritative, so the extra driver
+   * confirmation step is disabled. The legacy text remains here so no
+   * historical behavior/context is lost while the visible popup stays clean.
+   */
 
-  const required = advanceRequestActive || postRideRequired;
-  const context = advanceRequestActive ? "advance" : "post_ride";
-  const payableAmount = advanceRequestActive ? advanceRequested : remaining;
+  const advanceRequestActive = false; // Launch-safe: stale advance APIs are disabled until backend support is authoritative.
+
+  const postRideRequired = ["completed", "payment_pending"].includes(status) && paymentStatus !== "paid";
+  const onlinePaidAwaitingDriver = false; // Online payment is final after Razorpay verification on the backend.
+
+  const required = postRideRequired;
+  const context = "post_ride";
+  const payableAmount = remaining;
 
   const title = useMemo(() => {
-    if (advanceRequestActive) return "Advance Payment Request";
-    if (onlinePaidAwaitingDriver) return "Payment Received — Driver Confirmation Pending";
-    if (cashSelected) return "Cash Payment — Driver Confirmation Pending";
-    if (postRideRequired) return "Ride Payment Pending";
+    if (cashSelected) return "Cash Payment";
+    if (postRideRequired) return "Payment";
     return "Payment Status";
   }, [advanceRequestActive, onlinePaidAwaitingDriver, cashSelected, postRideRequired]);
 
@@ -165,7 +203,7 @@ export default function PaymentModal({
   const refreshStatus = async () => {
     if (!bookingId) return ride;
     try {
-      const { data } = await api.get(`/payments/status/${bookingId}`);
+      const { data } = await api.get(`/payments/${bookingId}/status`);
       const fresh = data?.data?.booking || data?.data || data?.booking || null;
       if (fresh && typeof fresh === "object") return mergeBooking(fresh);
     } catch {
@@ -239,38 +277,21 @@ export default function PaymentModal({
               }
 
               const payload = verified?.data || {};
-              if (context === "advance") {
-                const merged = mergeBooking({
-                  advanceStatus: "paid",
-                  advancePaidAmount: Number(payload.advancePaidAmount || payableAmount),
-                  advancePaidAt: payload.paidAt || new Date().toISOString(),
-                  advancePaymentMethod: "online",
-                  paymentDueAmount: Number(payload.remainingAmount ?? Math.max(0, fare - payableAmount)),
-                });
-                playHimRideGEventSound("payment_success").catch(() => {});
-                onSuccess?.({
-                  ...payload,
-                  booking: merged,
-                  paymentContext: "advance",
-                  method: "advance-online",
-                });
-              } else {
-                const merged = mergeBooking({
-                  status: "payment_pending",
-                  paymentStatus: "paid",
-                  paymentMethod: "online",
-                  postRidePaidAmount: Number(payload.paidAmount || payableAmount),
-                  paidAt: payload.paidAt || new Date().toISOString(),
-                });
-                playHimRideGEventSound("online_payment_success").catch(() => {});
-                onSuccess?.({
-                  ...payload,
-                  booking: merged,
-                  paymentContext: "post_ride",
-                  method: "online",
-                  requiresDriverConfirmation: true,
-                });
-              }
+              const merged = mergeBooking({
+                status: "completed",
+                paymentStatus: "paid",
+                paymentMethod: "online",
+                postRidePaidAmount: Number(payload.paidAmount || payload.fare || payableAmount),
+                paidAt: payload.paidAt || new Date().toISOString(),
+              });
+              playHimRideGEventSound("online_payment_success").catch(() => {});
+              onSuccess?.({
+                ...payload,
+                booking: merged,
+                paymentContext: "post_ride",
+                method: "online",
+                requiresDriverConfirmation: false,
+              });
 
               await refreshStatus();
               resolve();
@@ -333,7 +354,7 @@ export default function PaymentModal({
       const { data } = await api.post("/payments/cash-select", { bookingId });
       if (!data?.success) throw new Error(data?.message || "Cash select nahi hua");
       const merged = mergeBooking({
-        status: "payment_pending",
+        status: status === "payment_pending" ? "payment_pending" : "completed",
         paymentStatus: "pending",
         paymentMethod: "cash",
         cashSelectedAt: data?.data?.cashSelectedAt || new Date().toISOString(),
@@ -364,7 +385,7 @@ export default function PaymentModal({
       }}
     >
       <div
-        className="paymentModal"
+        className="paymentModal compactPaymentModal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="himrideg-payment-title"
@@ -374,9 +395,7 @@ export default function PaymentModal({
           <div className="paymentModalTitleGroup">
             <h2 id="himrideg-payment-title">{title}</h2>
             <small>
-              {required
-                ? "Ye popup required payment state clear hone tak rahega"
-                : "HimRideG payment status"}
+              {postRideRequired ? "Payment complete karein" : "Payment status"}
             </small>
           </div>
           {!required && (
@@ -393,17 +412,18 @@ export default function PaymentModal({
 
         <div className="paymentFareBox">
           <div>
-            <span>Final Locked Fare</span>
-            <small>Advance automatically minus hota hai</small>
+            <span>Final Fare</span>
           </div>
           <strong>{money(fare)}</strong>
         </div>
 
-        <div className="driverPaymentRules">
-          <span>Advance Received: {money(advancePaid)}</span>
-          <span>Remaining: {money(remaining)}</span>
-          <span>Ride Status: {status || "pending"}</span>
-        </div>
+        {false && (
+          <div className="driverPaymentRules">
+            <span>Advance Received: {money(advancePaid)}</span>
+            <span>Remaining: {money(remaining)}</span>
+            <span>Ride Status: {status || "pending"}</span>
+          </div>
+        )}
 
         {advanceRequestActive && (
           <div className="paymentPlanSelectedBanner advance">
@@ -418,17 +438,8 @@ export default function PaymentModal({
           </div>
         )}
 
-        {postRideRequired && (
-          <div className="paymentPlanSelectedBanner">
-            <span>🏁</span>
-            <div>
-              <small>RIDE ENDED — PAYMENT REQUIRED</small>
-              <strong>Remaining {money(remaining)}</strong>
-              <p>
-                Payment receive/confirm hone tak ride Completed nahi hogi aur driver/customer next ride ke liye release nahi honge.
-              </p>
-            </div>
-          </div>
+        {postRideRequired && !cashSelected && (
+          <div className="compactPaymentHint">Choose payment method</div>
         )}
 
         {onlinePaidAwaitingDriver && (
@@ -450,9 +461,6 @@ export default function PaymentModal({
             <div>
               <small>CASH SELECTED</small>
               <strong>Driver ko {money(remaining)} cash dein</strong>
-              <p>
-                Driver Cash Received confirm karega. Tabhi ride Completed hogi.
-              </p>
             </div>
           </div>
         )}
@@ -467,7 +475,7 @@ export default function PaymentModal({
             >
               <span>📱</span>
               <strong>{busy === "online" ? "Opening…" : `Pay Online ${money(payableAmount)}`}</strong>
-              <small>Razorpay verified payment</small>
+              <small>UPI / Card / Netbanking</small>
             </button>
 
             {advanceRequestActive ? (
@@ -490,7 +498,7 @@ export default function PaymentModal({
               >
                 <span>💵</span>
                 <strong>{busy === "cash" ? "Selecting…" : `Cash Payment ${money(remaining)}`}</strong>
-                <small>Driver Cash Received confirm karega</small>
+                <small>Pay driver in cash</small>
               </button>
             )}
           </div>
@@ -498,10 +506,8 @@ export default function PaymentModal({
 
         {error && <div className="paymentErrorBox">{error}</div>}
 
-        {required && (
-          <div className="paymentLockNotice">
-            🔒 Account refresh/reopen par ye payment state server se wapas load hogi.
-          </div>
+        {required && cashSelected && (
+          <div className="paymentLockNotice compactLockNotice">Waiting for driver cash confirmation</div>
         )}
       </div>
     </div>

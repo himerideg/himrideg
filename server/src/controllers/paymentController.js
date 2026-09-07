@@ -799,6 +799,69 @@ exports.confirmCashPayment = async (req, res) => {
   }
 };
 
+exports.rejectLegacyAdvancePayment = async (req, res) => {
+  return res.status(409).json({
+    success: false,
+    code: "ADVANCE_PAYMENT_DISABLED",
+    message: "Advance payment abhi disabled hai. Ride complete hone ke baad Pay Online ya Cash Payment use karein."
+  });
+};
+
+exports.confirmOnlinePaymentReceipt = async (req, res) => {
+  try {
+    const { bookingId } = req.body || {};
+    if (!bookingId) {
+      return res.status(400).json({ success: false, message: "Booking ID required hai" });
+    }
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking nahi mili" });
+    }
+
+    const actorRole = String(req.user?.role || "").toLowerCase();
+    const actorId = String(req.user?._id || "");
+    const assignedDriver = actorRole === "driver" && getDriverId(booking) === actorId;
+    const adminActor = actorRole === "admin";
+
+    if (!assignedDriver && !adminActor) {
+      return res.status(403).json({
+        success: false,
+        message: "Sirf assigned driver ya admin online receipt status confirm kar sakta hai"
+      });
+    }
+
+    if (String(booking.paymentStatus || "").toLowerCase() !== "paid" ||
+        String(booking.paymentMethod || "").toLowerCase() !== "online") {
+      return res.status(409).json({
+        success: false,
+        message: "Online payment abhi server par verified paid nahi hai"
+      });
+    }
+
+    // Backward compatibility only: Razorpay verification is already authoritative.
+    await releaseDriverAfterPaidBooking(booking);
+    if (canSettleDriverNow(booking)) {
+      await walletService.settleRidePayment(booking._id);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Online payment already verified hai",
+      data: {
+        bookingId: booking._id,
+        status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        paymentMethod: booking.paymentMethod,
+        paidAt: booking.paidAt,
+        fare: getFare(booking)
+      }
+    });
+  } catch (error) {
+    return paymentError(res, error, "Online payment receipt confirm nahi ho saka");
+  }
+};
+
 exports.getPaymentStatus = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.bookingId).select(

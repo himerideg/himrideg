@@ -21,7 +21,7 @@ function Hero({ onBookRide }) {
           });
         }
       })
-      .catch(() => setStats({ customers: "500+", drivers: "100+" }));
+      .catch(() => setStats({ customers: "—", drivers: "—" }));
   }, []);
 
   return (

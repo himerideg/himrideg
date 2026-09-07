@@ -9,8 +9,16 @@ async function createAdmin() {
   try {
     await connectDatabase();
 
+    const adminEmail = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+    const adminPassword = String(process.env.ADMIN_BOOTSTRAP_PASSWORD || "");
+    const adminName = String(process.env.ADMIN_NAME || "HimRideG Admin").trim();
+
+    if (!adminEmail || !adminPassword) {
+      throw new Error("ADMIN_EMAIL and ADMIN_BOOTSTRAP_PASSWORD must be set in server environment");
+    }
+
     const existingAdmin = await Admin.findOne({
-      email: "admin@himrideg.com"
+      email: adminEmail
     });
 
     if (existingAdmin) {
@@ -19,15 +27,15 @@ async function createAdmin() {
     }
 
     const admin = await Admin.create({
-      name: "HimRideG Admin",
-      email: "admin@himrideg.com",
-      password: "HimRideG@123"
+      name: adminName,
+      email: adminEmail,
+      password: adminPassword
     });
 
     console.log("==================================");
     console.log("✅ Admin Created Successfully");
     console.log("Email :", admin.email);
-    console.log("Password : HimRideG@123");
+    console.log("Password : [hidden]");
     console.log("==================================");
 
     process.exit(0);

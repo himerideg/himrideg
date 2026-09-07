@@ -999,3 +999,75 @@
     min-height: 132px;
   }
 }
+
+
+/* ==========================================================================
+   V58 Compact launch-safe payment popups — only essential actions
+   ========================================================================== */
+.compactPaymentModal {
+  max-width: 430px;
+}
+
+.compactPaymentModal .paymentModalHeader {
+  padding: 16px 18px 0;
+}
+
+.compactPaymentModal .paymentModalLogo {
+  font-size: 22px;
+}
+
+.compactPaymentModal .paymentModalHeader h2 {
+  font-size: 18px;
+}
+
+.compactPaymentModal .paymentFareBox {
+  margin: 14px 18px;
+  padding: 14px 16px;
+}
+
+.compactPaymentModal .paymentFareBox strong {
+  font-size: 25px;
+}
+
+.compactPaymentModal .paymentMethodGrid {
+  margin: 0 18px 18px;
+  gap: 10px;
+}
+
+.compactPaymentModal .paymentMethodCard {
+  min-height: 64px;
+  padding: 12px 14px;
+}
+
+.compactPaymentModal .driverPaymentStatusBox {
+  margin: 10px 18px 16px;
+}
+
+.compactPaymentHint {
+  margin: 0 18px 10px;
+  color: #98a2b3;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.compactLockNotice {
+  margin-top: 0;
+  font-size: 11px;
+}
+
+@media (max-width: 620px) {
+  .compactPaymentModal {
+    max-height: 86vh;
+    overflow-y: auto;
+  }
+
+  .compactPaymentModal .paymentMethodGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 380px) {
+  .compactPaymentModal .paymentMethodGrid {
+    grid-template-columns: 1fr;
+  }
+}
