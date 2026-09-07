@@ -303,9 +303,22 @@ const socket = io(
     */
 
     transports: [
-      "websocket",
-      "polling"
+      "polling",
+      "websocket"
     ],
+
+    /*
+    |--------------------------------------------------------------------
+    | V60 Render-safe transport fallback — ADD-ONLY
+    |--------------------------------------------------------------------
+    | Polling establishes the connection first; Socket.IO may then upgrade
+    | to WebSocket. If an upgrade is temporarily blocked by proxy/network,
+    | the live session remains connected on polling instead of entering a
+    | repeated websocket-only failure loop.
+    |--------------------------------------------------------------------
+    */
+    upgrade: true,
+    rememberUpgrade: false,
 
     /*
     |--------------------------------------------------------------------------

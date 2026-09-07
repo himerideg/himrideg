@@ -1071,3 +1071,128 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/*
+===============================================================================
+V60 ULTRA-COMPACT PAYMENT POPUP — ADD-ONLY
+===============================================================================
+Only launch-critical payment information is visible. Existing styles above are
+preserved unchanged for rollback and compatibility.
+*/
+.v60PaymentOverlay {
+  padding: 16px;
+}
+
+.v60PaymentModal {
+  width: min(92vw, 390px);
+  max-width: 390px;
+  padding: 18px;
+  border-radius: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.v60PaymentTitle {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.v60PaymentFare {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(245, 197, 24, 0.35);
+  background: rgba(245, 197, 24, 0.08);
+}
+
+.v60PaymentFare span {
+  font-size: 14px;
+  opacity: 0.78;
+}
+
+.v60PaymentFare strong {
+  font-size: 24px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.v60PaymentActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.v60PaymentAction {
+  min-height: 48px;
+  border-radius: 13px;
+  border: 1px solid rgba(245, 197, 24, 0.5);
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.v60PaymentAction.primary {
+  background: #f5c518;
+  color: #070707;
+}
+
+.v60PaymentAction.secondary {
+  background: transparent;
+  color: inherit;
+}
+
+.v60PaymentAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.v60PaymentState {
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 12px 14px;
+  border-radius: 13px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.v60PaymentState.waiting {
+  border: 1px solid rgba(245, 197, 24, 0.35);
+  background: rgba(245, 197, 24, 0.08);
+}
+
+.v60PaymentState.success {
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.v60CashReceivedButton {
+  width: 100%;
+}
+
+.v60PaymentError {
+  margin: 0;
+}
+
+@media (max-width: 420px) {
+  .v60PaymentOverlay {
+    padding: 12px;
+  }
+
+  .v60PaymentModal {
+    width: 100%;
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .v60PaymentActions {
+    grid-template-columns: 1fr;
+  }
+}

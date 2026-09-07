@@ -146,6 +146,55 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
     }
   };
 
+  /*
+  |------------------------------------------------------------------------
+  | V60 Driver Cash-Only Payment Popup — ADD-ONLY
+  |------------------------------------------------------------------------
+  | Driver ko payment popup tabhi dikhna chahiye jab customer Cash select kare.
+  | Online payment Razorpay verify hote hi notification/state se complete hoti
+  | hai; driver ko extra confirmation popup nahi chahiye. Previous JSX below
+  | remains preserved for strict Full Code Rule / rollback.
+  |------------------------------------------------------------------------
+  */
+  const v60DriverCashOnlyUI = true;
+
+  if (v60DriverCashOnlyUI) {
+    if (!cashAwaitingConfirm) {
+      return null;
+    }
+
+    return (
+      <div className="paymentModalOverlay driverPaymentOverlay v60PaymentOverlay" role="presentation">
+        <div
+          className="paymentModal driverPaymentModal compactPaymentModal v60PaymentModal v60DriverCashModal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="driver-v60-payment-title"
+        >
+          <div className="v60PaymentTitle" id="driver-v60-payment-title">
+            Cash Payment
+          </div>
+
+          <div className="v60PaymentFare">
+            <span>Final Fare</span>
+            <strong>{money(fare)}</strong>
+          </div>
+
+          <button
+            type="button"
+            className="v60PaymentAction primary v60CashReceivedButton"
+            disabled={Boolean(busy)}
+            onClick={() => runConfirm("cash")}
+          >
+            {busy === "cash" ? "Confirming…" : `Cash Received ${money(due)}`}
+          </button>
+
+          {error && <div className="paymentErrorBox v60PaymentError">{error}</div>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="paymentModalOverlay driverPaymentOverlay"

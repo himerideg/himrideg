@@ -103,10 +103,15 @@ export default function PaymentModal({
   const [error, setError] = useState("");
   const [localBooking, setLocalBooking] = useState(booking || null);
   const openedSoundRef = useRef("");
+  const v60CloseHandlerRef = useRef(onClose);
 
   useEffect(() => {
     setLocalBooking(booking || null);
   }, [booking]);
+
+  useEffect(() => {
+    v60CloseHandlerRef.current = onClose;
+  }, [onClose]);
 
   const ride = localBooking || booking || {};
   const bookingId = idOf(ride);
@@ -374,7 +379,86 @@ export default function PaymentModal({
     }
   };
 
+  /*
+  |------------------------------------------------------------------------
+  | V60 Ultra-Compact Launch Payment Popup — ADD-ONLY
+  |------------------------------------------------------------------------
+  | User-facing launch UI intentionally shows only the actions that matter:
+  | Final Fare -> Pay Online / Cash Payment.
+  | Cash selection -> Waiting for driver confirmation.
+  | Online verified -> short success state, then popup closes automatically.
+  | The complete previous V57/V58/V59 JSX remains below for rollback/audit.
+  |------------------------------------------------------------------------
+  */
+  const v60UltraCompactPaymentUI = true;
+
+  useEffect(() => {
+    if (!v60UltraCompactPaymentUI || paymentStatus !== "paid" || !bookingId) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      v60CloseHandlerRef.current?.();
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [bookingId, paymentStatus]);
+
   if (!bookingId) return null;
+
+  if (v60UltraCompactPaymentUI) {
+    return (
+      <div className="paymentModalOverlay v60PaymentOverlay" role="presentation">
+        <div
+          className="paymentModal compactPaymentModal v60PaymentModal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="himrideg-v60-payment-title"
+        >
+          <div className="v60PaymentTitle" id="himrideg-v60-payment-title">
+            Payment
+          </div>
+
+          <div className="v60PaymentFare">
+            <span>Final Fare</span>
+            <strong>{money(fare)}</strong>
+          </div>
+
+          {paymentStatus === "paid" ? (
+            <div className="v60PaymentState success">
+              ✅ Payment Successful
+            </div>
+          ) : cashSelected ? (
+            <div className="v60PaymentState waiting">
+              Waiting for driver confirmation
+            </div>
+          ) : (
+            <div className="v60PaymentActions">
+              <button
+                type="button"
+                className="v60PaymentAction primary"
+                disabled={Boolean(busy) || payableAmount <= 0}
+                onClick={payOnline}
+              >
+                {busy === "online" ? "Opening…" : "Pay Online"}
+              </button>
+
+              <button
+                type="button"
+                className="v60PaymentAction secondary"
+                disabled={Boolean(busy) || remaining <= 0}
+                onClick={selectCash}
+              >
+                {busy === "cash" ? "Selecting…" : "Cash Payment"}
+              </button>
+            </div>
+          )}
+
+          {error && <div className="paymentErrorBox v60PaymentError">{error}</div>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
