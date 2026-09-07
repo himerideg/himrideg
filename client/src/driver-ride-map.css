@@ -445,3 +445,14 @@
   border: 0 !important;
   box-shadow: none !important;
 }
+
+
+/* ==========================================================================
+   V64 CUSTOMER LIVE MAP MARKERS — BLUE DRIVER + YELLOW PICKUP/DROP
+   ========================================================================== */
+.pickupPin,.dropPin{background:#facc15!important;border-color:#fff!important;box-shadow:0 8px 18px rgba(15,23,42,.32),0 0 0 2px rgba(250,204,21,.35)!important}
+.pickupPin span,.dropPin span{color:#111827!important;text-shadow:none!important}
+.driverLiveBluePin{display:grid;width:46px;height:46px;place-items:center;border:4px solid #fff;border-radius:50%;background:#2563eb;box-shadow:0 8px 20px rgba(37,99,235,.42),0 0 0 4px rgba(37,99,235,.18);animation:himRideGDriverPulse 1.8s ease-in-out infinite}
+.driverLiveBluePin span{display:grid;place-items:center;width:100%;height:100%;font-size:21px;line-height:1;filter:none}
+@keyframes himRideGDriverPulse{0%,100%{box-shadow:0 8px 20px rgba(37,99,235,.42),0 0 0 4px rgba(37,99,235,.18)}50%{box-shadow:0 8px 20px rgba(37,99,235,.42),0 0 0 9px rgba(37,99,235,.08)}}
+@media(prefers-reduced-motion:reduce){.driverLiveBluePin{animation:none}}

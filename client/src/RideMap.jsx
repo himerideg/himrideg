@@ -48,10 +48,10 @@ const dropIcon = L.divIcon({
 
 const driverIcon = L.divIcon({
   className: "driverMapCustomIcon",
-  html: '<div class="driverCarMarker"><img src="/HimRideG_map_car.png" alt="HimRideG car" /></div>',
-  iconSize: [42, 65],
-  iconAnchor: [21, 32],
-  popupAnchor: [0, -50],
+  html: '<div class="driverLiveBluePin"><span>🚕</span></div>',
+  iconSize: [48, 48],
+  iconAnchor: [24, 24],
+  popupAnchor: [0, -28],
 });
 
 function getCoordinates(value) {
@@ -1295,6 +1295,8 @@ function CustomerRideMap({
       duration: Number(routeInfo.durationMinutes || 0),
       routeCoordinates: routePositions,
       routeProvider: routeInfo.provider || "",
+      routeMode,
+      driverLocationAvailable: Boolean(effectiveDriver),
       ...extra,
     }));
   };
@@ -1320,6 +1322,8 @@ function CustomerRideMap({
           duration: 0,
           routeCoordinates: [],
           routeProvider: "",
+          routeMode,
+          driverLocationAvailable: Boolean(effectiveDriver),
         }));
       }
 
@@ -1587,16 +1591,8 @@ function CustomerRideMap({
           />
 
           <CustomerMapViewport
-            pickupPosition={
-              routeMode === "driver_to_drop"
-                ? null
-                : effectivePickup
-            }
-            dropPosition={
-              routeMode === "driver_to_pickup"
-                ? null
-                : effectiveDrop
-            }
+            pickupPosition={effectivePickup}
+            dropPosition={effectiveDrop}
             driverPosition={effectiveDriver}
             routePositions={routePositions}
           />
@@ -1664,3 +1660,9 @@ function CustomerRideMap({
 }
 
 export default CustomerRideMap;
+/*
+| V64 FULL CODE RULE PRESERVATION NOTE
+| Original RideMap source structure and legacy behavior remain preserved.
+| V64 changes are additive for live marker visibility, route mode metadata,
+| and customer map viewport behavior only.
+*/

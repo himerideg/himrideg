@@ -1166,6 +1166,14 @@ const handleJoinRide =
             roomName
           );
 
+          if (!socket.authorizedRideIds) {
+            socket.authorizedRideIds = new Set();
+          }
+
+          socket.authorizedRideIds.add(
+            bookingId
+          );
+
           sendSuccess(
             callback,
             "Ride room joined successfully",
@@ -1228,6 +1236,10 @@ const handleLeaveRide =
             roomName
           );
 
+          socket.authorizedRideIds?.delete(
+            bookingId
+          );
+
           sendSuccess(
             callback,
             "Ride room left successfully",
@@ -1273,6 +1285,96 @@ const handleDriverLocationUpdate =
               payload.bookingId
             );
 
+          const location =
+            normalizeLocationPayload(
+              payload
+            );
+
+          const roomName =
+            getRideRoom(
+              bookingId
+            );
+
+          const hasAuthorizedRideRoom =
+            Boolean(
+              socket.authorizedRideIds?.has(
+                bookingId
+              ) &&
+              socket.rooms?.has(
+                roomName
+              )
+            );
+
+          /*
+          |----------------------------------------------------------------
+          | V64 Realtime fast path
+          |----------------------------------------------------------------
+          | ride:join par DB access verify ho chuka hai. Us authorised socket
+          | ke GPS point ko customer ride room me turant broadcast karo;
+          | Mongo/Redis persistence background me rahegi. Backend DB latency
+          | live marker ko 30-second freeze nahi karegi.
+          */
+          if (hasAuthorizedRideRoom) {
+            const fastEventPayload = {
+              bookingId,
+              driverId: socket.userId,
+              location,
+              rideStatus:
+                getString(payload.rideStatus),
+              timestamp: new Date(),
+              realtime: true
+            };
+
+            io.to(
+              roomName
+            ).emit(
+              SOCKET_EVENTS.DRIVER_LOCATION_UPDATED,
+              fastEventPayload
+            );
+
+            sendSuccess(
+              callback,
+              "Driver live location broadcast successfully",
+              fastEventPayload
+            );
+
+            Promise.resolve()
+              .then(async () => {
+                const booking =
+                  await getBookingById(
+                    bookingId
+                  );
+
+                const assignedDriverId =
+                  getBookingDriverId(
+                    booking
+                  );
+
+                if (
+                  !assignedDriverId ||
+                  assignedDriverId !== socket.userId ||
+                  ["completed", "cancelled", "expired"].includes(
+                    String(booking.status || "")
+                  )
+                ) {
+                  return;
+                }
+
+                await updateBookingDriverLocation(
+                  booking,
+                  location
+                );
+              })
+              .catch((error) => {
+                console.error(
+                  "[RideSocket V64 background GPS persistence error]",
+                  error?.message || error
+                );
+              });
+
+            return;
+          }
+
           const booking =
             await getBookingById(
               bookingId
@@ -1313,11 +1415,6 @@ const handleDriverLocationUpdate =
               400
             );
           }
-
-          const location =
-            normalizeLocationPayload(
-              payload
-            );
 
           const savedLocation =
             await updateBookingDriverLocation(

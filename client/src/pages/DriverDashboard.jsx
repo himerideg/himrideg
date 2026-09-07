@@ -43,6 +43,31 @@ const DEFAULT_CENTER = [
   76.5363
 ];
 
+/* V64: customer ki requested booking vehicle category driver ko bhi clear dikhaye. */
+const getRequestedVehicleTypeText = (ride) => {
+  const raw =
+    ride?.vehicleType ||
+    ride?.requestedVehicleType ||
+    ride?.bookingVehicleType ||
+    "";
+
+  const normalized =
+    String(raw || "")
+      .trim()
+      .toLowerCase();
+
+  const labels = {
+    hatchback: "Mini / Hatchback",
+    mini: "Mini / Hatchback",
+    sedan: "Sedan",
+    suv: "SUV",
+    traveller: "Traveller",
+    traveler: "Traveller"
+  };
+
+  return labels[normalized] || raw || "Not selected";
+};
+
 const ACTIVE_RIDE_STATUSES = [
   "driver_assigned",
   "accepted",
@@ -1793,6 +1818,9 @@ function DriverDashboard({
     setFareAction
   ] = useState("");
 
+  /* V64: Send tap ke turant baad waiting state dikhane ke liye local optimistic state. */
+  const fareSendSnapshotRef = useRef(new Map());
+
   const [
     driverPaymentModalRide,
     setDriverPaymentModalRide
@@ -3172,6 +3200,45 @@ function DriverDashboard({
     if (hasPersistedCustomerCounter) {
       setFareAction(`${bookingId}:final`);
 
+      const previousRideSnapshot = {
+        driverFinalFareProposal: ride?.driverFinalFareProposal,
+        fareStatus: ride?.fareStatus,
+        fareOfferedBy: ride?.fareOfferedBy,
+        status: ride?.status
+      };
+
+      fareSendSnapshotRef.current.set(
+        bookingId,
+        previousRideSnapshot
+      );
+
+      /*
+      |--------------------------------------------------------------------
+      | V64 Instant Waiting UI
+      |--------------------------------------------------------------------
+      | Network response ka wait kiye bina typed FINAL fare screen par save
+      | dikhai de aur controls turant Waiting for Customer me badal jayen.
+      */
+      setLocalBookings((previous) =>
+        previous.map((item) =>
+          getId(item) === bookingId
+            ? {
+                ...item,
+                driverFinalFareProposal: fare,
+                fareStatus: "driver_final",
+                fareOfferedBy: "driver",
+                status: "negotiating",
+                finalFareSendPending: true
+              }
+            : item
+        )
+      );
+
+      setFareInputs((current) => ({
+        ...current,
+        [bookingId]: ""
+      }));
+
       try {
         const { data } = await api.post(
           `/fares/${bookingId}/driver-final`,
@@ -3189,7 +3256,8 @@ function DriverDashboard({
                   fareStatus: "driver_final",
                   fareOfferedBy: "driver",
                   fareOfferCount: Number(result.fareOfferCount || item.fareOfferCount || 0),
-                  status: result.rideStatus || "negotiating"
+                  status: result.rideStatus || "negotiating",
+                  finalFareSendPending: false
                 }
               : item
           )
@@ -3207,13 +3275,42 @@ function DriverDashboard({
 
         await loadBookings?.();
       } catch (error) {
+        const snapshot =
+          fareSendSnapshotRef.current.get(bookingId) ||
+          previousRideSnapshot;
+
+        setLocalBookings((previous) =>
+          previous.map((item) =>
+            getId(item) === bookingId
+              ? {
+                  ...item,
+                  driverFinalFareProposal:
+                    snapshot.driverFinalFareProposal,
+                  fareStatus:
+                    snapshot.fareStatus,
+                  fareOfferedBy:
+                    snapshot.fareOfferedBy,
+                  status:
+                    snapshot.status,
+                  finalFareSendPending: false
+                }
+              : item
+          )
+        );
+
+        setFareInputs((current) => ({
+          ...current,
+          [bookingId]: String(fare)
+        }));
+
         showNotice(
           "error",
           error?.response?.data?.message ||
             error?.message ||
-            "Final fare nahi bheja ja saka."
+            "Final fare nahi bheja ja saka. Retry karein."
         );
       } finally {
+        fareSendSnapshotRef.current.delete(bookingId);
         setFareAction("");
       }
 
@@ -3221,6 +3318,35 @@ function DriverDashboard({
     }
 
     setFareAction(`${bookingId}:offer`);
+
+    const previousInitialRideSnapshot = {
+      driverOfferedFare: ride?.driverOfferedFare,
+      fareStatus: ride?.fareStatus,
+      fareOfferedBy: ride?.fareOfferedBy,
+      fareOfferCount: ride?.fareOfferCount,
+      status: ride?.status
+    };
+
+    setLocalBookings((previous) =>
+      previous.map((item) =>
+        getId(item) === bookingId
+          ? {
+              ...item,
+              driverOfferedFare: fare,
+              fareStatus: "driver_offered",
+              fareOfferedBy: "driver",
+              fareOfferCount: Number(item.fareOfferCount || 0) + 1,
+              status: "fare_offered",
+              initialFareSendPending: true
+            }
+          : item
+      )
+    );
+
+    setFareInputs((current) => ({
+      ...current,
+      [bookingId]: ""
+    }));
 
     try {
       const { data } =
@@ -3257,7 +3383,8 @@ function DriverDashboard({
                     result.fareOfferCount ||
                       1
                   ),
-                status: "fare_offered"
+                status: "fare_offered",
+                initialFareSendPending: false
               }
             : item
         )
@@ -3275,11 +3402,37 @@ function DriverDashboard({
 
       await loadBookings?.();
     } catch (error) {
+      setLocalBookings((previous) =>
+        previous.map((item) =>
+          getId(item) === bookingId
+            ? {
+                ...item,
+                driverOfferedFare:
+                  previousInitialRideSnapshot.driverOfferedFare,
+                fareStatus:
+                  previousInitialRideSnapshot.fareStatus,
+                fareOfferedBy:
+                  previousInitialRideSnapshot.fareOfferedBy,
+                fareOfferCount:
+                  previousInitialRideSnapshot.fareOfferCount,
+                status:
+                  previousInitialRideSnapshot.status,
+                initialFareSendPending: false
+              }
+            : item
+        )
+      );
+
+      setFareInputs((current) => ({
+        ...current,
+        [bookingId]: String(fare)
+      }));
+
       showNotice(
         "error",
         error?.response?.data?.message ||
           error?.message ||
-          "Fare offer nahi bheja ja saka."
+          "Fare offer nahi bheja ja saka. Retry karein."
       );
     } finally {
       setFareAction("");
@@ -6400,6 +6553,8 @@ function DriverDashboard({
                                 <strong>{getPickupName(ride)}</strong>
                                 <small>DROP</small>
                                 <strong>{getDropName(ride)}</strong>
+                                <small>REQUESTED VEHICLE</small>
+                                <strong className="driverRequestedVehicleV64">{getRequestedVehicleTypeText(ride)}</strong>
                               </span>
 
                               <span className="driverRequestCompactMeta">
@@ -6469,6 +6624,7 @@ function DriverDashboard({
                     <div className="driverCustomerFacts">
                       <article><small>DISTANCE</small><strong>{formatDistance(getDistance(selectedRide))}</strong></article>
                       <article><small>PASSENGERS</small><strong>{getPassengerCount(selectedRide)}</strong></article>
+                      <article><small>REQUESTED VEHICLE</small><strong>{getRequestedVehicleTypeText(selectedRide)}</strong></article>
                     </div>
 
                     {selectedAssignedToMe && ["accepted","fare_offered","negotiating","fare_accepted"].includes(selectedRide.status) && (
@@ -6489,7 +6645,8 @@ function DriverDashboard({
                           <div className="driverCustomerCounter driverFinalFarePendingCard">
                             <p>📨 FINAL FARE SENT</p>
                             <strong>₹{selectedDriverFinalFare.toFixed(0)}</strong>
-                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Final offer customer ko bhej diya hai. Fare sirf customer ke Accept karne ke baad LOCK hoga.</small>
+                            <small className="driverWaitingCustomerV64">⏳ Waiting for Customer Response</small>
+                            <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Fare sirf customer ke Accept karne ke baad LOCK hoga.</small>
                             <button
                               type="button"
                               className="driverFinalCancelButton"
@@ -6567,6 +6724,7 @@ function DriverDashboard({
                           <div className="driverCustomerCounter">
                             <p>Initial Fare Sent</p>
                             <strong>₹{selectedDriverInitialFare.toFixed(0)}</strong>
+                            <small className="driverWaitingCustomerV64">⏳ Waiting for Customer Response</small>
                             <small style={{display:"block",marginTop:"8px",color:"#aab0b8"}}>Customer ab is fare ko Accept, Reject ya ek baar Counter Offer kar sakta hai. Initial fare dobara send nahi hoga.</small>
                           </div>
                         ) : (

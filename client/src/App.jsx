@@ -262,6 +262,10 @@ function App() {
   const notificationTimer =
     useRef(null);
 
+  /* V64: socket/poll/reconnect ek saath aaye to duplicate ride API storm rokna. */
+  const loadBookingsInFlightRef =
+    useRef(false);
+
   const [
     user,
     setUser
@@ -1354,6 +1358,14 @@ function App() {
           return;
         }
 
+        if (
+          loadBookingsInFlightRef.current
+        ) {
+          return;
+        }
+
+        loadBookingsInFlightRef.current = true;
+
         try {
           /*
           |------------------------------------------------------------------
@@ -1512,6 +1524,8 @@ function App() {
               "Rides load nahi hui"
             )
           );
+        } finally {
+          loadBookingsInFlightRef.current = false;
         }
       },
       [

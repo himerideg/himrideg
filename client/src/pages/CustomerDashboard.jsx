@@ -1350,6 +1350,8 @@ function CustomerDashboard({
     duration: 0,
     routeCoordinates: [],
     routeProvider: "",
+    routeMode: "pickup_to_drop",
+    driverLocationAvailable: false,
   });
 
   const [profileSaving, setProfileSaving] = useState(false);
@@ -1491,15 +1493,35 @@ function CustomerDashboard({
       "sedan"
     );
 
+  const liveRouteIsDriverBased =
+    ["driver_to_pickup", "driver_to_drop"].includes(
+      String(liveRouteInfo?.routeMode || "")
+    ) && Boolean(liveRouteInfo?.driverLocationAvailable);
+
   const liveEtaMinutes =
+    liveRouteIsDriverBased &&
     Number(liveRouteInfo?.duration || 0) > 0
       ? Math.max(1, Math.round(Number(liveRouteInfo.duration)))
       : 0;
 
   const liveDistanceKm =
+    liveRouteIsDriverBased &&
     Number(liveRouteInfo?.distance || 0) > 0
       ? Number(liveRouteInfo.distance)
       : 0;
+
+  const waitingForDriverGps =
+    Boolean(activeRide) &&
+    [
+      "accepted",
+      "fare_offered",
+      "negotiating",
+      "fare_accepted",
+      "driver_arriving",
+      "driver_arrived",
+      "arrived"
+    ].includes(String(activeRide?.status || "").toLowerCase()) &&
+    !driverLocation;
 
   const canCancel =
     activeRide &&
@@ -2955,6 +2977,11 @@ function CustomerDashboard({
                           : ""}
                       </p>
                     )}
+                    {waitingForDriverGps && (
+                      <p className="cvDriverEta cvDriverGpsWaitingV64">
+                        🔵 Waiting for driver live location…
+                      </p>
+                    )}
                     <b className="cvStatusPill">● {statusText(activeRide.status)}</b>
                   </div>
                 </div>
@@ -3026,11 +3053,13 @@ function CustomerDashboard({
               <h2>Live Route</h2>
               <span>
                 {activeRide
-                  ? `${statusText(activeRide.status)}${
-                      liveEtaMinutes > 0
-                        ? ` • ${liveEtaMinutes} min`
-                        : ""
-                    }`
+                  ? waitingForDriverGps
+                    ? `${statusText(activeRide.status)} • GPS connecting`
+                    : `${statusText(activeRide.status)}${
+                        liveEtaMinutes > 0
+                          ? ` • ${liveEtaMinutes} min`
+                          : ""
+                      }`
                   : "Ready"}
               </span>
             </header>

@@ -3223,3 +3223,17 @@ body:has(.driverDashboardPage) {
 .driverCustomerCounter p,.driverCustomerCounter small{overflow-wrap:anywhere}
 @media(max-width:700px){.driverCustomerCounterActionsV61{grid-template-columns:1fr}.driverCustomerCounterActionsV61>.driverCounterAcceptButtonV61{width:100%}.driverCustomerCounterActionsV61>.driverFinalFareInputV61{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"currency input" "send send"}.driverCustomerCounterActionsV61>.driverFinalFareInputV61>span{grid-area:currency}.driverCustomerCounterActionsV61>.driverFinalFareInputV61>input{grid-area:input;min-height:46px}.driverCustomerCounterActionsV61>.driverFinalFareInputV61>button{grid-area:send;width:100%;padding:11px 12px}.driverCustomerFareCard{overflow:visible}.driverCustomerFareCard,.driverCustomerCounter{min-width:0}}
 @media(max-width:430px){.driverCustomerCounter>strong{font-size:23px}.driverCustomerCounterActionsV61{gap:8px}.driverCustomerCounterActionsV61>.driverCounterAcceptButtonV61,.driverCustomerCounterActionsV61>.driverFinalFareInputV61 button{min-height:46px;font-size:13px}}
+
+
+/* ==========================================================================
+   V64 FINAL FARE VISIBILITY + REQUESTED VEHICLE + MOBILE PARITY
+   ========================================================================== */
+.driverCustomerFacts{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+.driverRequestedVehicleV64{color:#facc15!important}
+.driverWaitingCustomerV64{display:block;margin-top:8px;padding:8px 10px;border:1px solid rgba(250,204,21,.35);border-radius:8px;background:rgba(250,204,21,.08);color:#facc15!important;font-weight:900;line-height:1.35}
+.driverCustomerCounterActionsV61>.driverFinalFareInputV61{display:grid!important;grid-template-columns:42px minmax(135px,1fr)!important;grid-template-areas:"currency input" "send send"!important;gap:0!important;overflow:hidden!important}
+.driverCustomerCounterActionsV61>.driverFinalFareInputV61>span{grid-area:currency;display:grid;place-items:center;min-height:48px;background:#090e13}
+.driverCustomerCounterActionsV61>.driverFinalFareInputV61>input{grid-area:input;min-height:48px;padding:0 12px!important;background:#090e13!important;color:#fff!important;font-size:17px!important;font-weight:900!important}
+.driverCustomerCounterActionsV61>.driverFinalFareInputV61>button{grid-area:send;width:100%!important;min-height:48px!important;padding:11px 12px!important;background:#6841a5!important}
+@media(max-width:900px){.driverCustomerFacts{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:600px){.driverCustomerFacts{grid-template-columns:1fr!important}.driverCustomerCounterActionsV61{grid-template-columns:1fr!important}.driverCustomerCounterActionsV61>.driverFinalFareInputV61{grid-template-columns:42px minmax(0,1fr)!important}.driverCustomerCounterActionsV61>.driverFinalFareInputV61>input{font-size:16px!important}}
