@@ -947,7 +947,10 @@ function DriverRideMap({ ride }) {
             <Polyline
               positions={tripRoute}
               pathOptions={{
-                color: "#f5b700",
+                color:
+                  routeMode === "driver_to_pickup"
+                    ? "#2563eb"
+                    : "#f5b700",
                 weight: 6,
                 opacity: 0.95,
               }}
@@ -1220,6 +1223,43 @@ function CustomerRideMap({
     return normalizeCustomerPosition(driverLocation);
   }, [driverLocation]);
 
+  /*
+  |------------------------------------------------------------------------
+  | V63 Live Route Mode
+  |------------------------------------------------------------------------
+  | Driver accept/arriving phase: current Driver -> Pickup route + ETA.
+  | Ride started: current Driver -> Destination route + ETA.
+  | Driver GPS unavailable / booking mode: original Pickup -> Drop route.
+  */
+  const rideStatus = String(ride?.status || "").toLowerCase();
+
+  const driverToPickupStatuses = [
+    "accepted",
+    "fare_offered",
+    "negotiating",
+    "fare_accepted",
+    "driver_arriving",
+    "driver_arrived",
+    "arrived",
+  ];
+
+  const routeMode =
+    effectiveDriver && driverToPickupStatuses.includes(rideStatus)
+      ? "driver_to_pickup"
+      : effectiveDriver && rideStatus === "started"
+      ? "driver_to_drop"
+      : "pickup_to_drop";
+
+  const routeStart =
+    routeMode === "driver_to_pickup" || routeMode === "driver_to_drop"
+      ? effectiveDriver
+      : effectivePickup;
+
+  const routeEnd =
+    routeMode === "driver_to_pickup"
+      ? effectivePickup
+      : effectiveDrop;
+
   const effectivePickupAddress =
     pickupAddress ||
     (ride ? getPickupAddress(ride) : "Pickup location");
@@ -1260,7 +1300,7 @@ function CustomerRideMap({
   };
 
   useEffect(() => {
-    if (!effectivePickup || !effectiveDrop) {
+    if (!routeStart || !routeEnd) {
       setRoutePositions([]);
       setRouteInfo({
         distanceKm: 0,
@@ -1294,8 +1334,8 @@ function CustomerRideMap({
         setRouteError("");
 
         const result = await fetchRoadRoute(
-          effectivePickup,
-          effectiveDrop,
+          routeStart,
+          routeEnd,
           controller.signal
         );
 
@@ -1370,10 +1410,11 @@ function CustomerRideMap({
       controller.abort();
     };
   }, [
-    effectivePickup?.[0],
-    effectivePickup?.[1],
-    effectiveDrop?.[0],
-    effectiveDrop?.[1],
+    routeMode,
+    routeStart?.[0],
+    routeStart?.[1],
+    routeEnd?.[0],
+    routeEnd?.[1],
   ]);
 
   useEffect(() => {
@@ -1546,8 +1587,16 @@ function CustomerRideMap({
           />
 
           <CustomerMapViewport
-            pickupPosition={effectivePickup}
-            dropPosition={effectiveDrop}
+            pickupPosition={
+              routeMode === "driver_to_drop"
+                ? null
+                : effectivePickup
+            }
+            dropPosition={
+              routeMode === "driver_to_pickup"
+                ? null
+                : effectiveDrop
+            }
             driverPosition={effectiveDriver}
             routePositions={routePositions}
           />
