@@ -1196,3 +1196,21 @@ preserved unchanged for rollback and compatibility.
     grid-template-columns: 1fr;
   }
 }
+
+/* V65 — Customer cash completion is independent from driver confirmation. */
+.v60CashSelectedFlow {
+  display: grid;
+  gap: 10px;
+}
+
+.v60CashDoneButton {
+  width: 100%;
+}
+
+.v60PaymentIndependentNote {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.45;
+  opacity: 0.72;
+}

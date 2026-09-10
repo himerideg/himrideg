@@ -4563,6 +4563,48 @@ function DriverDashboard({
         );
       }
 
+      if (activeTab === "scheduled") {
+        const now = Date.now();
+
+        return displayBookings.filter(
+          (ride) => {
+            const bookingMode = String(
+              ride?.bookingMode ||
+                ""
+            )
+              .trim()
+              .toLowerCase();
+
+            const travelTime = new Date(
+              ride?.travelDate ||
+                ride?.scheduledAt ||
+                0
+            ).getTime();
+
+            const terminal = [
+              "completed",
+              "cancelled",
+              "expired"
+            ].includes(
+              String(
+                ride?.status ||
+                  ""
+              ).toLowerCase()
+            );
+
+            return (
+              bookingMode ===
+                "schedule" &&
+              Number.isFinite(
+                travelTime
+              ) &&
+              travelTime > now &&
+              !terminal
+            );
+          }
+        );
+      }
+
       if (activeTab === "active") {
         return displayBookings.filter(
           (ride) =>

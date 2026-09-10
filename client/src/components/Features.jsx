@@ -32,7 +32,7 @@ const aboutItems = [
   {
     id: "vehicles",
     title: "Which vehicles are allowed?",
-    content: "Only verified commercial/taxi vehicles with yellow number plates are allowed on HimRideG. Every vehicle must have valid RC, permit, insurance and fitness certificate."
+    content: "Only verified commercial/taxi vehicles with yellow number plates are allowed on HimRideG. HimRideG onboarding checks Vehicle RC, Commercial Permit and Vehicle Photo; drivers must also comply with all applicable transport and legal requirements."
   },
   {
     id: "drivers",

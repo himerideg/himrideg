@@ -4,19 +4,15 @@ import { playHimRideGEventSound } from "../utils/himridegSounds";
 
 /*
 |--------------------------------------------------------------------------
-| HimRideG V57 Customer Payment Modal
+| HimRideG Customer Payment Modal — Launch Flow
 |--------------------------------------------------------------------------
-| One backend-authoritative flow for website + app:
-| - Driver can request an advance after final fare lock.
-| - Customer gets only Pay Online / Pay Later for advance.
-| - Complete Ride moves unpaid ride to payment_pending, never completed.
-| - Partial advance is deducted; only remaining amount is payable.
-| - Customer can choose Online or Cash for remaining amount.
-| - Online payment is Razorpay-verified but ride stays payment_pending until
-|   assigned driver confirms Payment Received.
-| - Cash selection stays payment_pending until assigned driver confirms cash.
-| - Full advance is handled by backend: Complete Ride -> auto completed.
-| - Required payment modal cannot be dismissed while server state requires it.
+| Backend-authoritative post-ride payment:
+| - Payment is available only after a driver-completed ride with locked fare.
+| - Customer can choose Pay Online or Cash Payment.
+| - Razorpay verification is authoritative for online payment.
+| - For cash, customer Payment Done OR driver Cash Received can confirm it;
+|   whichever reaches the backend first marks payment paid and releases driver.
+| - Required payment state survives refresh/reconnect through backend status.
 |--------------------------------------------------------------------------
 */
 
@@ -379,13 +375,78 @@ export default function PaymentModal({
     }
   };
 
+  const confirmCustomerCashDone = async () => {
+    if (
+      !bookingId ||
+      !postRideRequired ||
+      !cashSelected ||
+      paymentStatus === "paid"
+    ) {
+      return;
+    }
+
+    setBusy("cash_done");
+    setError("");
+
+    try {
+      const { data } = await api.post(
+        "/payments/cash-confirm",
+        { bookingId }
+      );
+
+      if (!data?.success) {
+        throw new Error(
+          data?.message ||
+            "Cash payment confirm nahi hui"
+        );
+      }
+
+      const payload = data?.data || {};
+      const merged = mergeBooking({
+        ...payload,
+        status: "completed",
+        paymentStatus: "paid",
+        paymentMethod: "cash",
+        paidAt:
+          payload?.paidAt ||
+          new Date().toISOString(),
+      });
+
+      playHimRideGEventSound(
+        "cash_payment_success"
+      ).catch(() => {});
+
+      onSuccess?.({
+        ...payload,
+        booking: merged,
+        status: "completed",
+        paymentStatus: "paid",
+        paymentMethod: "cash",
+        paymentContext: "post_ride",
+        method: "cash",
+        confirmedBy: "customer",
+        requiresDriverConfirmation: false,
+      });
+
+      await refreshStatus();
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Cash payment confirm nahi hui"
+      );
+    } finally {
+      setBusy("");
+    }
+  };
+
   /*
   |------------------------------------------------------------------------
   | V60 Ultra-Compact Launch Payment Popup — ADD-ONLY
   |------------------------------------------------------------------------
   | User-facing launch UI intentionally shows only the actions that matter:
   | Final Fare -> Pay Online / Cash Payment.
-  | Cash selection -> Waiting for driver confirmation.
+  | Cash selection -> Customer Payment Done OR Driver Cash Received; first confirmation wins.
   | Online verified -> short success state, then popup closes automatically.
   | The complete previous V57/V58/V59 JSX remains below for rollback/audit.
   |------------------------------------------------------------------------
@@ -429,8 +490,25 @@ export default function PaymentModal({
               ✅ Payment Successful
             </div>
           ) : cashSelected ? (
-            <div className="v60PaymentState waiting">
-              Waiting for driver confirmation
+            <div className="v60CashSelectedFlow">
+              <div className="v60PaymentState waiting">
+                Cash selected
+              </div>
+
+              <button
+                type="button"
+                className="v60PaymentAction primary v60CashDoneButton"
+                disabled={Boolean(busy)}
+                onClick={confirmCustomerCashDone}
+              >
+                {busy === "cash_done"
+                  ? "Confirming…"
+                  : "Payment Done"}
+              </button>
+
+              <small className="v60PaymentIndependentNote">
+                Cash de diya hai to Payment Done dabayein. Driver bhi Cash Received independently confirm kar sakta hai.
+              </small>
             </div>
           ) : (
             <div className="v60PaymentActions">

@@ -353,13 +353,6 @@ function CustomerLoginPage({
     window.google.accounts.id.prompt();
   };
 
-  const handleAppleLogin = () => {
-    notify(
-      "Apple Login button ready rakha hai. Live Apple sign-in ke liye Apple Developer Service ID configure karna hoga. Filhaal Google se continue karo.",
-      "info"
-    );
-  };
-
   const switchMode = () => {
     setMode((current) =>
       current === "login" ? "register" : "login"
@@ -506,18 +499,6 @@ function CustomerLoginPage({
               <div ref={googleButtonRef} className="customerOfficialGoogle" />
             </div>
           )}
-
-          <div className="customerLoginDivider"><span />or<span /></div>
-
-          <button
-            type="button"
-            className="customerAppleButton"
-            onClick={handleAppleLogin}
-            disabled={loading}
-          >
-            <span className="appleMark">●</span>
-            Continue with Apple
-          </button>
 
           <div className="customerSignupBlock">
             <span>

@@ -2218,11 +2218,11 @@ function CustomerDashboard({
       unratedCompleted.payment?.status === "paid" ||
       /*
       |--------------------------------------------------------------------------
-      | Cash payment driver confirmation ke baad hi PAID
+      | Cash payment backend-authoritative confirmation ke baad hi PAID
       |--------------------------------------------------------------------------
       |
-      | Legacy flow me paymentMethod === "cash" ko turant paid maana ja raha tha.
-      | Launch flow me cash tabhi paid hoga jab assigned driver cash-confirm kare.
+      | Customer Payment Done ya assigned driver Cash Received me se jo pehle
+      | backend confirm kare, wahi payment ko paid banata hai aur ride release hoti hai.
       |
       */
       fare === 0;

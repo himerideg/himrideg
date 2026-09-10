@@ -163,6 +163,22 @@ const {
 
 /*
 |--------------------------------------------------------------------------
+| Ride Response Timeout Scheduler
+|--------------------------------------------------------------------------
+| Production server/server.js aur root/local server.js dono same backend
+| authoritative 10-minute no-response release/cancel behavior use karein.
+|--------------------------------------------------------------------------
+*/
+
+const {
+  startRideResponseTimeoutScheduler,
+  stopRideResponseTimeoutScheduler
+} = require(
+  "./server/src/services/rideResponseTimeoutScheduler"
+);
+
+/*
+|--------------------------------------------------------------------------
 | Phase 2 Scalability Runtime — Redis / Queue
 |--------------------------------------------------------------------------
 */
@@ -467,6 +483,7 @@ const startServer =
       );
 
       startPayoutScheduler();
+      startRideResponseTimeoutScheduler();
 
       /*
       |--------------------------------------------------------------------------
@@ -544,6 +561,7 @@ const startServer =
       */
 
       stopPayoutScheduler();
+      stopRideResponseTimeoutScheduler();
 
       try {
         await stopBackgroundJobWorker();
@@ -646,6 +664,7 @@ const shutdown =
     */
 
     stopPayoutScheduler();
+    stopRideResponseTimeoutScheduler();
 
     try {
       await stopBackgroundJobWorker();

@@ -3249,7 +3249,8 @@ async function completeRide({
   | Wallet Settlement
   |--------------------------------------------------------------------------
   | Ride completion sirf ride status complete karta hai. Wallet tabhi settle
-  | hoga jab online payment verify ho ya driver cash receive karke confirm kare.
+  | hoga jab online payment verify ho ya cash payment backend-authoritatively
+  | customer Payment Done / driver Cash Received se confirm ho.
   | Isse failed/unpaid payment par fake earning/duplicate balance nahi banta.
   */
 

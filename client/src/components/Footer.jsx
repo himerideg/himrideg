@@ -21,8 +21,7 @@ function Footer() {
             <h3>Company</h3>
             <a href="#home">Home</a>
             <a href="#about">About</a>
-            <a href="#driver">Driver</a>
-            <a href="#business">Business</a>
+            <a href="/driverlogin/">Driver Login</a>
           </div>
 
           <div>
@@ -35,10 +34,10 @@ function Footer() {
 
           <div>
             <h3>Services</h3>
-            <a href="#ride">Local Rides</a>
-            <a href="#ride">Outstation Taxi</a>
-            <a href="#ride">Airport Transfer</a>
-            <a href="#ride">Tour Packages</a>
+            <a href="#home">Local Rides</a>
+            <a href="#home">Outstation Taxi</a>
+            <a href="#home">Airport Transfer</a>
+            <a href="#home">Tour Packages</a>
           </div>
         </div>
       </div>

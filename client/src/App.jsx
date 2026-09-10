@@ -10,7 +10,6 @@ import socket from "./socket";
 import { playHimRideGSoundForText } from "./utils/himridegSounds";
 
 import Home from "./pages/Home";
-// Phase 4: AuthPage is loaded lazily below instead of in the initial bundle.
 // Phase 4: CustomerLoginPage is loaded lazily below instead of in the initial bundle.
 // Phase 4: AdminLoginPage is loaded lazily below instead of in the initial bundle.
 // Phase 4: GoogleBasicInfo is loaded lazily below instead of in the initial bundle.
@@ -30,10 +29,6 @@ import "./hero.css";
 | into separate Vite chunks and downloaded only when that screen is opened.
 | Existing page components and their business logic remain unchanged.
 */
-const AuthPage = React.lazy(
-  () => import("./pages/AuthPage")
-);
-
 const CustomerLoginPage = React.lazy(
   () => import("./pages/CustomerLoginPage")
 );
@@ -3324,42 +3319,6 @@ function App() {
           accountType="driver"
           onBack={goHome}
           onSuccess={handleAuthSuccess}
-        />
-      </>
-    );
-  }
-
-  if (
-    page ===
-      "auth" &&
-    !user
-  ) {
-    return (
-      <>
-        {
-          message &&
-          (
-            <div className="toast">
-              {
-                message
-              }
-            </div>
-          )
-        }
-
-        <AuthPage
-          key={
-            authMode
-          }
-          initialMode={
-            authMode
-          }
-          onBack={
-            goHome
-          }
-          onSuccess={
-            handleAuthSuccess
-          }
         />
       </>
     );
