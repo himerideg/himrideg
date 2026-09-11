@@ -2,7 +2,8 @@ const express =
   require("express");
 
 const {
-  protect
+  protect,
+  allowRoles
 } = require(
   "../middlewares/auth"
 );
@@ -32,6 +33,7 @@ const router =
 */
 
 router.use(protect);
+router.use(allowRoles("driver"));
 
 /*
 |--------------------------------------------------------------------------
