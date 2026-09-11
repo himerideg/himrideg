@@ -86,6 +86,37 @@ const connectDatabase = async () => {
 
   /*
   |--------------------------------------------------------------------------
+  | Opt-in Historical Reference Preservation — NON-DESTRUCTIVE
+  |--------------------------------------------------------------------------
+  | Deleted/legacy users ki purani booking references ko delete ya invent nahi
+  | karte. Original ids + financial ride state ko separate archive collection
+  | me preserve kiya jata hai. Existing Booking documents untouched rehte hain.
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    String(process.env.BOOKING_REFERENCE_PRESERVE_ON_START || "")
+      .trim()
+      .toLowerCase() === "true"
+  ) {
+    try {
+      const {
+        preserveOrphanBookingReferences
+      } = require(
+        "../services/bookingReferencePreservationService"
+      );
+
+      await preserveOrphanBookingReferences();
+    } catch (preservationError) {
+      console.error(
+        "⚠️ Booking reference preservation failed:",
+        preservationError?.message || preservationError
+      );
+    }
+  }
+
+  /*
+  |--------------------------------------------------------------------------
   | Opt-in Live Atlas Integrity Audit — READ ONLY
   |--------------------------------------------------------------------------
   | Direct Atlas connector available na ho tab bhi Render ke existing secure
