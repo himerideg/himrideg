@@ -220,6 +220,36 @@ router.patch(
 );
 
 router.post(
+  "/wallet/payout-methods",
+  walletController
+    .addPayoutMethod
+);
+
+router.patch(
+  "/wallet/payout-methods/:methodId/primary",
+  walletController
+    .setPrimaryPayoutMethod
+);
+
+router.delete(
+  "/wallet/payout-methods/:methodId",
+  walletController
+    .deletePayoutMethod
+);
+
+router.get(
+  "/wallet/withdrawals",
+  walletController
+    .getWithdrawalHistory
+);
+
+router.post(
+  "/wallet/withdrawals/:withdrawalId/retry",
+  walletController
+    .retryWithdrawal
+);
+
+router.post(
   "/wallet/withdraw",
   walletController
     .requestWithdrawal
