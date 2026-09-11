@@ -117,6 +117,53 @@ const connectDatabase = async () => {
 
   /*
   |--------------------------------------------------------------------------
+  | Opt-in Active Orphan Repair — UNPAID ONLY
+  |--------------------------------------------------------------------------
+  | Historical copy preserve hone ke baad sirf non-terminal + unpaid orphan
+  | rides ko system-cancel kiya ja sakta hai. Paid/refunded ride kabhi is path
+  | se mutate nahi hoti. Isse deleted legacy account ki stale request live
+  | driver feed/negotiation me atki nahi rahegi.
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    String(process.env.ACTIVE_ORPHAN_REPAIR_ON_START || "")
+      .trim()
+      .toLowerCase() === "true"
+  ) {
+    try {
+      const {
+        repairActiveUnpaidOrphanRides
+      } = require(
+        "../services/activeOrphanRideRepairService"
+      );
+
+      await repairActiveUnpaidOrphanRides();
+
+      // Archive ko repaired final state se sync rakho.
+      if (
+        String(process.env.BOOKING_REFERENCE_PRESERVE_ON_START || "")
+          .trim()
+          .toLowerCase() === "true"
+      ) {
+        const {
+          preserveOrphanBookingReferences
+        } = require(
+          "../services/bookingReferencePreservationService"
+        );
+
+        await preserveOrphanBookingReferences();
+      }
+    } catch (repairError) {
+      console.error(
+        "⚠️ Active orphan repair failed:",
+        repairError?.message || repairError
+      );
+    }
+  }
+
+  /*
+  |--------------------------------------------------------------------------
   | Opt-in Live Atlas Integrity Audit — READ ONLY
   |--------------------------------------------------------------------------
   | Direct Atlas connector available na ho tab bhi Render ke existing secure
