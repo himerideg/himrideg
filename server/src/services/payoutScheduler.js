@@ -1,4 +1,7 @@
 const walletService = require("./walletService");
+const {
+  processPrimaryRideAutoPayouts
+} = require("./primaryRideAutoPayoutService");
 
 let timer = null;
 let running = false;
@@ -9,6 +12,15 @@ async function tick() {
   try {
     await walletService.retryUncertainPayouts(10);
     await walletService.reconcilePendingPayouts(25);
+
+    // V73 ADD-ONLY: new completed online rides can send their exact wallet
+    // credit to the driver's selected Primary payout account. Old rides are
+    // protected by a boot watermark inside the processor, so no retroactive
+    // mass payout can happen after deploy/restart.
+    await processPrimaryRideAutoPayouts(10);
+
+    // Backward compatibility: existing scheduled daily/weekly/monthly payout
+    // behavior remains untouched for drivers who use the legacy setting.
     await walletService.processScheduledPayouts(20);
   } catch (error) {
     console.error("[Payout Scheduler]", error.message);
@@ -24,7 +36,9 @@ function startPayoutScheduler() {
   setTimeout(tick, 10_000).unref();
   timer = setInterval(tick, ms);
   timer.unref();
-  console.log(`💸 Payout scheduler: ${Math.round(ms / 1000)}s`);
+  console.log(
+    `💸 Payout scheduler: ${Math.round(ms / 1000)}s | Primary ride auto payout: ${String(process.env.AUTO_PRIMARY_PAYOUT_ENABLED || "false").toLowerCase() === "true" ? "enabled" : "disabled"}`
+  );
 }
 
 function stopPayoutScheduler() {
