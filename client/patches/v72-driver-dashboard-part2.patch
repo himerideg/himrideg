@@ -1,0 +1,127 @@
+--- a/src/pages/DriverDashboard.jsx
++++ b/src/pages/DriverDashboard.jsx
+@@ -2002,6 +2039,7 @@
+   useEffect(() => {
+     if (
+       earningsOpen ||
++      payoutSettingsOpen ||
+       (
+         profileOpen &&
+         profileTab === "wallet"
+@@ -2011,6 +2049,7 @@
+     }
+   }, [
+     earningsOpen,
++    payoutSettingsOpen,
+     profileOpen,
+     profileTab,
+     loadWallet
+@@ -4541,6 +4580,15 @@
+ 
+   const tabRides =
+     useMemo(() => {
++      if (activeTab === "history") {
++        return displayBookings.filter((ride) => {
++          const status = String(ride?.status || "").toLowerCase();
++          if (historyFilter === "completed") return status === "completed";
++          if (historyFilter === "cancelled") return ["cancelled", "expired"].includes(status);
++          return ["completed", "cancelled", "expired"].includes(status);
++        });
++      }
++
+       if (
+         activeTab === "completed"
+       ) {
+@@ -4642,6 +4690,7 @@
+       );
+     }, [
+       activeTab,
++      historyFilter,
+       displayBookings
+     ]);
+ 
+@@ -5084,6 +5133,17 @@
+               Done ✓
+             </button>
+           </div>
++        </div>
++      )}
++
++      {payoutSettingsOpen && (
++        <div className="driverPayoutSettingsOverlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setPayoutSettingsOpen(false); }}>
++          <DriverPayoutSettingsPanel
++            walletData={walletData}
++            loading={walletLoading}
++            onReload={loadWallet}
++            onClose={() => setPayoutSettingsOpen(false)}
++          />
+         </div>
+       )}
+ 
+@@ -5497,7 +5557,7 @@
+             <header>
+               <div>
+                 <small>EARNINGS</small>
+-                <h2>Income & Commission</h2>
++                <h2>Wallet & Withdraw</h2>
+               </div>
+               <button
+                 type="button"
+@@ -5859,6 +5919,22 @@
+                   <div className="hgDriverHubCards">
+                     <button
+                       type="button"
++                      className="hgDriverHubCard wallet"
++                      onClick={() => {
++                        setProfileOpen(false);
++                        setPayoutSettingsOpen(true);
++                      }}
++                    >
++                      <span className="hgDriverHubIcon">₹</span>
++                      <div>
++                        <strong>UPI & Payment Settings</strong>
++                        <small>Add bank/UPI and choose Primary receiving account</small>
++                      </div>
++                      <b>›</b>
++                    </button>
++
++                    <button
++                      type="button"
+                       className="hgDriverHubCard"
+                       onClick={() =>
+                         setProfileTab(
+@@ -5885,9 +5961,9 @@
+                     >
+                       <span className="hgDriverHubIcon">💰</span>
+                       <div>
+-                        <strong>Wallet & Payments</strong>
++                        <strong>Wallet & Withdraw</strong>
+                         <small>
+-                          ₹{realDriverWalletBalance.toFixed(0)} available · transactions & withdrawal
++                          ₹{realDriverWalletBalance.toFixed(0)} available · add money, withdraw & payout history
+                         </small>
+                       </div>
+                       <b>›</b>
+@@ -5933,6 +6009,22 @@
+                     <button
+                       type="button"
+                       className="hgDriverHubCard"
++                      onClick={() => {
++                        setProfileOpen(false);
++                        setActiveTab("history");
++                      }}
++                    >
++                      <span className="hgDriverHubIcon">↺</span>
++                      <div>
++                        <strong>Ride History</strong>
++                        <small>Completed, cancelled aur expired rides</small>
++                      </div>
++                      <b>›</b>
++                    </button>
++
++                    <button
++                      type="button"
++                      className="hgDriverHubCard"
+                       onClick={() =>
+                         setProfileTab(
+                           "documents"
