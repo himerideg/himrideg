@@ -1,0 +1,35 @@
+--- a/src/pages/CustomerDashboard.jsx
++++ b/src/pages/CustomerDashboard.jsx
+@@ -3268,6 +3308,7 @@
+         )}
+       </main>
+ 
++
+       <CustomerBookRide
+         open={bookOpen}
+         onClose={() => setBookOpen(false)}
+@@ -3291,6 +3332,24 @@
+             <button className="cvProfileClose" onClick={() => setProfileOpen(false)}>
+               ×
+             </button>
++
++            <div className="cvMobileProfileHeader">
++              <small>PROFILE</small>
++              <h2>HimRideG Account</h2>
++            </div>
++            <div className="cvMobileProfileMenu">
++              <button type="button" onClick={() => { setProfileOpen(false); openWalletPage(); }}><span>▣</span><div><strong>Wallet & Payments</strong><small>Wallet, UPI, cash, QR and passbook</small></div><b>›</b></button>
++              <button type="button" onClick={() => { setProfileOpen(false); scrollToRides("active"); }}><span>↺</span><div><strong>My Rides</strong><small>Active and previous ride history</small></div><b>›</b></button>
++              <button type="button" onClick={() => { setProfileOpen(false); setCustomerPage("safety"); window.scrollTo({top:0,behavior:"smooth"}); }}><span>◇</span><div><strong>Safety</strong><small>Trusted contacts, SOS and live trip safety</small></div><b>›</b></button>
++              <button type="button" onClick={() => window.alert("Support: HimRideG team se contact karein")}><span>?</span><div><strong>Help</strong><small>Support, FAQs and emergency help</small></div><b>›</b></button>
++              <button type="button" onClick={() => window.alert("Refer & Earn feature live service ke saath enable hoga.")}><span>↗</span><div><strong>Refer and Earn</strong><small>Invite friends to HimRideG</small></div><b>›</b></button>
++              <button type="button" onClick={() => window.alert("My Rewards coming soon.")}><span>★</span><div><strong>My Rewards</strong><small>Offers and ride rewards</small></div><b>›</b></button>
++              <button type="button" onClick={() => window.alert("Ride Pass coming soon.")}><span>▤</span><div><strong>Ride Pass</strong><small>Future ride passes and benefits</small></div><b>›</b></button>
++              <button type="button" onClick={() => window.alert("HimRideG Coins coming soon.")}><span>◉</span><div><strong>HimRideG Coins</strong><small>Coins and reward balance</small></div><b>›</b></button>
++              <button type="button" onClick={() => { setProfileOpen(false); scrollToRides("active"); }}><span>🔔</span><div><strong>Notifications</strong><small>Ride, fare and payment updates</small></div><b>›</b></button>
++              <button type="button" onClick={() => window.alert("Claims feature coming soon.")}><span>✓</span><div><strong>Claims</strong><small>Ride and payment claim support</small></div><b>›</b></button>
++              <button type="button" onClick={() => { document.querySelector(".cvProfilePanel form")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}><span>⚙</span><div><strong>Account Settings</strong><small>Name, mobile, email and profile photo</small></div><b>›</b></button>
++            </div>
+ 
+             <div className="cvProfilePhotoWrap">
+               <span className="cvProfilePhoto">
