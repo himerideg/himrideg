@@ -101,8 +101,10 @@ async function saveSecret({ driverId, payoutMethodId, data }) {
 }
 
 async function readSecret(payoutMethodId) {
-  const secret = await PayoutMethodSecret.findOne({ payoutMethod: payoutMethodId })
-    .select("+ciphertext +iv +authTag keyVersion");
+  const secret = await PayoutMethodSecret.findOne({
+    payoutMethod: payoutMethodId
+  }).select("+ciphertext +iv +authTag keyVersion");
+
   if (!secret) return null;
   return decryptPayload(secret);
 }
@@ -120,11 +122,16 @@ async function migrateMethod(method) {
     if (!upiId) return null;
     data = { upiId };
   } else {
-    const accountNumber = String(method.accountNumber || "").replace(/\s+/g, "");
+    const accountNumber = String(method.accountNumber || "")
+      .replace(/\s+/g, "");
     const ifsc = String(method.ifsc || "").trim().toUpperCase();
-    const accountHolderName = String(method.accountHolderName || "").trim();
+    const accountHolderName = String(
+      method.accountHolderName || ""
+    ).trim();
     const bankName = String(method.bankName || "").trim();
+
     if (!accountNumber || !ifsc || !accountHolderName) return null;
+
     data = {
       accountNumber,
       ifsc,
@@ -188,6 +195,63 @@ async function scrubLegacyUserPayoutDetails(driverId) {
   );
 }
 
+async function migrateAllPayoutMethods({ scrubLegacy = true } = {}) {
+  const methods = await DriverPayoutMethod.find({}).sort({ createdAt: 1 });
+  const driverIds = new Set();
+  let migrated = 0;
+  let secured = 0;
+
+  for (const method of methods) {
+    try {
+      const before = Number(method.secretVersion || 0);
+      const data = await getPlainMethodData(method);
+      if (!data) continue;
+
+      secured += 1;
+      driverIds.add(String(method.driver));
+      if (before < 1) migrated += 1;
+    } catch (error) {
+      console.error(
+        `[Payout Encryption Migration] method=${method._id}:`,
+        error?.message || error
+      );
+    }
+  }
+
+  let scrubbedDrivers = 0;
+
+  if (scrubLegacy) {
+    for (const driverId of driverIds) {
+      await scrubLegacyUserPayoutDetails(driverId);
+      // Latest flow uses saved Primary payout method. Prevent the old scheduler
+      // from depending on raw legacy bankDetails after those fields are scrubbed.
+      await User.updateOne(
+        { _id: driverId, role: "driver" },
+        {
+          $set: {
+            "payoutSettings.autoPayoutEnabled": false,
+            "payoutSettings.nextScheduledPayoutAt": null
+          }
+        }
+      );
+      scrubbedDrivers += 1;
+    }
+  }
+
+  const summary = {
+    scanned: methods.length,
+    secured,
+    migrated,
+    scrubbedDrivers
+  };
+
+  console.log(
+    `🔐 PAYOUT_DATA_MIGRATION ${JSON.stringify(summary)}`
+  );
+
+  return summary;
+}
+
 module.exports = {
   fingerprint,
   maskAccount,
@@ -197,5 +261,6 @@ module.exports = {
   migrateMethod,
   getPlainMethodData,
   migrateDriverMethods,
-  scrubLegacyUserPayoutDetails
+  scrubLegacyUserPayoutDetails,
+  migrateAllPayoutMethods
 };
