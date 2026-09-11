@@ -1,0 +1,147 @@
+--- a/src/pages/DriverDashboard.jsx
++++ b/src/pages/DriverDashboard.jsx
+@@ -27,9 +27,11 @@
+ import DriverRideMap from "../DriverRideMap";
+ import DriverWarnings from "../components/DriverWarnings";
+ import DriverPaymentModal from "../components/DriverPaymentModal";
++import DriverPayoutSettingsPanel from "../components/DriverPayoutSettingsPanel";
+ import ResponseTimeoutBadge from "../components/ResponseTimeoutBadge";
+ 
+ import "../driver-dashboard.css";
++import "../driver-mobile-app-parity.css";
+ import "../payment-modal.css";
+ 
+ /*
+@@ -1545,10 +1547,12 @@
+    ADD-ONLY: Real RazorpayX Instant + Scheduled Payout
+    Legacy admin withdrawal form above remains untouched.
+    ========================================================================== */
+-function InstantPayoutForm({ balance, walletData, onSuccess }) {
++function InstantPayoutForm({ balance, walletData, onSuccess, onOpenPaymentSettings }) {
++  const payoutMethods = Array.isArray(walletData?.payoutMethods) ? walletData.payoutMethods : [];
++  const primaryPayoutMethod = payoutMethods.find((item) => item?.isPrimary) || null;
+   const saved = walletData?.savedPayout || {};
+   const settings = walletData?.payoutSettings || {};
+-  const [method, setMethod] = React.useState(saved.preferredMethod || "upi");
++  const [method, setMethod] = React.useState(primaryPayoutMethod?.type || saved.preferredMethod || "upi");
+   const [amount, setAmount] = React.useState("");
+   const [upiId, setUpiId] = React.useState(saved.upiId || "");
+   const [bankName, setBankName] = React.useState(saved.bankName || "");
+@@ -1567,7 +1571,7 @@
+   const [detailsOpen, setDetailsOpen] = React.useState(!hasSavedPayoutDetails);
+ 
+   React.useEffect(() => {
+-    setMethod(saved.preferredMethod || "upi");
++    setMethod(primaryPayoutMethod?.type || saved.preferredMethod || "upi");
+     setUpiId(saved.upiId || "");
+     setBankName(saved.bankName || "");
+     setAccountHolderName(saved.accountHolderName || "");
+@@ -1575,7 +1579,7 @@
+     setAutoEnabled(Boolean(settings.autoPayoutEnabled));
+     setFrequency(settings.autoPayoutFrequency || "weekly");
+     setAutoMinimum(String(settings.autoPayoutMinimum || 500));
+-  }, [saved.preferredMethod, saved.upiId, saved.bankName, saved.accountHolderName, saved.ifsc, settings.autoPayoutEnabled, settings.autoPayoutFrequency, settings.autoPayoutMinimum]);
++  }, [primaryPayoutMethod?.type, saved.preferredMethod, saved.upiId, saved.bankName, saved.accountHolderName, saved.ifsc, settings.autoPayoutEnabled, settings.autoPayoutFrequency, settings.autoPayoutMinimum]);
+ 
+   React.useEffect(() => {
+     if (hasSavedPayoutDetails) {
+@@ -1633,25 +1637,30 @@
+       setMsg({ text: `Balance sirf ₹${balance.toFixed(0)} hai.`, type: "error" });
+       return;
+     }
+-    if (method === "upi" && !upiId.trim()) {
+-      setMsg({ text: "UPI ID save/enter karo.", type: "error" });
++    if (!primaryPayoutMethod && method === "upi" && !upiId.trim()) {
++      setMsg({ text: "Primary UPI/Bank account select karo ya UPI ID save karo.", type: "error" });
+       return;
+     }
+-    if (method === "bank" && !saved.maskedAccount && (!accountNumber.trim() || !ifsc.trim())) {
+-      setMsg({ text: "Bank details save karo.", type: "error" });
++    if (!primaryPayoutMethod && method === "bank" && !saved.maskedAccount && (!accountNumber.trim() || !ifsc.trim())) {
++      setMsg({ text: "Primary bank account select karo ya bank details save karo.", type: "error" });
+       return;
+     }
+     setSubmitting(true);
+     try {
+-      const payload = {
+-        amount: amt,
+-        method,
+-        upiId: method === "upi" ? upiId.trim() : "",
+-        bankName: method === "bank" ? bankName.trim() : "",
+-        accountHolderName: method === "bank" ? accountHolderName.trim() : "",
+-        accountNumber: method === "bank" ? accountNumber.trim() : "",
+-        ifsc: method === "bank" ? ifsc.trim() : ""
+-      };
++      const payload = primaryPayoutMethod
++        ? {
++            amount: amt,
++            payoutMethodId: primaryPayoutMethod.id || primaryPayoutMethod._id
++          }
++        : {
++            amount: amt,
++            method,
++            upiId: method === "upi" ? upiId.trim() : "",
++            bankName: method === "bank" ? bankName.trim() : "",
++            accountHolderName: method === "bank" ? accountHolderName.trim() : "",
++            accountNumber: method === "bank" ? accountNumber.trim() : "",
++            ifsc: method === "bank" ? ifsc.trim() : ""
++          };
+       const { data } = await api.post("/driver/wallet/withdraw", payload);
+       setMsg({ text: data?.message || "Payout submit ho gaya!", type: "success" });
+       setAmount("");
+@@ -1666,6 +1675,23 @@
+ 
+   return (
+     <div className="withdrawalFormWrap">
++      <div className="driverPrimaryPayoutSummary">
++        <div>
++          <small>RECEIVING MONEY</small>
++          <strong>{primaryPayoutMethod ? "Primary Payout Account" : "Primary account required"}</strong>
++          <span>
++            {primaryPayoutMethod
++              ? primaryPayoutMethod.type === "bank"
++                ? `${primaryPayoutMethod.bankName || "Bank Account"} • ${primaryPayoutMethod.maskedAccount || "Account"} • ${primaryPayoutMethod.ifsc || "IFSC"}`
++                : `UPI • ${primaryPayoutMethod.upiId || "Saved UPI"}`
++              : "UPI & Payment Settings me bank/UPI add karke Primary select karein."}
++          </span>
++        </div>
++        <button type="button" onClick={() => onOpenPaymentSettings?.()}>
++          {primaryPayoutMethod ? "Manage" : "Add account"}
++        </button>
++      </div>
++
+       <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
+         <strong>Saved payout details</strong>
+         <span style={{fontSize:12,color:walletData?.payoutsEnabled ? "#22c55e" : "#f59e0b"}}>
+@@ -1744,12 +1770,13 @@
+       </div>
+       {msg.text && <p className={`withdrawalMsg ${msg.type}`}>{msg.text}</p>}
+       <button type="button" className="withdrawalSubmitBtn" onClick={handleSubmit} disabled={submitting || balance < 100 || !walletData?.payoutsEnabled}>
+-        {submitting ? "Payout ho raha hai..." : `Instant Withdraw via ${method === "upi" ? "UPI" : "Bank"}`}
++        {submitting ? "Payout ho raha hai..." : `Withdraw to ${primaryPayoutMethod ? (primaryPayoutMethod.type === "bank" ? "Primary Bank" : "Primary UPI") : (method === "upi" ? "UPI" : "Bank")}`}
+       </button>
+       {balance < 100 && <p className="withdrawalMsg error">Minimum ₹100 balance chahiye.</p>}
+     </div>
+   );
+ }
++
+ 
+ function DriverDashboard({
+   user,
+@@ -1879,6 +1906,16 @@
+     earningsOpen,
+     setEarningsOpen
+   ] = useState(false);
++
++  const [
++    payoutSettingsOpen,
++    setPayoutSettingsOpen
++  ] = useState(false);
++
++  const [
++    historyFilter,
++    setHistoryFilter
++  ] = useState("all");
+ 
+   const [
+     walletQrOpen,
