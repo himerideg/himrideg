@@ -4,6 +4,11 @@ const WalletTransaction = require("../models/WalletTransaction");
 const DriverPayoutMethod = require("../models/DriverPayoutMethod");
 const RideAutoPayout = require("../models/RideAutoPayout");
 const walletService = require("./walletService");
+const {
+  getPlainMethodData,
+  migrateDriverMethods,
+  scrubLegacyUserPayoutDetails
+} = require("./payoutDataProtectionService");
 
 /*
 |--------------------------------------------------------------------------
@@ -27,19 +32,26 @@ function money(value) {
     : 0;
 }
 
-function methodDestination(method) {
-  if (!method) return null;
+function methodDestination(method, secret) {
+  if (!method || !secret) return null;
 
   if (method.type === "upi") {
-    const upiId = String(method.upiId || "").trim().toLowerCase();
+    const upiId = String(secret.upiId || "")
+      .trim()
+      .toLowerCase();
     if (!upiId) return null;
     return { method: "upi", destination: { upiId } };
   }
 
-  const accountHolderName = String(method.accountHolderName || "").trim();
-  const bankName = String(method.bankName || "").trim();
-  const accountNumber = String(method.accountNumber || "").replace(/\s+/g, "");
-  const ifsc = String(method.ifsc || "").trim().toUpperCase();
+  const accountHolderName = String(
+    secret.accountHolderName || ""
+  ).trim();
+  const bankName = String(secret.bankName || "").trim();
+  const accountNumber = String(secret.accountNumber || "")
+    .replace(/\s+/g, "");
+  const ifsc = String(secret.ifsc || "")
+    .trim()
+    .toUpperCase();
 
   if (!accountHolderName || !accountNumber || !ifsc) return null;
 
@@ -74,13 +86,21 @@ async function processOne(booking) {
   const tracking = await reserveTrackingRecord(booking);
   if (!tracking) return { handled: false };
 
-  if (["submitted", "processed", "wallet_only", "manual_override"].includes(tracking.status)) {
+  if (
+    [
+      "submitted",
+      "processed",
+      "wallet_only",
+      "manual_override"
+    ].includes(tracking.status)
+  ) {
     return { handled: true, status: tracking.status };
   }
 
   if (tracking.attempts >= 3 && tracking.status === "failed") {
     tracking.status = "wallet_only";
-    tracking.reason = "Auto payout 3 baar fail hua; amount wallet me safe hai aur manual Withdraw available hai.";
+    tracking.reason =
+      "Auto payout 3 baar fail hua; amount wallet me safe hai aur manual Withdraw available hai.";
     tracking.nextRetryAt = null;
     await tracking.save();
     return { handled: true, status: tracking.status };
@@ -90,6 +110,8 @@ async function processOne(booking) {
   if (tracking.nextRetryAt && tracking.nextRetryAt > now) {
     return { handled: true, status: "waiting_retry" };
   }
+
+  await migrateDriverMethods(booking.driver);
 
   const [ledger, primary, driver] = await Promise.all([
     WalletTransaction.findOne({
@@ -110,25 +132,32 @@ async function processOne(booking) {
     tracking.status = "failed";
     tracking.attempts += 1;
     tracking.lastAttemptAt = now;
-    tracking.nextRetryAt = new Date(now.getTime() + 5 * 60 * 1000);
-    tracking.reason = "Ride wallet ledger abhi ready nahi hai; safe retry scheduled hai.";
+    tracking.nextRetryAt = new Date(
+      now.getTime() + 5 * 60 * 1000
+    );
+    tracking.reason =
+      "Ride wallet ledger abhi ready nahi hai; safe retry scheduled hai.";
     await tracking.save();
     return { handled: true, status: tracking.status };
   }
 
   if (!primary) {
     tracking.status = "wallet_only";
-    tracking.reason = "Primary payout account save nahi hai; earning wallet me safe rakhi gayi.";
+    tracking.reason =
+      "Primary payout account save nahi hai; earning wallet me safe rakhi gayi.";
     tracking.nextRetryAt = null;
     await tracking.save();
     return { handled: true, status: tracking.status };
   }
 
-  const payoutTarget = methodDestination(primary);
+  const secret = await getPlainMethodData(primary);
+  const payoutTarget = methodDestination(primary, secret);
+
   if (!payoutTarget) {
     tracking.status = "wallet_only";
     tracking.payoutMethod = primary._id;
-    tracking.reason = "Primary payout account incomplete hai; earning wallet me safe rakhi gayi.";
+    tracking.reason =
+      "Primary payout account secure data incomplete hai; earning wallet me safe rakhi gayi.";
     tracking.nextRetryAt = null;
     await tracking.save();
     return { handled: true, status: tracking.status };
@@ -145,7 +174,8 @@ async function processOne(booking) {
     tracking.status = "wallet_only";
     tracking.amount = amount;
     tracking.payoutMethod = primary._id;
-    tracking.reason = "Auto payout amount ₹100 minimum se kam hai; earning wallet me available rahegi.";
+    tracking.reason =
+      "Auto payout amount ₹100 minimum se kam hai; earning wallet me available rahegi.";
     tracking.nextRetryAt = null;
     await tracking.save();
     return { handled: true, status: tracking.status };
@@ -155,7 +185,8 @@ async function processOne(booking) {
     tracking.status = "manual_override";
     tracking.amount = amount;
     tracking.payoutMethod = primary._id;
-    tracking.reason = "Wallet balance already use/withdraw ho chuka hai; old ride ke liye duplicate auto payout nahi kiya.";
+    tracking.reason =
+      "Wallet balance already use/withdraw ho chuka hai; old ride ke liye duplicate auto payout nahi kiya.";
     tracking.nextRetryAt = null;
     await tracking.save();
     return { handled: true, status: tracking.status };
@@ -194,15 +225,18 @@ async function processOne(booking) {
       amount
     };
   } catch (error) {
-    const message = String(error?.message || "Auto payout failed").slice(0, 1000);
+    const message = String(
+      error?.message || "Auto payout failed"
+    ).slice(0, 1000);
 
     tracking.status = /insufficient wallet balance/i.test(message)
       ? "manual_override"
       : "failed";
     tracking.reason = message;
-    tracking.nextRetryAt = tracking.status === "failed" && tracking.attempts < 3
-      ? new Date(Date.now() + 60 * 60 * 1000)
-      : null;
+    tracking.nextRetryAt =
+      tracking.status === "failed" && tracking.attempts < 3
+        ? new Date(Date.now() + 60 * 60 * 1000)
+        : null;
     await tracking.save();
 
     return {
@@ -210,6 +244,8 @@ async function processOne(booking) {
       status: tracking.status,
       error: message
     };
+  } finally {
+    await scrubLegacyUserPayoutDetails(booking.driver).catch(() => {});
   }
 }
 
