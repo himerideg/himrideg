@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "postinstall": "npm audit --json || true",
+    "postinstall": "node scripts/runtimeDependencySecurityPatch.js",
     "preflight:live": "node scripts/livePreflight.js",
     "preflight:scale": "node scripts/scalabilityPreflight.js",
     "load:probe": "node scripts/scalabilityLoadProbe.js",
