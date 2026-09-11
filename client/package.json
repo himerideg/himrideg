@@ -4,10 +4,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/applyMobileParityPatch.cjs",
     "dev": "vite",
+    "prebuild": "node scripts/applyMobileParityPatch.cjs",
     "build": "vite build",
-    "preview": "vite preview",
-    "prebuild": "node scripts/applyMobileParityPatch.cjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.3",
