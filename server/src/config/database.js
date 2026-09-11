@@ -84,6 +84,38 @@ const connectDatabase = async () => {
     `🗄️ MongoDB pool ready: min ${mongoScalability.minPoolSize}, max ${mongoScalability.maxPoolSize}`
   );
 
+  /*
+  |--------------------------------------------------------------------------
+  | Opt-in Live Atlas Integrity Audit — READ ONLY
+  |--------------------------------------------------------------------------
+  | Direct Atlas connector available na ho tab bhi Render ke existing secure
+  | MONGODB_URI connection ke through same live database ko read-only audit
+  | kiya ja sakta hai. Koi credential ya customer PII log nahi hoti.
+  | DB_INTEGRITY_AUDIT_ON_START=true par ek baar startup audit run hota hai.
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    String(process.env.DB_INTEGRITY_AUDIT_ON_START || "")
+      .trim()
+      .toLowerCase() === "true"
+  ) {
+    try {
+      const {
+        runDatabaseIntegrityAudit
+      } = require(
+        "../services/databaseIntegrityAudit"
+      );
+
+      await runDatabaseIntegrityAudit();
+    } catch (auditError) {
+      console.error(
+        "⚠️ DB integrity audit failed:",
+        auditError?.message || auditError
+      );
+    }
+  }
+
   return mongoose.connection;
 };
 
