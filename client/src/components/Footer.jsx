@@ -19,25 +19,26 @@ function Footer() {
         <div className="footerLinks">
           <div>
             <h3>Company</h3>
-            <a href="#home">Home</a>
+            <a href="/">Home</a>
             <a href="#about">About</a>
+            <a href="/business/">Business</a>
             <a href="/driverlogin/">Driver Login</a>
           </div>
 
           <div>
             <h3>Support</h3>
-            <a href="#help">Help Center</a>
-            <a href="#help">Safety</a>
-            <a href="#help">Contact</a>
-            <a href="#help">FAQs</a>
+            <a href="/help/">Help Center</a>
+            <a href="/safety/">Safety</a>
+            <a href="/contact/">Contact</a>
+            <a href="/refund-cancellation/">Cancellation & Refund</a>
           </div>
 
           <div>
             <h3>Services</h3>
-            <a href="#home">Local Rides</a>
-            <a href="#home">Outstation Taxi</a>
-            <a href="#home">Airport Transfer</a>
-            <a href="#home">Tour Packages</a>
+            <a href="/#home">Local Rides</a>
+            <a href="/#home">Outstation Taxi</a>
+            <a href="/#home">Airport Transfer</a>
+            <a href="/#home">Tour Packages</a>
           </div>
         </div>
       </div>
@@ -45,12 +46,23 @@ function Footer() {
       <div className="footerLegalSummary">
         <section id="privacy">
           <h3>Privacy</h3>
-          <p>HimRideG account, booking, location, driver verification aur payment data ko service operate karne, safety aur legal compliance ke liye process karta hai. Payment secrets browser me store nahi kiye jaate.</p>
+          <p>
+            HimRideG account, booking, location, driver verification aur
+            payment-related data ko service operation, safety aur legal
+            compliance ke liye process karta hai. Sensitive payout data server
+            par protected storage me rakha jata hai.
+          </p>
+          <a href="/privacy/">Read Privacy Policy</a>
         </section>
 
         <section id="terms">
           <h3>Terms</h3>
-          <p>HimRideG verified commercial taxi drivers aur customers ko connect karta hai. Fare driver-customer negotiation ke baad customer acceptance par lock hota hai. Ride, cancellation aur payment records safety aur settlement ke liye maintain hote hain.</p>
+          <p>
+            HimRideG eligible commercial taxi drivers aur customers ko connect
+            karta hai. Fare driver-customer negotiation ke baad customer
+            acceptance par lock hota hai.
+          </p>
+          <a href="/terms/">Read Terms of Use</a>
         </section>
       </div>
 
@@ -60,8 +72,10 @@ function Footer() {
         </p>
 
         <div>
-          <a href="#privacy">Privacy</a>
-          <a href="#terms">Terms</a>
+          <a href="/privacy/">Privacy</a>
+          <a href="/terms/">Terms</a>
+          <a href="/refund-cancellation/">Refunds</a>
+          <a href="/contact/">Contact</a>
         </div>
       </div>
     </footer>
