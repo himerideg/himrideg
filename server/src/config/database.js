@@ -91,7 +91,10 @@ const connectDatabase = async () => {
   | Direct Atlas connector available na ho tab bhi Render ke existing secure
   | MONGODB_URI connection ke through same live database ko read-only audit
   | kiya ja sakta hai. Koi credential ya customer PII log nahi hoti.
-  | DB_INTEGRITY_AUDIT_ON_START=true par ek baar startup audit run hota hai.
+  |
+  | V73 audit v2 active wallet transaction model, encrypted payout-secret
+  | storage, multiple-primary checks, legacy plaintext payout data, orphan
+  | references aur ride concurrency sab ko count karta hai.
   |--------------------------------------------------------------------------
   */
 
@@ -102,12 +105,12 @@ const connectDatabase = async () => {
   ) {
     try {
       const {
-        runDatabaseIntegrityAudit
+        runDatabaseIntegrityAuditV2
       } = require(
-        "../services/databaseIntegrityAudit"
+        "../services/databaseIntegrityAuditV2"
       );
 
-      await runDatabaseIntegrityAudit();
+      await runDatabaseIntegrityAuditV2();
     } catch (auditError) {
       console.error(
         "⚠️ DB integrity audit failed:",
