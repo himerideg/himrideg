@@ -19,6 +19,15 @@ const driverPayoutMethodSchema = new mongoose.Schema(
       maxlength: 100,
       default: ""
     },
+
+    /*
+    |------------------------------------------------------------------
+    | Display-only compatibility fields
+    |------------------------------------------------------------------
+    | V73 se full UPI/account number encrypted PayoutMethodSecret model me
+    | store hota hai. Ye fields sirf masked display/legacy migration ke liye
+    | preserve kiye gaye hain, taaki old app/backend data break na ho.
+    */
     upiId: {
       type: String,
       trim: true,
@@ -51,6 +60,25 @@ const driverPayoutMethodSchema = new mongoose.Schema(
       maxlength: 20,
       default: ""
     },
+
+    upiFingerprint: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true
+    },
+    bankFingerprint: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true
+    },
+    secretVersion: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+
     isPrimary: {
       type: Boolean,
       default: false,
@@ -66,5 +94,27 @@ const driverPayoutMethodSchema = new mongoose.Schema(
 
 driverPayoutMethodSchema.index({ driver: 1, createdAt: -1 });
 driverPayoutMethodSchema.index({ driver: 1, isPrimary: 1 });
+driverPayoutMethodSchema.index(
+  { driver: 1, type: 1, upiFingerprint: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      type: "upi",
+      upiFingerprint: { $type: "string", $ne: "" }
+    }
+  }
+);
+driverPayoutMethodSchema.index(
+  { driver: 1, type: 1, bankFingerprint: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      type: "bank",
+      bankFingerprint: { $type: "string", $ne: "" }
+    }
+  }
+);
 
-module.exports = mongoose.models.DriverPayoutMethod || mongoose.model("DriverPayoutMethod", driverPayoutMethodSchema);
+module.exports =
+  mongoose.models.DriverPayoutMethod ||
+  mongoose.model("DriverPayoutMethod", driverPayoutMethodSchema);
