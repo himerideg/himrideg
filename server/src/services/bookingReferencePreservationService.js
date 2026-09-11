@@ -8,6 +8,11 @@ const TERMINAL_STATUSES = new Set([
   "expired"
 ]);
 
+function increment(map, key) {
+  const safeKey = String(key || "unknown");
+  map[safeKey] = Number(map[safeKey] || 0) + 1;
+}
+
 async function findOrphanBookings() {
   return Booking.aggregate([
     {
@@ -78,10 +83,45 @@ async function preserveOrphanBookingReferences() {
   let activeOrphans = 0;
   let historicalOrphans = 0;
 
+  const activeBreakdown = {
+    byStatus: {},
+    byPaymentStatus: {},
+    byMissingReference: {},
+    paid: 0,
+    unpaid: 0
+  };
+
   for (const booking of rows) {
     const status = String(booking.status || "");
-    if (TERMINAL_STATUSES.has(status)) historicalOrphans += 1;
-    else activeOrphans += 1;
+    const paymentStatus = String(booking.paymentStatus || "pending");
+    const isHistorical = TERMINAL_STATUSES.has(status);
+
+    if (isHistorical) {
+      historicalOrphans += 1;
+    } else {
+      activeOrphans += 1;
+
+      increment(activeBreakdown.byStatus, status);
+      increment(activeBreakdown.byPaymentStatus, paymentStatus);
+
+      const missingReference =
+        booking.__customerMissing && booking.__driverMissing
+          ? "both"
+          : booking.__customerMissing
+            ? "customer"
+            : "driver";
+
+      increment(
+        activeBreakdown.byMissingReference,
+        missingReference
+      );
+
+      if (paymentStatus === "paid") {
+        activeBreakdown.paid += 1;
+      } else {
+        activeBreakdown.unpaid += 1;
+      }
+    }
 
     await BookingReferenceArchive.findOneAndUpdate(
       { booking: booking._id },
@@ -94,7 +134,7 @@ async function preserveOrphanBookingReferences() {
           customerReferenceMissing: Boolean(booking.__customerMissing),
           driverReferenceMissing: Boolean(booking.__driverMissing),
           rideStatus: status,
-          paymentStatus: String(booking.paymentStatus || ""),
+          paymentStatus,
           paymentMethod: String(booking.paymentMethod || ""),
           finalFare:
             booking.finalFare ??
@@ -122,7 +162,8 @@ async function preserveOrphanBookingReferences() {
     scannedOrphanBookings: rows.length,
     preserved: createdOrUpdated,
     historicalOrphans,
-    activeOrphans
+    activeOrphans,
+    activeBreakdown
   };
 
   console.log(
