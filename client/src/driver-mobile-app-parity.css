@@ -1,0 +1,123 @@
+/* ========================================================================
+   V72 Mobile App-Parity Driver Shell — ADD-ONLY
+   Dashboard / Requests / History / Account mirrors the React Native V71 flow.
+   ======================================================================== */
+.driverAppBottomNav { display: none; }
+.driverPayoutSettingsOverlay {
+  position: fixed; inset: 0; z-index: 1900; display: grid; place-items: center;
+  padding: 20px; background: rgba(0,0,0,.72); backdrop-filter: blur(10px);
+}
+.driverPayoutSettingsPanel {
+  width: min(720px, 96vw); max-height: 92vh; overflow: hidden;
+  border: 1px solid rgba(245,197,24,.28); border-radius: 24px;
+  background: #0d1117; color: #fff; box-shadow: 0 28px 80px rgba(0,0,0,.48);
+}
+.driverPayoutSettingsHeader {
+  min-height: 76px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,.08); background: #0a0d12;
+}
+.driverPayoutSettingsHeader small { color: #f5c518; font-weight: 900; letter-spacing: 1.2px; }
+.driverPayoutSettingsHeader h2 { margin: 3px 0 0; font-size: 22px; }
+.driverPayoutSettingsHeader > button { width: 40px; height: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,.14); background: #151a21; color: #fff; font-size: 24px; }
+.driverPayoutSettingsScroll { max-height: calc(92vh - 76px); overflow-y: auto; padding: 18px; }
+.driverPrimaryReceivingCard { border: 1px solid rgba(245,197,24,.35); border-radius: 20px; padding: 18px; background: linear-gradient(145deg, rgba(245,197,24,.1), rgba(255,255,255,.025)); }
+.driverPrimaryReceivingCard > small, .driverPrimaryPayoutSummary small { color: #f5c518; font-size: 10px; font-weight: 900; letter-spacing: 1.1px; }
+.driverPrimaryReceivingCard h3 { margin: 5px 0 8px; font-size: 22px; }
+.driverPrimaryReceivingCard p { margin: 0 0 14px; color: #aeb7c4; font-size: 13px; line-height: 1.55; }
+.driverPrimaryReceivingBox, .driverPrimaryPayoutSummary { display: flex; align-items: center; gap: 12px; border: 1px solid rgba(255,255,255,.1); background: #111721; border-radius: 16px; padding: 14px; }
+.driverPrimaryReceivingBox > span { width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; background: rgba(245,197,24,.12); color: #f5c518; font-size: 20px; font-weight: 900; }
+.driverPrimaryReceivingBox > div, .driverPrimaryPayoutSummary > div { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.driverPrimaryReceivingBox strong, .driverPrimaryPayoutSummary strong { color: #fff; }
+.driverPrimaryReceivingBox small, .driverPrimaryPayoutSummary span { color: #9da8b6; font-size: 12px; overflow-wrap: anywhere; }
+.driverPrimaryReceivingBox b { color: #101217; background: #f5c518; border-radius: 999px; padding: 5px 8px; font-size: 9px; }
+.driverPrimaryPayoutSummary { margin-bottom: 14px; border-color: rgba(245,197,24,.25); }
+.driverPrimaryPayoutSummary > button { border: 1px solid rgba(245,197,24,.4); color: #f5c518; background: transparent; border-radius: 10px; padding: 9px 12px; font-weight: 800; cursor: pointer; }
+.driverPayoutSectionTitle { margin: 22px 0 10px; font-size: 16px; }
+.driverPayoutAddRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.driverPayoutAddRow button { min-height: 72px; border: 1px solid rgba(255,255,255,.1); border-radius: 16px; background: #111721; color: #fff; font-weight: 900; cursor: pointer; }
+.driverPayoutAddRow button:first-letter { color: #f5c518; }
+.driverPayoutFormCard { margin-top: 12px; padding: 16px; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; background: #111721; }
+.driverPayoutFormCard h3 { margin: 0 0 6px; }
+.driverPayoutFormCard > p { color: #9da8b6; font-size: 12px; line-height: 1.55; }
+.driverPayoutFormCard label { display: grid; gap: 6px; margin-top: 11px; color: #d8dee7; font-size: 12px; font-weight: 800; }
+.driverPayoutFormCard input { min-height: 46px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: #080b10; color: #fff; padding: 0 13px; outline: none; }
+.driverPayoutFormCard input:focus { border-color: #f5c518; box-shadow: 0 0 0 3px rgba(245,197,24,.1); }
+.driverUpiAppChips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.driverUpiAppChips button { border: 1px solid rgba(245,197,24,.3); background: rgba(245,197,24,.07); color: #f5c518; border-radius: 999px; padding: 8px 11px; font-size: 11px; font-weight: 800; }
+.driverPayoutPrimaryAction { width: 100%; min-height: 46px; margin-top: 14px; border: 0; border-radius: 13px; background: #f5c518; color: #0a0c10; font-weight: 900; }
+.driverPayoutMessage { border-radius: 12px; padding: 10px 12px; font-size: 12px; font-weight: 700; }
+.driverPayoutMessage.success { background: rgba(34,197,94,.1); color: #4ade80; }
+.driverPayoutMessage.error { background: rgba(239,68,68,.1); color: #fb7185; }
+.driverPayoutMethodsList { overflow: hidden; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; background: #111721; }
+.driverPayoutMethodsList > p { color: #97a2af; padding: 18px; margin: 0; }
+.driverPayoutMethodsList article + article { border-top: 1px solid rgba(255,255,255,.08); }
+.driverPayoutMethodRow { width: 100%; min-height: 68px; display: flex; align-items: center; gap: 11px; text-align: left; border: 0; background: transparent; color: #fff; padding: 11px 13px; cursor: pointer; }
+.driverPayoutMethodIcon { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: rgba(245,197,24,.1); color: #f5c518; font-weight: 900; }
+.driverPayoutMethodRow > div { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.driverPayoutMethodRow small { color: #95a0ad; overflow-wrap: anywhere; }
+.driverPayoutMethodRow b { color: #111; background: #f5c518; border-radius: 999px; padding: 4px 7px; font-size: 8px; }
+.driverPayoutMethodRow em { color: #f5c518; font-style: normal; font-size: 10px; font-weight: 800; }
+.driverPayoutManagePanel { padding: 0 13px 13px 62px; display: grid; gap: 9px; }
+.driverPayoutManagePanel button { min-height: 42px; border: 1px solid rgba(245,197,24,.35); border-radius: 11px; background: transparent; color: #f5c518; font-weight: 900; }
+.driverPayoutManagePanel button.danger { border-color: rgba(239,68,68,.35); color: #fb7185; }
+.driverPayoutManagePanel p { color: #9da8b6; font-size: 11px; margin: 0; }
+.driverPayoutSafetyNote { color: #8e99a6; font-size: 11px; line-height: 1.55; margin: 16px 4px 4px; }
+
+@media (max-width: 760px) {
+  .driverDashboardPage { padding-bottom: 82px; background: #080a0d; }
+  .driverCustomerStyleTopbar { position: sticky; top: 0; z-index: 120; min-height: 58px; padding: 7px 12px; }
+  .driverCustomerStyleTopbar .driverDesktopNav,
+  .driverCustomerStyleTopbar .driverHeaderUser,
+  .driverCustomerStyleTopbar .driverLogoutButton { display: none !important; }
+  .driverCustomerStyleTopbar .driverBrandTag { display: none; }
+  .driverCustomerStyleTopbar .driverBrand h1 { font-size: 15px; margin: 0; }
+  .driverCustomerStyleTopbar .driverLogo { width: 34px; height: 34px; border-radius: 10px; font-size: 11px; }
+  .driverCustomerStyleTopbar .driverHeaderProfile { margin-left: auto; gap: 7px; }
+  .driverCustomerStyleTopbar .driverOnlineControl > span { display: none; }
+  .driverDashboardContent.driverCustomerStylePage { padding: 12px 12px 20px; }
+  .driverHeroBanner { min-height: 170px; border-radius: 20px; padding: 18px; background: linear-gradient(120deg, rgba(0,0,0,.72), rgba(0,0,0,.25)), url('/himrideg-mountains.jpg') center/cover; }
+  .driverHeroBanner h2 { font-size: 26px; }
+  .driverHeroBanner p { max-width: 75%; font-size: 12px; }
+  .driverHeroActions { align-items: flex-end; }
+  .driverHeroActions .driverHeroWalletButton, .driverHeroActions > button:last-child { display: none; }
+  .driverCustomerGrid { display: flex !important; flex-direction: column; gap: 12px; }
+  .driverCustomerMapCard { order: -1; }
+  .driverCustomerMapCard .driverCustomerMapFrame { min-height: min(92vw, 420px); height: min(92vw, 420px); border-radius: 18px; overflow: hidden; }
+  .driverCustomerSummary { display: none !important; }
+  .driverRequestCompactList { max-height: none; }
+  .driverRidesPage { padding-bottom: 20px; }
+  .driverRidesPage > header > button { display: none; }
+  .driverRideTabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .driverRideTabs button { flex: 0 0 auto; }
+  .driverRidesList article { border-radius: 16px; }
+  .driverSummaryOverlay, .hgProfileOverlay, .driverPayoutSettingsOverlay { padding: 0 !important; place-items: stretch !important; align-items: stretch !important; }
+  .driverSummaryModal.driverEarningsModal, .hgProfileShell, .driverPayoutSettingsPanel { width: 100vw !important; max-width: none !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; }
+  .driverPayoutSettingsScroll { max-height: calc(100dvh - 76px); padding-bottom: 100px; }
+  .hgProfileBody { padding-bottom: 100px !important; }
+  .hgDriverProfileHub .hgDriverHubIntro h2 { font-size: 28px; }
+  .hgDriverHubCards { grid-template-columns: 1fr !important; }
+  .driverAppBottomNav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1800; display: grid;
+    grid-template-columns: repeat(4, 1fr); min-height: 72px; padding: 6px max(6px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-right));
+    background: rgba(12,15,20,.98); border-top: 1px solid rgba(245,197,24,.25); box-shadow: 0 -10px 32px rgba(0,0,0,.34); backdrop-filter: blur(16px);
+  }
+  .driverAppBottomNav button { position: relative; min-width: 0; display: grid; place-items: center; gap: 2px; border: 0; background: transparent; color: #7f8a98; padding: 4px 2px; }
+  .driverAppBottomNav button > span { width: 38px; height: 30px; border-radius: 15px; display: grid; place-items: center; font-size: 17px; }
+  .driverAppBottomNav button small { font-size: 9px; font-weight: 900; white-space: nowrap; }
+  .driverAppBottomNav button.active { color: #f5c518; }
+  .driverAppBottomNav button.active > span { background: rgba(245,197,24,.11); border: 1px solid rgba(245,197,24,.25); }
+  .driverAppBottomNav button > b { position: absolute; top: 1px; right: 22%; min-width: 16px; height: 16px; border-radius: 8px; display: grid; place-items: center; padding: 0 3px; background: #ef4444; color: #fff; font-size: 8px; }
+  .driverPrimaryPayoutSummary { align-items: flex-start; }
+  .driverPrimaryPayoutSummary > button { flex: 0 0 auto; }
+  .driverPayoutAddRow { grid-template-columns: 1fr 1fr; }
+}
+
+
+/* V72: full-screen mobile account/wallet layers must stay above bottom navigation. */
+@media (max-width: 760px) {
+  .driverSummaryOverlay,
+  .hgProfileOverlay,
+  .driverPayoutSettingsOverlay {
+    z-index: 2100 !important;
+  }
+}
