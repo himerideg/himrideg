@@ -14,6 +14,13 @@ const {
 } = require("../controllers/paymentController");
 
 const {
+  getDirectDriverPaymentDetails,
+  claimDirectDriverPayment,
+  confirmDirectDriverPayment,
+  getDirectPaymentHistory
+} = require("../controllers/directDriverPaymentController");
+
+const {
   selectPaymentPlan,
   selectPaymentMethod,
   retrySettlement
@@ -83,6 +90,20 @@ router.post("/cash-select", selectCashPayment);
 |--------------------------------------------------------------------------
 */
 router.post("/cash-confirm", confirmCashPayment);
+
+/*
+|--------------------------------------------------------------------------
+| Temporary Direct-to-Driver UPI — RazorpayX pending
+|--------------------------------------------------------------------------
+| Fare goes to driver's own saved UPI. Customer claim alone never marks the
+| ride paid; assigned driver must verify money in their account and confirm.
+| Financial settlement is intentionally cash-like so only 10% HimRideG fee is
+| recorded as due/paid. No bank credentials are exposed to the customer.
+*/
+router.get("/direct-driver/history", getDirectPaymentHistory);
+router.get("/:bookingId/direct-driver", getDirectDriverPaymentDetails);
+router.post("/:bookingId/direct-driver/claim", claimDirectDriverPayment);
+router.post("/:bookingId/direct-driver/confirm", confirmDirectDriverPayment);
 
 /* Legacy web/app compatibility: online verification is already authoritative. */
 router.post("/receive-confirm", confirmOnlinePaymentReceipt);
