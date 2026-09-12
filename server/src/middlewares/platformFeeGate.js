@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const DriverTestMode = require("../models/DriverTestMode");
 
 const PLATFORM_FEE_BLOCK_THRESHOLD = 100;
 
@@ -21,10 +22,16 @@ async function requirePlatformFeeBelowThreshold(req, res, next) {
     }
 
     const driverId = req.user?._id || req.user?.id;
-    const driver = await User.findOne({
-      _id: driverId,
-      role: "driver"
-    }).select("wallet");
+    const [driver, testMode] = await Promise.all([
+      User.findOne({
+        _id: driverId,
+        role: "driver"
+      }).select("wallet"),
+      DriverTestMode.findOne({
+        driver: driverId,
+        enabled: true
+      }).select("enabled").lean()
+    ]);
 
     if (!driver) {
       return res.status(404).json({
@@ -35,18 +42,24 @@ async function requirePlatformFeeBelowThreshold(req, res, next) {
     }
 
     const platformFeeDue = feeDueOf(driver.wallet);
+    const testModeEnabled = Boolean(testMode?.enabled);
 
     req.platformFeeStatus = {
       due: platformFeeDue,
       threshold: PLATFORM_FEE_BLOCK_THRESHOLD,
-      blocked: platformFeeDue >= PLATFORM_FEE_BLOCK_THRESHOLD
+      blocked: !testModeEnabled && platformFeeDue >= PLATFORM_FEE_BLOCK_THRESHOLD,
+      testMode: testModeEnabled
     };
+
+    if (testModeEnabled) {
+      return next();
+    }
 
     if (platformFeeDue >= PLATFORM_FEE_BLOCK_THRESHOLD) {
       return res.status(402).json({
         success: false,
         code: "PLATFORM_FEE_REQUIRED",
-        message: `नई राइड स्वीकार करने के लिए पहले ₹${Math.ceil(platformFeeDue)} बकाया HimRideG प्लेटफॉर्म फीस जमा करें।`,
+        message: `नई Ride लेने के लिए पहले ₹${Math.ceil(platformFeeDue)} बकाया HimRideG प्लेटफॉर्म फीस जमा करें।`,
         data: req.platformFeeStatus
       });
     }
