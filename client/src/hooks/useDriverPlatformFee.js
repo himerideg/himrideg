@@ -9,27 +9,46 @@ export default function useDriverPlatformFee() {
     canAcceptRides: true,
     reminderRequired: false,
     paymentReady: true,
-    totalCommissionPaid: 0
+    totalCommissionPaid: 0,
+    testMode: false
   });
   const [loading, setLoading] = useState(false);
 
   const refreshPlatformFee = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get("/driver/platform-fee");
-      const data = response?.data?.data || response?.data || {};
+      const [feeResponse, testModeResponse] = await Promise.all([
+        api.get("/driver/platform-fee"),
+        api.get("/driver/test-mode").catch(() => ({ data: { data: { enabled: false } } }))
+      ]);
+
+      const data = feeResponse?.data?.data || feeResponse?.data || {};
+      const testData = testModeResponse?.data?.data || testModeResponse?.data || {};
       const due = Math.max(0, Number(data?.due || 0));
       const threshold = Math.max(1, Number(data?.threshold || 100));
-      const blocked = Boolean(data?.blocked ?? due >= threshold);
+      const testMode = Boolean(testData?.enabled);
+      const blocked = testMode
+        ? false
+        : Boolean(data?.blocked ?? due >= threshold);
+
       const next = {
         due,
         threshold,
         blocked,
-        canAcceptRides: Boolean(data?.canAcceptRides ?? !blocked),
-        reminderRequired: Boolean(data?.reminderRequired ?? due > 0),
+        canAcceptRides: testMode
+          ? true
+          : Boolean(data?.canAcceptRides ?? !blocked),
+        reminderRequired: testMode
+          ? false
+          : Boolean(data?.reminderRequired ?? due > 0),
         paymentReady: Boolean(data?.paymentReady ?? true),
-        totalCommissionPaid: Math.max(0, Number(data?.totalCommissionPaid || 0))
+        totalCommissionPaid: Math.max(0, Number(data?.totalCommissionPaid || 0)),
+        testMode,
+        testModeNote: String(testData?.note || ""),
+        lastTestResetAt: testData?.lastResetAt || null,
+        lastTestResetAmount: Math.max(0, Number(testData?.lastResetAmount || 0))
       };
+
       setStatus(next);
       return next;
     } catch (error) {
