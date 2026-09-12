@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
 import "../driver-v75-parity.css";
+import "../driver-platform-fee-readable.css";
 
 const money = (value) =>
   new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(value) || 0);
@@ -41,21 +42,24 @@ export default function DriverPlatformFeePrompt({
 
   const due = Math.max(0, Number(status?.due || 0));
   const threshold = Math.max(1, Number(status?.threshold || 100));
-  const blocked = Boolean(status?.blocked ?? due >= threshold);
+  const testMode = Boolean(status?.testMode);
+  const blocked = testMode
+    ? false
+    : Boolean(status?.blocked ?? due >= threshold);
 
   const pay = async () => {
-    if (due <= 0 || busy) return;
+    if (testMode || due <= 0 || busy) return;
     setBusy(true);
     setError("");
 
     try {
       const sdkReady = await loadRazorpayScript();
-      if (!sdkReady || !window.Razorpay) throw new Error("Razorpay checkout load nahi hua");
+      if (!sdkReady || !window.Razorpay) throw new Error("Razorpay भुगतान विंडो लोड नहीं हुई");
 
       const orderResponse = await api.post("/driver/platform-fee/create-order", {});
       const order = orderResponse?.data?.data || orderResponse?.data || {};
       if (!order?.keyId || !order?.orderId || !Number(order?.amount)) {
-        throw new Error(orderResponse?.data?.message || "Platform fee order ready nahi hua");
+        throw new Error(orderResponse?.data?.message || "प्लेटफॉर्म फीस का भुगतान तैयार नहीं हुआ");
       }
 
       await new Promise((resolve, reject) => {
@@ -64,7 +68,7 @@ export default function DriverPlatformFeePrompt({
           amount: order.amount,
           currency: order.currency || "INR",
           name: "HimRideG",
-          description: "Driver Platform Fee",
+          description: "HimRideG प्लेटफॉर्म फीस",
           order_id: order.orderId,
           prefill: {
             name: order.driverName || "HimRideG Driver",
@@ -79,7 +83,7 @@ export default function DriverPlatformFeePrompt({
                 razorpay_signature: response.razorpay_signature
               });
               if (!verifyResponse?.data?.success) {
-                throw new Error(verifyResponse?.data?.message || "Platform fee verify nahi hui");
+                throw new Error(verifyResponse?.data?.message || "प्लेटफॉर्म फीस सत्यापित नहीं हुई");
               }
               await onPaid?.(verifyResponse?.data?.data || {});
               resolve();
@@ -90,40 +94,63 @@ export default function DriverPlatformFeePrompt({
           modal: { ondismiss: () => resolve() }
         });
         checkout.on("payment.failed", (failure) => {
-          reject(new Error(failure?.error?.description || "Platform fee payment failed"));
+          reject(new Error(failure?.error?.description || "प्लेटफॉर्म फीस का भुगतान असफल रहा"));
         });
         checkout.open();
       });
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "Platform fee payment failed");
+      setError(err?.response?.data?.message || err?.message || "प्लेटफॉर्म फीस का भुगतान असफल रहा");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="v75Overlay" role="dialog" aria-modal="true" aria-label="HimRideG platform fee">
-      <section className={`v75Prompt ${blocked ? "blocked" : ""}`}>
-        <button type="button" className="v75Close" onClick={onClose} aria-label="Close">×</button>
-        <div className="v75Kicker">HIMRIDEG PLATFORM FEE</div>
-        <h2>{blocked ? "नई राइड Accept करने से पहले फीस जमा करें" : "बिना रुकावट नई राइड लेते रहें"}</h2>
-        <p>
-          {blocked
-            ? `आपकी बकाया प्लेटफॉर्म फीस ₹${money(due)} हो गई है। Ride request दिखेगी, लेकिन Accept करने के लिए पहले फीस जमा करें।`
-            : `अभी ₹${money(due)} प्लेटफॉर्म फीस बाकी है। ₹${money(threshold)} से कम होने तक आप rides Accept करते रह सकते हैं।`}
+    <div className="v75Overlay" role="dialog" aria-modal="true" aria-label="HimRideG प्लेटफॉर्म फीस">
+      <section className={`v75Prompt v76ReadablePrompt ${blocked ? "blocked" : ""} ${testMode ? "testMode" : ""}`}>
+        <button type="button" className="v75Close" onClick={onClose} aria-label="बंद करें">×</button>
+        <div className="v75Kicker">HIMRIDEG प्लेटफॉर्म फीस</div>
+
+        <h2>
+          {testMode
+            ? "टेस्ट मोड चालू है"
+            : blocked
+              ? "नई Ride लेने के लिए प्लेटफॉर्म फीस जमा करें"
+              : "बिना रुकावट नई Ride लेते रहें"}
+        </h2>
+
+        <p className="v76PromptHindiMessage">
+          {testMode
+            ? "यह परीक्षण खाता है। नई Ride लेने पर प्लेटफॉर्म फीस का लॉक लागू नहीं होगा। टेस्ट पूरा होने पर Admin से टेस्ट मोड बंद करें।"
+            : blocked
+              ? `आपकी बकाया प्लेटफॉर्म फीस ₹${money(due)} हो गई है। नई Ride आपको दिखाई देगी, लेकिन उसे स्वीकार करने से पहले प्लेटफॉर्म फीस जमा करनी होगी।`
+              : `अभी ₹${money(due)} प्लेटफॉर्म फीस बाकी है। जब तक बकाया फीस ₹${money(threshold)} से कम है, आप नई Ride लेते रह सकते हैं।`}
         </p>
+
         <div className="v75FeeAmountRow">
           <div><small>अभी बकाया</small><strong>₹{money(due)}</strong></div>
-          <span className="v75RulePill">{blocked ? `₹${money(threshold)}+ LOCK` : `< ₹${money(threshold)} ACTIVE`}</span>
+          <span className="v75RulePill">
+            {testMode ? "टेस्ट मोड" : blocked ? `₹${money(threshold)}+ रोक` : `< ₹${money(threshold)} चालू`}
+          </span>
         </div>
+
         {error ? <p style={{ color: "#ef4444", fontWeight: 800 }}>{error}</p> : null}
-        <button type="button" className="v75PrimaryButton" onClick={pay} disabled={busy || due <= 0}>
-          {busy ? "Opening Payment…" : `Pay Platform Fee ₹${money(due)}`}
-        </button>
+
+        {!testMode ? (
+          <button type="button" className="v75PrimaryButton v75PrimaryButtonLarge" onClick={pay} disabled={busy || due <= 0}>
+            {busy ? "भुगतान खुल रहा है…" : `प्लेटफॉर्म फीस ₹${money(due)} जमा करें`}
+          </button>
+        ) : null}
+
         <button type="button" className="v75SecondaryButton" onClick={onClose}>
-          {blocked ? "अभी बंद करें" : "अभी नहीं • Ride जारी रखें"}
+          {testMode ? "ठीक है" : blocked ? "अभी बंद करें" : "अभी नहीं • Ride जारी रखें"}
         </button>
-        {blocked ? <p className="v75BlockNote">Cross popup बंद करेगा, लेकिन फीस कम होने तक Ride Accept unlock नहीं होगा।</p> : null}
+
+        {blocked ? (
+          <p className="v75BlockNote v76BlockNoteLarge">
+            यह विंडो बंद की जा सकती है, लेकिन फीस ₹{money(threshold)} से कम होने तक नई Ride स्वीकार नहीं होगी।
+          </p>
+        ) : null}
       </section>
     </div>
   );
