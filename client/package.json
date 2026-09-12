@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/applyMobileParityPatch.cjs && node scripts/applyActiveRideCrossDevicePatch.cjs && node scripts/applyV75WebsiteParityPatch.cjs",
+    "predev": "node scripts/applyMobileParityPatch.cjs && node scripts/applyActiveRideCrossDevicePatch.cjs && node scripts/applyV75WebsiteParityPatchFixed.cjs",
     "dev": "vite",
-    "prebuild": "node scripts/applyMobileParityPatch.cjs && node scripts/applyActiveRideCrossDevicePatch.cjs && node scripts/applyV75WebsiteParityPatch.cjs",
+    "prebuild": "node scripts/applyMobileParityPatch.cjs && node scripts/applyActiveRideCrossDevicePatch.cjs && node scripts/applyV75WebsiteParityPatchFixed.cjs",
     "build": "vite build",
     "preview": "vite preview"
   },
