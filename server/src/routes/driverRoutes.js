@@ -28,6 +28,12 @@ const platformFeeController =
     "../controllers/platformFeeController"
   );
 
+const {
+  getDriverTestMode
+} = require(
+  "../controllers/driverTestModeController"
+);
+
 const router =
   express.Router();
 
@@ -206,6 +212,17 @@ router.post(
   "/submit-approval",
   driverController
     .submitForApproval
+);
+
+/*
+|--------------------------------------------------------------------------
+| Admin Managed Test Mode
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/test-mode",
+  getDriverTestMode
 );
 
 /*
