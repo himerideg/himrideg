@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
+    "prestart": "node scripts/applyFivePercentPlatformCommissionPatch.cjs",
     "start": "node server.js",
     "postinstall": "node scripts/runtimeDependencySecurityPatch.js",
     "preflight:live": "node scripts/livePreflight.js",
