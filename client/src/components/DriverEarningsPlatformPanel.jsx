@@ -31,43 +31,43 @@ export default function DriverEarningsPlatformPanel({
     <div className="v75EarningsPanel" role="dialog" aria-modal="true" aria-label="Driver earnings and platform fee">
       <section className="v75EarningsCard">
         <header className="v75PanelHead">
-          <div><small>DRIVER EARNINGS</small><h2>Earnings & Platform Fee</h2></div>
+          <div><small>ड्राइवर कमाई</small><h2>कमाई और प्लेटफॉर्म फीस</h2></div>
           <button type="button" className="v75PanelClose" onClick={onClose}>×</button>
         </header>
 
         <div className={`v75FeeHero ${fee.blocked ? "blocked" : ""}`}>
           <div className="v75FeeHeroTop">
-            <div><div className="v75Kicker">PLATFORM FEE DUE</div><strong>₹{money(due)}</strong></div>
-            <span className="v75RulePill">{fee.blocked ? "RIDE ACCEPT LOCK" : due > 0 ? "RIDES ACTIVE" : "CLEAR ✓"}</span>
+            <div><div className="v75Kicker">प्लेटफॉर्म फीस बकाया</div><strong>₹{money(due)}</strong></div>
+            <span className="v75RulePill">{fee.blocked ? "राइड स्वीकार बंद" : due > 0 ? "राइड जारी" : "फीस क्लियर ✓"}</span>
           </div>
-          <p style={{color:"#9eabb9",fontSize:12,lineHeight:1.6}}>
+          <p className="v75FeeHindiMessage">
             {fee.blocked
-              ? "Ride requests dikhenगी, lekin नई ride Accept करने के लिए fee ₹100 से नीचे करनी होगी।"
+              ? "नई राइड रिक्वेस्ट आपको दिखाई देंगी, लेकिन नई राइड स्वीकार करने के लिए बकाया प्लेटफॉर्म फीस ₹100 से कम करनी होगी।"
               : due > 0
-                ? "₹100 से कम due रहने तक rides Accept होती रहेंगी. समय पर HimRideG platform fee जमा करें।"
-                : "Platform fee clear hai. Rides accept करने पर कोई fee lock नहीं है।"}
+                ? "जब तक बकाया प्लेटफॉर्म फीस ₹100 से कम है, आप नई राइड स्वीकार करते रहेंगे। बिना रुकावट राइड लेने के लिए समय पर HimRideG प्लेटफॉर्म फीस जमा करें।"
+                : "आपकी प्लेटफॉर्म फीस पूरी तरह साफ है। नई राइड स्वीकार करने पर कोई रोक नहीं है।"}
           </p>
-          {due > 0 ? <button type="button" className="v75PrimaryButton" onClick={() => setFeePromptOpen(true)}>Pay Platform Fee ₹{money(due)}</button> : null}
+          {due > 0 ? <button type="button" className="v75PrimaryButton" onClick={() => setFeePromptOpen(true)}>प्लेटफॉर्म फीस ₹{money(due)} जमा करें</button> : null}
         </div>
 
         <div className="v75CleanStats">
-          <div className="v75CleanStat"><small>Total Earnings</small><strong>₹{money(totalEarned)}</strong></div>
-          <div className="v75CleanStat"><small>Platform Fee Paid</small><strong style={{color:"#22c55e"}}>₹{money(paid)}</strong></div>
+          <div className="v75CleanStat"><small>कुल कमाई</small><strong>₹{money(totalEarned)}</strong></div>
+          <div className="v75CleanStat"><small>जमा प्लेटफॉर्म फीस</small><strong style={{color:"#22c55e"}}>₹{money(paid)}</strong></div>
         </div>
 
         <div className="v75PayoutAccount">
           <div>
-            <small>RECEIVING MONEY / PRIMARY ACCOUNT</small>
-            <strong>{primary ? (primary.type === "bank" ? primary.bankName || "Primary Bank" : "Primary UPI") : "Not selected"}</strong>
-            <span>{primary ? (primary.type === "bank" ? `${primary.maskedAccount || "Account"} • ${primary.ifsc || "IFSC"}` : primary.maskedUpi || primary.upiId || "Saved UPI") : "App/website ke UPI & Payment Settings se add karein"}</span>
+            <small>पैसे प्राप्त करने का मुख्य खाता</small>
+            <strong>{primary ? (primary.type === "bank" ? primary.bankName || "मुख्य बैंक खाता" : "मुख्य UPI") : "कोई खाता चुना नहीं"}</strong>
+            <span>{primary ? (primary.type === "bank" ? `${primary.maskedAccount || "खाता"} • ${primary.ifsc || "IFSC"}` : primary.maskedUpi || primary.upiId || "सेव UPI") : "App/Website के UPI और बैंक सेटिंग्स से खाता जोड़ें"}</span>
           </div>
-          <button type="button" className="v75ManageLink" onClick={onOpenPaymentSettings}>{primary ? "Manage" : "Add"}</button>
+          <button type="button" className="v75ManageLink" onClick={onOpenPaymentSettings}>{primary ? "मैनेज करें" : "जोड़ें"}</button>
         </div>
 
-        <button type="button" className="v75SecondaryButton" onClick={onOpenPaymentSettings}>UPI & Payment Settings</button>
+        <button type="button" className="v75SecondaryButton" onClick={onOpenPaymentSettings}>UPI और बैंक सेटिंग्स</button>
 
         <div className="v75Future">
-          Customer ka direct UPI/Cash fare driver ko milega; HimRideG sirf 10% platform fee track karega. RazorpayX approve hone ke baad automatic payout isi saved Primary account ke saath enable hoga. {loading ? "Refreshing…" : ""}
+          Customer का Direct UPI/Cash किराया Driver को मिलेगा और HimRideG केवल 10% प्लेटफॉर्म फीस ट्रैक करेगा। RazorpayX चालू होने के बाद Automatic Payout इसी चुने हुए मुख्य खाते पर जाएगा। {loading ? "अपडेट हो रहा है…" : ""}
         </div>
       </section>
 
