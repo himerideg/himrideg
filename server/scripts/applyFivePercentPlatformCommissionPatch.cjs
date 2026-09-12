@@ -113,18 +113,22 @@ patchFile("src/controllers/fareController.js", [
     to: "  commissionPercent = 5\n)"
   },
   {
-    label: "fare acceptance commission fallback",
-    from: ".platformCommissionPercent ||\n          10",
-    to: ".platformCommissionPercent ||\n          5",
-    all: true
+    label: "generic fare lock uses current 5 percent",
+    from: "    const commissionPercent =\n      Number(\n        booking\n          .platformCommissionPercent ||\n          10\n      );",
+    to: "    const commissionPercent =\n      5;"
+  },
+  {
+    label: "customer final fare lock uses current 5 percent",
+    from: "      const commissionPercent =\n        Number(\n          booking\n            .platformCommissionPercent ||\n            10\n        );",
+    to: "      const commissionPercent =\n        5;"
   }
 ]);
 
 patchFile("src/sockets/rideSocket.js", [
   {
-    label: "socket fare lock commission fallback",
+    label: "socket fare lock uses current 5 percent",
     from: "          const commissionPercent =\n            booking\n              .platformCommissionPercent ||\n            10;",
-    to: "          const commissionPercent =\n            booking\n              .platformCommissionPercent ||\n            5;"
+    to: "          const commissionPercent =\n            5;"
   }
 ]);
 
@@ -147,13 +151,13 @@ patchFile("src/controllers/platformFeeController.js", [
 
 const validationTargets = [
   ["src/models/Booking.js", "default: 5"],
-  ["src/models/User.js", "commissionPercentage"],
+  ["src/models/User.js", "default: 5"],
   ["src/services/paymentSettlementService.js", "platformCommissionPercent ?? 5"],
   ["src/services/walletService.js", "const PLATFORM_COMMISSION_PERCENT = 5;"],
   ["src/controllers/paymentController.js", "const PLATFORM_COMMISSION_PERCENT = 5;"],
   ["src/controllers/launchPaymentController.js", "const PLATFORM_COMMISSION_PERCENT = 5;"],
   ["src/controllers/fareController.js", "commissionPercent = 5"],
-  ["src/sockets/rideSocket.js", "platformCommissionPercent ||\n            5"],
+  ["src/sockets/rideSocket.js", "const commissionPercent =\n            5;"],
   ["src/controllers/platformFeeController.js", "commissionPercent: 5"]
 ];
 
