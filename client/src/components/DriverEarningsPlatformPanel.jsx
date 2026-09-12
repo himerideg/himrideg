@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import DriverPlatformFeePrompt from "./DriverPlatformFeePrompt";
 import useDriverPlatformFee from "../hooks/useDriverPlatformFee";
 import "../driver-v75-parity.css";
+import "../driver-platform-fee-readable.css";
 
 const money = (value) => new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(Number(value) || 0);
 
@@ -28,26 +29,48 @@ export default function DriverEarningsPlatformPanel({
   const totalEarned = Math.max(0, Number(wallet?.totalEarned || 0));
 
   return (
-    <div className="v75EarningsPanel" role="dialog" aria-modal="true" aria-label="Driver earnings and platform fee">
+    <div className="v75EarningsPanel" role="dialog" aria-modal="true" aria-label="ड्राइवर कमाई और प्लेटफॉर्म फीस">
       <section className="v75EarningsCard">
         <header className="v75PanelHead">
           <div><small>ड्राइवर कमाई</small><h2>कमाई और प्लेटफॉर्म फीस</h2></div>
           <button type="button" className="v75PanelClose" onClick={onClose}>×</button>
         </header>
 
-        <div className={`v75FeeHero ${fee.blocked ? "blocked" : ""}`}>
+        <div className={`v75FeeHero ${fee.blocked ? "blocked" : ""} ${fee.testMode ? "testMode" : ""}`}>
           <div className="v75FeeHeroTop">
-            <div><div className="v75Kicker">प्लेटफॉर्म फीस बकाया</div><strong>₹{money(due)}</strong></div>
-            <span className="v75RulePill">{fee.blocked ? "राइड स्वीकार बंद" : due > 0 ? "राइड जारी" : "फीस क्लियर ✓"}</span>
+            <div><div className="v75Kicker">बकाया प्लेटफॉर्म फीस</div><strong>₹{money(due)}</strong></div>
+            <span className="v75RulePill">
+              {fee.testMode
+                ? "टेस्ट मोड चालू"
+                : fee.blocked
+                  ? "नई Ride बंद"
+                  : due > 0
+                    ? "Ride चालू"
+                    : "फीस साफ ✓"}
+            </span>
           </div>
+
           <p className="v75FeeHindiMessage">
-            {fee.blocked
-              ? "नई राइड रिक्वेस्ट आपको दिखाई देंगी, लेकिन नई राइड स्वीकार करने के लिए बकाया प्लेटफॉर्म फीस ₹100 से कम करनी होगी।"
-              : due > 0
-                ? "जब तक बकाया प्लेटफॉर्म फीस ₹100 से कम है, आप नई राइड स्वीकार करते रहेंगे। बिना रुकावट राइड लेने के लिए समय पर HimRideG प्लेटफॉर्म फीस जमा करें।"
-                : "आपकी प्लेटफॉर्म फीस पूरी तरह साफ है। नई राइड स्वीकार करने पर कोई रोक नहीं है।"}
+            {fee.testMode
+              ? "टेस्ट मोड चालू है। नई Ride लेने पर प्लेटफॉर्म फीस का लॉक लागू नहीं होगा। टेस्ट पूरा होने पर Admin से टेस्ट मोड बंद करें।"
+              : fee.blocked
+                ? "नई Ride लेने के लिए पहले अपनी बकाया प्लेटफॉर्म फीस जमा करें। बकाया फीस ₹100 या उससे ज्यादा होने पर नई Ride स्वीकार नहीं होगी।"
+                : due > 0
+                  ? "बकाया प्लेटफॉर्म फीस ₹100 से कम है, इसलिए आप नई Ride लेते रह सकते हैं। बिना रुकावट Ride लेने के लिए समय पर प्लेटफॉर्म फीस जमा करें।"
+                  : "आपकी प्लेटफॉर्म फीस पूरी तरह साफ है। आप नई Ride ले सकते हैं।"}
           </p>
-          {due > 0 ? <button type="button" className="v75PrimaryButton" onClick={() => setFeePromptOpen(true)}>प्लेटफॉर्म फीस ₹{money(due)} जमा करें</button> : null}
+
+          {due > 0 && !fee.testMode ? (
+            <button type="button" className="v75PrimaryButton v75PrimaryButtonLarge" onClick={() => setFeePromptOpen(true)}>
+              प्लेटफॉर्म फीस ₹{money(due)} जमा करें
+            </button>
+          ) : null}
+
+          {fee.testMode ? (
+            <div className="v76TestModeNotice">
+              यह परीक्षण खाता है। प्लेटफॉर्म फीस लॉक अभी लागू नहीं होगा।
+            </div>
+          ) : null}
         </div>
 
         <div className="v75CleanStats">
@@ -67,7 +90,7 @@ export default function DriverEarningsPlatformPanel({
         <button type="button" className="v75SecondaryButton" onClick={onOpenPaymentSettings}>UPI और बैंक सेटिंग्स</button>
 
         <div className="v75Future">
-          Customer का Direct UPI/Cash किराया Driver को मिलेगा और HimRideG केवल 10% प्लेटफॉर्म फीस ट्रैक करेगा। RazorpayX चालू होने के बाद Automatic Payout इसी चुने हुए मुख्य खाते पर जाएगा। {loading ? "अपडेट हो रहा है…" : ""}
+          Customer का Direct UPI/Cash किराया Driver को मिलेगा और HimRideG केवल 10% प्लेटफॉर्म फीस ट्रैक करेगा। RazorpayX चालू होने के बाद अपने आप भुगतान इसी चुने हुए मुख्य खाते पर जाएगा। {loading ? "अपडेट हो रहा है…" : ""}
         </div>
       </section>
 
