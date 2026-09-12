@@ -18,6 +18,12 @@ const {
 } = require("../middlewares/platformFeeGate");
 
 const {
+  recoverExpiredRideFeed
+} = require(
+  "../middlewares/recoverExpiredRideFeed"
+);
+
+const {
   rideMutationLimiter,
   liveLocationLimiter
 } = require(
@@ -125,11 +131,16 @@ router.get(
 | Driver Ride Feed
 |--------------------------------------------------------------------------
 | This route must remain above dynamic routes.
+| Expired dispatch entries no longer make an otherwise-active searching ride
+| disappear from an online/available driver's list. Recovery middleware only
+| adds recent unassigned rides after all pending dispatch windows have expired;
+| accept endpoint still re-validates and atomically claims the ride.
 |--------------------------------------------------------------------------
 */
 
 router.get(
   "/driver/feed",
+  recoverExpiredRideFeed,
   driverRideFeedController
     .getDriverRideFeed
 );
@@ -145,6 +156,7 @@ router.get(
 
 router.get(
   "/mine",
+  recoverExpiredRideFeed,
   (req, res, next) => {
     if (
       req.user?.role === "driver"
