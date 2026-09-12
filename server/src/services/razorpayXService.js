@@ -52,6 +52,32 @@ function getConfigurationStatus() {
   };
 }
 
+/*
+|--------------------------------------------------------------------------
+| Safe Provider-Access Probe Configuration
+|--------------------------------------------------------------------------
+| Provider permission/credentials ko test karne ke liye payout-enable flag ko
+| ON karna zaroori nahi hona chahiye. Ye status sirf READ-ONLY RazorpayX GET
+| probe ke liye use hota hai; createContact/fundAccount/payout isse bypass nahi
+| kar sakte. Real money flow ka existing explicit gate unchanged hai.
+|--------------------------------------------------------------------------
+*/
+function getProbeConfigurationStatus() {
+  const missing = [];
+  if (!keyId()) missing.push("RAZORPAYX_KEY_ID/RAZORPAY_KEY_ID");
+  if (!keySecret()) missing.push("RAZORPAYX_KEY_SECRET/RAZORPAY_KEY_SECRET");
+  if (!accountNumber()) missing.push("RAZORPAYX_ACCOUNT_NUMBER");
+
+  return {
+    liveKey: isLiveKey(),
+    hasKeyId: Boolean(keyId()),
+    hasKeySecret: Boolean(keySecret()),
+    hasAccountNumber: Boolean(accountNumber()),
+    missing,
+    ready: missing.length === 0
+  };
+}
+
 function isEnabled() {
   return getConfigurationStatus().ready;
 }
@@ -131,6 +157,75 @@ async function request(
       }
     }
     throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| READ-ONLY RazorpayX Permission Probe
+|--------------------------------------------------------------------------
+| GET /payouts only. RAZORPAYX_PAYOUTS_ENABLED aur REAL_MONEY_MODE ko mutate
+| nahi karta, koi contact/fund account/payout create nahi karta, aur secrets
+| log/return nahi karta. Isse approval mil chuki hai ya nahi safely verify hota.
+|--------------------------------------------------------------------------
+*/
+async function checkLiveAccess() {
+  const config = getProbeConfigurationStatus();
+  if (!config.ready) {
+    const error = new Error(
+      `RazorpayX access probe ready nahi hai: ${config.missing.join(", ")}`
+    );
+    error.code = "RAZORPAYX_PROBE_NOT_CONFIGURED";
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const auth = Buffer.from(`${keyId()}:${keySecret()}`).toString("base64");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+
+  try {
+    const response = await fetch(
+      `${API_BASE}/payouts?account_number=${encodeURIComponent(accountNumber())}&count=1`,
+      {
+        method: "GET",
+        signal: controller.signal,
+        headers: {
+          Authorization: `Basic ${auth}`,
+          Accept: "application/json"
+        }
+      }
+    );
+
+    const text = await response.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { raw: text };
+    }
+
+    if (!response.ok) {
+      const message =
+        data?.error?.description ||
+        data?.error?.reason ||
+        data?.message ||
+        `RazorpayX access probe error (${response.status})`;
+      const error = new Error(message);
+      error.statusCode = response.status;
+      error.code = "RAZORPAYX_ACCESS_PROBE_FAILED";
+      throw error;
+    }
+
+    return {
+      ok: true,
+      liveKey: config.liveKey,
+      statusCode: response.status,
+      entity: data?.entity || "collection",
+      count: Number(data?.count || 0)
+    };
   } finally {
     clearTimeout(timeout);
   }
@@ -235,13 +330,6 @@ async function fetchPayout(payoutId) {
   return request(`/payouts/${encodeURIComponent(payoutId)}`);
 }
 
-async function checkLiveAccess() {
-  return request(`/payouts?account_number=${encodeURIComponent(accountNumber())}&count=1`, {
-    method: "GET",
-    timeoutMs: 15_000
-  });
-}
-
 function makeIdempotencyKey() {
   return crypto.randomUUID();
 }
@@ -250,6 +338,7 @@ module.exports = {
   isEnabled,
   isLiveKey,
   getConfigurationStatus,
+  getProbeConfigurationStatus,
   createContact,
   createBankFundAccount,
   createUpiFundAccount,
