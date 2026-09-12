@@ -48,6 +48,14 @@ patchFile("src/models/Booking.js", [
   }
 ]);
 
+patchFile("src/models/User.js", [
+  {
+    label: "driver profile commission default",
+    from: "      commissionPercentage: {\n        type: Number,\n        min: 0,\n        max: 100,\n        default: 10\n      }",
+    to: "      commissionPercentage: {\n        type: Number,\n        min: 0,\n        max: 100,\n        default: 5\n      }"
+  }
+]);
+
 patchFile("src/services/paymentSettlementService.js", [
   {
     label: "settlement commission fallback",
@@ -112,6 +120,14 @@ patchFile("src/controllers/fareController.js", [
   }
 ]);
 
+patchFile("src/sockets/rideSocket.js", [
+  {
+    label: "socket fare lock commission fallback",
+    from: "          const commissionPercent =\n            booking\n              .platformCommissionPercent ||\n            10;",
+    to: "          const commissionPercent =\n            booking\n              .platformCommissionPercent ||\n            5;"
+  }
+]);
+
 patchFile("src/controllers/directDriverPaymentController.js", [
   {
     label: "direct payment commission comment",
@@ -131,11 +147,13 @@ patchFile("src/controllers/platformFeeController.js", [
 
 const validationTargets = [
   ["src/models/Booking.js", "default: 5"],
+  ["src/models/User.js", "commissionPercentage"],
   ["src/services/paymentSettlementService.js", "platformCommissionPercent ?? 5"],
   ["src/services/walletService.js", "const PLATFORM_COMMISSION_PERCENT = 5;"],
   ["src/controllers/paymentController.js", "const PLATFORM_COMMISSION_PERCENT = 5;"],
   ["src/controllers/launchPaymentController.js", "const PLATFORM_COMMISSION_PERCENT = 5;"],
   ["src/controllers/fareController.js", "commissionPercent = 5"],
+  ["src/sockets/rideSocket.js", "platformCommissionPercent ||\n            5"],
   ["src/controllers/platformFeeController.js", "commissionPercent: 5"]
 ];
 
