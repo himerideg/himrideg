@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/applyMobileParityPatch.cjs && node scripts/applyActiveRideCrossDevicePatch.cjs && node scripts/applyV75WebsiteParityPatchFixed.cjs && node scripts/applyV76TestModeParityPatch.cjs && node scripts/applyAdminTestModePatch.cjs",
+    "predev": "node scripts/applyMobileParityPatch.cjs && node scripts/applyActiveRideCrossDevicePatch.cjs && node scripts/applyV75WebsiteParityPatchFixed.cjs && node scripts/applyV76TestModeParityPatch.cjs && node scripts/applyAdminTestModePatch.cjs && node scripts/applyV77PersistentRidePanelPatch.cjs",
     "dev": "vite",
-    "prebuild": "node scripts/applyMobileParityPatch.cjs && node scripts/applyActiveRideCrossDevicePatch.cjs && node scripts/applyV75WebsiteParityPatchFixed.cjs && node scripts/applyV76TestModeParityPatch.cjs && node scripts/applyAdminTestModePatch.cjs",
+    "prebuild": "node scripts/applyMobileParityPatch.cjs && node scripts/applyActiveRideCrossDevicePatch.cjs && node scripts/applyV75WebsiteParityPatchFixed.cjs && node scripts/applyV76TestModeParityPatch.cjs && node scripts/applyAdminTestModePatch.cjs && node scripts/applyV77PersistentRidePanelPatch.cjs",
     "build": "vite build",
     "preview": "vite preview"
   },
