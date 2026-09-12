@@ -39,7 +39,8 @@ const {
 const {
   listDriverTestModes,
   updateDriverTestMode,
-  resetDriverTestPlatformFee
+  resetDriverTestPlatformFee,
+  resetDriverTestHistory
 } = require(
   "../controllers/adminDriverTestModeController"
 );
@@ -128,6 +129,11 @@ router.patch(
 router.post(
   "/drivers/:driverId/test-mode/reset-platform-fee",
   resetDriverTestPlatformFee
+);
+
+router.post(
+  "/drivers/:driverId/test-mode/reset-history",
+  resetDriverTestHistory
 );
 
 /*
