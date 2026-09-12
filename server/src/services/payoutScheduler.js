@@ -1,4 +1,5 @@
 const walletService = require("./walletService");
+const razorpayX = require("./razorpayXService");
 const {
   processPrimaryRideAutoPayouts
 } = require("./primaryRideAutoPayoutService");
@@ -9,6 +10,7 @@ const {
 let timer = null;
 let running = false;
 let migrationChecked = false;
+let accessProbeChecked = false;
 
 async function runOptionalSecurityMigration() {
   if (migrationChecked) return;
@@ -31,11 +33,66 @@ async function runOptionalSecurityMigration() {
   }
 }
 
+/*
+|--------------------------------------------------------------------------
+| Optional READ-ONLY RazorpayX Access Probe
+|--------------------------------------------------------------------------
+| Provider approval/credential readiness ko boot par safely verify karta hai.
+| Koi payout/contact/fund account create nahi hota. Secrets log nahi hote.
+|--------------------------------------------------------------------------
+*/
+async function runOptionalRazorpayXAccessProbe() {
+  if (accessProbeChecked) return;
+  accessProbeChecked = true;
+
+  const shouldRun =
+    String(process.env.RAZORPAYX_ACCESS_PROBE_ON_START || "false")
+      .trim()
+      .toLowerCase() === "true";
+
+  if (!shouldRun) return;
+
+  const config = razorpayX.getProbeConfigurationStatus();
+
+  if (!config.ready) {
+    console.log(
+      `🧪 RAZORPAYX_ACCESS_PROBE ${JSON.stringify({
+        ok: false,
+        liveKey: config.liveKey,
+        missing: config.missing
+      })}`
+    );
+    return;
+  }
+
+  try {
+    const result = await razorpayX.checkLiveAccess();
+    console.log(
+      `🧪 RAZORPAYX_ACCESS_PROBE ${JSON.stringify({
+        ok: true,
+        liveKey: Boolean(result?.liveKey),
+        statusCode: result?.statusCode || 200,
+        entity: result?.entity || "collection"
+      })}`
+    );
+  } catch (error) {
+    console.log(
+      `🧪 RAZORPAYX_ACCESS_PROBE ${JSON.stringify({
+        ok: false,
+        statusCode: error?.statusCode || 0,
+        code: error?.code || "RAZORPAYX_ACCESS_PROBE_FAILED",
+        message: String(error?.message || "RazorpayX access probe failed").slice(0, 300)
+      })}`
+    );
+  }
+}
+
 async function tick() {
   if (running) return;
   running = true;
   try {
     await runOptionalSecurityMigration();
+    await runOptionalRazorpayXAccessProbe();
 
     await walletService.retryUncertainPayouts(10);
     await walletService.reconcilePendingPayouts(25);
