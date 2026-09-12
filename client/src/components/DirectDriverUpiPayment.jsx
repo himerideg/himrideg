@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import api from "../api";
 import "../driver-v75-parity.css";
+import "../direct-driver-upi.css";
 
 const idOf = (ride) => String(ride?._id || ride?.id || ride?.bookingId || "");
 const money = (value) =>
