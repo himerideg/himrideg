@@ -14,6 +14,10 @@ const {
 } = require("../middlewares/auth");
 
 const {
+  requirePlatformFeeBelowThreshold
+} = require("../middlewares/platformFeeGate");
+
+const {
   rideMutationLimiter,
   liveLocationLimiter
 } = require(
@@ -237,17 +241,22 @@ router.post(
 |--------------------------------------------------------------------------
 | PATCH backend support
 | POST frontend compatibility support
+| Platform-fee gate intentionally runs only at acceptance time so a driver
+| with ₹100+ due can still SEE incoming ride requests, but cannot accept one
+| until the outstanding HimRideG platform fee is paid below the threshold.
 |--------------------------------------------------------------------------
 */
 
 router.patch(
   "/:bookingId/accept",
+  requirePlatformFeeBelowThreshold,
   driverRideFeedController
     .acceptAvailableRide
 );
 
 router.post(
   "/:bookingId/accept",
+  requirePlatformFeeBelowThreshold,
   driverRideFeedController
     .acceptAvailableRide
 );
