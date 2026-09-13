@@ -11,7 +11,7 @@ function fmtStat(val) {
 
 const COPY = {
   en: {
-    tag: "AAPKI APNI RIDE",
+    tag: "YOUR OWN RIDE",
     title: "Travel With Us",
     description:
       "Verified drivers, transparent fares and live tracking for safe local and outstation taxi booking.",
@@ -21,26 +21,26 @@ const COPY = {
     book: "Book a Ride",
     booking: "BOOK YOUR RIDE",
     ready: "Ready to travel?",
-    full: "Open Book Ride",
+    full: "Open Full Booking",
     riders: "Happy Riders",
     drivers: "Verified Drivers",
     support: "Customer Support"
   },
   hi: {
-    tag: "आपकी अपनी RIDE",
+    tag: "आपकी अपनी यात्रा",
     title: "हमारे साथ सफर करें",
     description:
-      "Safe local और outstation taxi booking के लिए verified drivers, transparent fares और live tracking.",
-    verified: "Verified Drivers",
-    fare: "Transparent Fares",
-    tracking: "Live Ride Tracking",
-    book: "Ride Book करें",
-    booking: "अपनी RIDE BOOK करें",
-    ready: "सफर के लिए तैयार?",
-    full: "Full Booking खोलें",
-    riders: "Happy Riders",
-    drivers: "Verified Drivers",
-    support: "Customer Support"
+      "सुरक्षित स्थानीय और बाहरी शहर की टैक्सी बुकिंग के लिए सत्यापित चालक, स्पष्ट किराया और सीधी स्थान जानकारी।",
+    verified: "सत्यापित चालक",
+    fare: "स्पष्ट किराया",
+    tracking: "सीधी यात्रा निगरानी",
+    book: "यात्रा बुक करें",
+    booking: "अपनी यात्रा बुक करें",
+    ready: "सफर के लिए तैयार हैं?",
+    full: "पूरी बुकिंग खोलें",
+    riders: "संतुष्ट यात्री",
+    drivers: "सत्यापित चालक",
+    support: "ग्राहक सहायता"
   }
 };
 
