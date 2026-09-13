@@ -25,13 +25,24 @@ const COPY = {
     exploreEyebrow: "EXPLORE HIMACHAL",
     exploreTitle: "Plan your next Himachal journey",
     exploreText: "Use these popular regions as inspiration, then choose your exact pickup and destination in Book Ride.",
+    destinations: [
+      ["Palampur", "Tea gardens • Kangra Valley"],
+      ["Dharamshala", "City • McLeod Ganj access"],
+      ["Bir Billing", "Paragliding • Mountain travel"],
+      ["Manali", "Valley • Snow routes"],
+      ["Shimla", "Capital • Hill travel"],
+      ["Dalhousie", "Chamba hills • Scenic routes"]
+    ],
     coverageEyebrow: "COVERAGE",
     coverageTitle: "Built for Himachal, expanding district by district",
     coverageText: "Availability depends on verified drivers being online near your pickup. Coverage grows as more local commercial taxis join.",
+    coverage: ["Kangra", "Palampur", "Dharamshala", "Hamirpur", "Mandi", "Shimla", "Kullu", "Chamba"],
+    coverageAria: "Himachal coverage regions",
     businessEyebrow: "HIMRIDEG FOR BUSINESS",
     businessTitle: "Reliable travel workflows for business and travel partners",
     businessText: "Use structured Ride records and verified-driver flows for business travel. Dedicated business tools can expand as the network grows.",
     businessButton: "Explore Business",
+    businessStats: ["Verified commercial drivers", "Shared Ride records", "Local + outstation travel"],
     appEyebrow: "HIMRIDEG APP",
     appTitle: "Take HimRideG with you",
     appText: "Use the same account and shared Ride data across web and mobile. Store download links appear here as soon as the public apps are published.",
@@ -41,55 +52,55 @@ const COPY = {
     soon: "Public download coming soon"
   },
   hi: {
-    recentEyebrow: "आपकी RIDES",
+    recentEyebrow: "आपकी यात्राएँ",
     recentTitle: "जहाँ छोड़ा था वहीं से आगे बढ़ें",
-    recentText: "अपनी recent bookings, active Ride और payment status सभी devices पर देखने के लिए login करें।",
-    recentButton: "Recent activity देखें",
-    servicesEyebrow: "SERVICES",
-    servicesTitle: "हर plan के लिए HimRideG Ride",
-    servicesText: "Local travel, outstation, airport transfer या scheduled Ride एक ही trusted flow से book करें।",
+    recentText: "अपनी हाल की बुकिंग, चल रही यात्रा और भुगतान की स्थिति सभी उपकरणों पर देखने के लिए लॉगिन करें।",
+    recentButton: "हाल की गतिविधि देखें",
+    servicesEyebrow: "सेवाएँ देखें",
+    servicesTitle: "हर योजना के लिए HimRideG यात्रा",
+    servicesText: "स्थानीय यात्रा, बाहरी शहर की यात्रा, हवाई अड्डा यात्रा या पहले से तय यात्रा एक ही भरोसेमंद प्रक्रिया से बुक करें।",
     serviceCards: [
-      ["🚕", "Local Ride", "Verified commercial drivers के साथ local taxi booking."],
-      ["🏔️", "Outstation", "Himachal और nearby states के लिए intercity और long-distance travel."],
-      ["✈️", "Airport Transfer", "Airport pickup या drop को पहले से plan करें."],
-      ["🗓️", "Scheduled Ride", "तुरंत booking की जगह future date और time चुनें."]
+      ["🚕", "स्थानीय यात्रा", "सत्यापित व्यावसायिक चालकों के साथ तेज स्थानीय टैक्सी बुकिंग।"],
+      ["🏔️", "बाहरी शहर की यात्रा", "हिमाचल और पास के राज्यों में शहरों के बीच तथा लंबी दूरी की यात्रा की योजना बनाएँ।"],
+      ["✈️", "हवाई अड्डा यात्रा", "हवाई अड्डे से लेने या छोड़ने की यात्रा पहले से तय करें और यात्रा विवरण सुरक्षित रखें।"],
+      ["🗓️", "निर्धारित यात्रा", "तुरंत बुकिंग की जगह भविष्य की तारीख और समय चुनें।"]
     ],
-    book: "Book करें",
-    driverEyebrow: "HIMRIDEG के साथ DRIVE करें",
-    driverTitle: "अपने schedule पर drive करें और local riders से कमाएँ",
-    driverText: "HimRideG eligible commercial taxi drivers को customers से जोड़ता है और Ride, fare, payment तथा history tools एक account में रखता है।",
-    driverButton: "Driver बनें",
-    driverLogin: "Driver Login",
-    exploreEyebrow: "HIMACHAL EXPLORE करें",
-    exploreTitle: "अपनी अगली Himachal journey plan करें",
-    exploreText: "इन popular regions से idea लें और Book Ride में exact pickup तथा destination चुनें।",
-    coverageEyebrow: "COVERAGE",
-    coverageTitle: "Himachal के लिए बना, district by district बढ़ रहा है",
-    coverageText: "Availability आपके pickup के पास online verified drivers पर depend करती है। जैसे-जैसे local commercial taxis जुड़ेंगी coverage बढ़ेगी।",
-    businessEyebrow: "HIMRIDEG FOR BUSINESS",
-    businessTitle: "Business और travel partners के लिए reliable travel workflows",
-    businessText: "Business travel के लिए structured Ride records और verified-driver flow इस्तेमाल करें। Network बढ़ने के साथ dedicated business tools भी बढ़ेंगे।",
-    businessButton: "Business देखें",
-    appEyebrow: "HIMRIDEG APP",
-    appTitle: "HimRideG अपने साथ रखें",
-    appText: "Web और mobile पर वही account और shared Ride data इस्तेमाल करें। Public apps publish होते ही store download links यहाँ दिखेंगे।",
-    android: "Android App",
-    ios: "iPhone App",
-    available: "Download खोलें",
-    soon: "Public download जल्द आएगा"
+    book: "अभी बुक करें",
+    driverEyebrow: "HIMRIDEG के साथ चलाएँ",
+    driverTitle: "अपने समय पर गाड़ी चलाएँ और स्थानीय यात्रियों से कमाएँ",
+    driverText: "HimRideG पात्र व्यावसायिक टैक्सी चालकों को ग्राहकों से जोड़ता है और यात्रा, किराया, भुगतान तथा इतिहास की सुविधाएँ एक ही खाते में रखता है।",
+    driverButton: "चालक बनें",
+    driverLogin: "चालक लॉगिन",
+    exploreEyebrow: "हिमाचल देखें",
+    exploreTitle: "अपनी अगली हिमाचल यात्रा की योजना बनाएँ",
+    exploreText: "इन लोकप्रिय क्षेत्रों से विचार लें, फिर यात्रा बुक करते समय अपना सही प्रारंभ स्थान और गंतव्य चुनें।",
+    destinations: [
+      ["पालमपुर", "चाय बागान • कांगड़ा घाटी"],
+      ["धर्मशाला", "शहर • मैक्लोडगंज मार्ग"],
+      ["बीर बिलिंग", "पैराग्लाइडिंग • पर्वतीय यात्रा"],
+      ["मनाली", "घाटी • बर्फीले मार्ग"],
+      ["शिमला", "राजधानी • पहाड़ी यात्रा"],
+      ["डलहौजी", "चंबा पहाड़ियाँ • सुंदर मार्ग"]
+    ],
+    coverageEyebrow: "सेवा क्षेत्र",
+    coverageTitle: "हिमाचल के लिए बना, जिला-दर-जिला बढ़ रहा है",
+    coverageText: "सेवा की उपलब्धता आपके प्रारंभ स्थान के पास ऑनलाइन सत्यापित चालकों पर निर्भर करती है। अधिक स्थानीय व्यावसायिक टैक्सियों के जुड़ने के साथ सेवा क्षेत्र बढ़ेगा।",
+    coverage: ["कांगड़ा", "पालमपुर", "धर्मशाला", "हमीरपुर", "मंडी", "शिमला", "कुल्लू", "चंबा"],
+    coverageAria: "हिमाचल सेवा क्षेत्र",
+    businessEyebrow: "व्यवसाय के लिए HIMRIDEG",
+    businessTitle: "व्यवसाय और यात्रा साझेदारों के लिए भरोसेमंद यात्रा व्यवस्था",
+    businessText: "व्यावसायिक यात्रा के लिए व्यवस्थित यात्रा रिकॉर्ड और सत्यापित चालक प्रक्रिया का उपयोग करें। नेटवर्क बढ़ने के साथ विशेष व्यावसायिक सुविधाएँ भी बढ़ाई जा सकती हैं।",
+    businessButton: "व्यवसाय सेवा देखें",
+    businessStats: ["सत्यापित व्यावसायिक चालक", "साझा यात्रा रिकॉर्ड", "स्थानीय और बाहरी शहर की यात्रा"],
+    appEyebrow: "HIMRIDEG ऐप",
+    appTitle: "HimRideG को अपने साथ रखें",
+    appText: "वेब और मोबाइल पर एक ही खाते और साझा यात्रा जानकारी का उपयोग करें। सार्वजनिक ऐप प्रकाशित होते ही डाउनलोड लिंक यहाँ दिखाई देंगे।",
+    android: "Android ऐप",
+    ios: "iPhone ऐप",
+    available: "डाउनलोड खोलें",
+    soon: "सार्वजनिक डाउनलोड जल्द उपलब्ध होगा"
   }
 };
-
-const DESTINATIONS = [
-  ["Palampur", "Tea gardens • Kangra Valley"],
-  ["Dharamshala", "City • McLeod Ganj access"],
-  ["Bir Billing", "Paragliding • Mountain travel"],
-  ["Manali", "Valley • Snow routes"],
-  ["Shimla", "Capital • Hill travel"],
-  ["Dalhousie", "Chamba hills • Scenic routes"]
-];
-
-const COVERAGE = ["Kangra", "Palampur", "Dharamshala", "Hamirpur", "Mandi", "Shimla", "Kullu", "Chamba"];
 
 function StoreCard({ icon, title, url, t }) {
   const available = Boolean(String(url || "").trim());
@@ -166,7 +177,7 @@ function HomeGrowthSections({
       <section className="homeGrowthSection homeDriverSection" aria-labelledby="home-driver-title">
         <div className="homeDriverVisual" aria-hidden="true">
           <span>🚕</span>
-          <b>HimRideG Driver</b>
+          <b>HimRideG</b>
         </div>
         <div className="homeDriverCopy">
           <span className="homeGrowthEyebrow">{t.driverEyebrow}</span>
@@ -190,7 +201,7 @@ function HomeGrowthSections({
           <p>{t.exploreText}</p>
         </div>
         <div className="homeDestinationGrid">
-          {DESTINATIONS.map(([name, subtitle]) => (
+          {t.destinations.map(([name, subtitle]) => (
             <button type="button" className="homeDestinationCard" key={name} onClick={onBookRide}>
               <span className="homeDestinationPin" aria-hidden="true">⌖</span>
               <strong>{name}</strong>
@@ -207,8 +218,8 @@ function HomeGrowthSections({
           <h2 id="home-coverage-title">{t.coverageTitle}</h2>
           <p>{t.coverageText}</p>
         </div>
-        <div className="homeCoverageChips" aria-label="Himachal coverage regions">
-          {COVERAGE.map((place) => <span key={place}>✓ {place}</span>)}
+        <div className="homeCoverageChips" aria-label={t.coverageAria}>
+          {t.coverage.map((place) => <span key={place}>✓ {place}</span>)}
         </div>
       </section>
 
@@ -220,9 +231,9 @@ function HomeGrowthSections({
           <a className="homePrimaryButton asLink" href="/business/">{t.businessButton} →</a>
         </div>
         <div className="homeBusinessStats" aria-hidden="true">
-          <span><b>01</b> Verified commercial drivers</span>
-          <span><b>02</b> Shared Ride records</span>
-          <span><b>03</b> Local + outstation travel</span>
+          {t.businessStats.map((label, index) => (
+            <span key={label}><b>0{index + 1}</b> {label}</span>
+          ))}
         </div>
       </section>
 
