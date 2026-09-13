@@ -26,34 +26,46 @@ const COPY = {
     termsText: "HimRideG connects eligible commercial taxi drivers and customers. Fare is locked after driver-customer negotiation and customer acceptance.",
     termsLink: "Read Terms of Use",
     socialTitle: "Connect with HimRideG",
-    socialSoon: "Official social handles will appear here after publishing."
+    socialSoon: "Official social handles will appear here after publishing.",
+    rights: "All rights reserved.",
+    bottomPrivacy: "Privacy",
+    bottomTerms: "Terms",
+    bottomRefund: "Refunds",
+    bottomAccessibility: "Accessibility",
+    bottomContact: "Contact"
   },
   hi: {
-    tagline: "Himachal के लिए safe, trusted और affordable local taxi booking platform.",
-    company: "Company",
-    home: "होम",
+    tagline: "हिमाचल के लिए सुरक्षित, भरोसेमंद और किफायती स्थानीय टैक्सी बुकिंग मंच।",
+    company: "कंपनी",
+    home: "मुखपृष्ठ",
     about: "हमारे बारे में",
-    business: "Business",
-    driver: "Driver Login",
-    support: "Support",
-    help: "Help Center",
-    safety: "Safety",
-    contact: "Contact",
-    refund: "Cancellation & Refund",
-    accessibility: "Accessibility",
-    services: "Services",
-    local: "Local Rides",
-    outstation: "Outstation Taxi",
-    airport: "Airport Transfer",
-    tours: "Tour Packages",
-    privacyTitle: "Privacy",
-    privacyText: "HimRideG service operation, safety और legal compliance के लिए account, booking, location, driver verification और payment-related data process करता है। Sensitive payout data server पर protected रहता है।",
-    privacyLink: "Privacy Policy पढ़ें",
-    termsTitle: "Terms",
-    termsText: "HimRideG eligible commercial taxi drivers और customers को connect करता है। Driver-customer negotiation और customer acceptance के बाद fare lock होता है।",
-    termsLink: "Terms of Use पढ़ें",
+    business: "व्यवसाय",
+    driver: "चालक लॉगिन",
+    support: "सहायता",
+    help: "सहायता केंद्र",
+    safety: "सुरक्षा",
+    contact: "संपर्क",
+    refund: "रद्दीकरण और धनवापसी",
+    accessibility: "सुलभता",
+    services: "सेवाएँ",
+    local: "स्थानीय यात्राएँ",
+    outstation: "बाहरी शहर की टैक्सी",
+    airport: "हवाई अड्डा यात्रा",
+    tours: "यात्रा पैकेज",
+    privacyTitle: "गोपनीयता",
+    privacyText: "HimRideG सेवा संचालन, सुरक्षा और कानूनी अनुपालन के लिए खाते, बुकिंग, स्थान, चालक सत्यापन और भुगतान से जुड़ी जानकारी का उपयोग करता है। संवेदनशील भुगतान जानकारी सर्वर पर सुरक्षित रखी जाती है।",
+    privacyLink: "गोपनीयता नीति पढ़ें",
+    termsTitle: "उपयोग के नियम",
+    termsText: "HimRideG पात्र व्यावसायिक टैक्सी चालकों और ग्राहकों को जोड़ता है। चालक और ग्राहक के बीच सहमति तथा ग्राहक की स्वीकृति के बाद किराया तय होता है।",
+    termsLink: "उपयोग के नियम पढ़ें",
     socialTitle: "HimRideG से जुड़ें",
-    socialSoon: "Official social handles publish होने के बाद यहाँ दिखेंगे।"
+    socialSoon: "आधिकारिक सामाजिक माध्यम प्रकाशित होने के बाद यहाँ दिखाई देंगे।",
+    rights: "सर्वाधिकार सुरक्षित।",
+    bottomPrivacy: "गोपनीयता",
+    bottomTerms: "नियम",
+    bottomRefund: "धनवापसी",
+    bottomAccessibility: "सुलभता",
+    bottomContact: "संपर्क"
   }
 };
 
@@ -135,14 +147,14 @@ function Footer({ language = "en" }) {
       </div>
 
       <div className="footerBottom">
-        <p>© {new Date().getFullYear()} HimRideG. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} HimRideG. {t.rights}</p>
 
         <div>
-          <a href="/privacy/">Privacy</a>
-          <a href="/terms/">Terms</a>
-          <a href="/refund-cancellation/">Refunds</a>
-          <a href="/accessibility/">Accessibility</a>
-          <a href="/contact/">Contact</a>
+          <a href="/privacy/">{t.bottomPrivacy}</a>
+          <a href="/terms/">{t.bottomTerms}</a>
+          <a href="/refund-cancellation/">{t.bottomRefund}</a>
+          <a href="/accessibility/">{t.bottomAccessibility}</a>
+          <a href="/contact/">{t.bottomContact}</a>
         </div>
       </div>
     </footer>
