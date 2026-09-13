@@ -6,6 +6,7 @@ import PublicInfoPage, {
   isPublicInfoPath
 } from "./pages/PublicInfoPage";
 import "./styles.css";
+import "./pages/PublicInfoPageLanguage.css";
 
 /*
 |--------------------------------------------------------------------------
