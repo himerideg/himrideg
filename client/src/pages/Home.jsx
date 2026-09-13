@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import Features from "../components/Features";
@@ -30,6 +30,11 @@ function Home({
 }) {
   const [bookRideOpen, setBookRideOpen] = useState(false);
   const [language, setLanguage] = useState(getSavedHomeLanguage);
+
+  useEffect(() => {
+    document.documentElement.lang = language === "hi" ? "hi" : "en";
+    localStorage.setItem("himrideg_home_language", language);
+  }, [language]);
 
   /*
   |--------------------------------------------------------------------------
@@ -100,12 +105,7 @@ function Home({
   };
 
   const toggleLanguage = () => {
-    setLanguage((current) => {
-      const next = current === "en" ? "hi" : "en";
-      localStorage.setItem("himrideg_home_language", next);
-      document.documentElement.lang = next === "hi" ? "hi" : "en";
-      return next;
-    });
+    setLanguage((current) => current === "en" ? "hi" : "en");
   };
 
   const openScheduledRide = () => {
@@ -137,6 +137,7 @@ function Home({
       <HomeBookRide
         onBack={() => setBookRideOpen(false)}
         onContinue={openCustomerLogin}
+        language={language}
       />
     );
   }
