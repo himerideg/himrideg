@@ -36,19 +36,23 @@ const COPY = {
     pickupRequired: "Select a pickup from suggestions",
     dropRequired: "Select a destination from suggestions",
     gps: "Finding your location…",
-    gpsFail: "Location could not be detected"
+    gpsFail: "Location could not be detected",
+    gpsReady: "GPS accuracy",
+    aria: "Quick ride booking"
   },
   hi: {
-    pickup: "Pickup location",
+    pickup: "यात्रा शुरू करने का स्थान",
     drop: "कहाँ जाना है?",
-    myLocation: "मेरी location इस्तेमाल करें",
-    searching: "खोज रहे हैं…",
-    submit: "Booking आगे बढ़ाएँ",
-    full: "पूरी booking खोलें",
-    pickupRequired: "Suggestions से pickup चुनें",
-    dropRequired: "Suggestions से destination चुनें",
-    gps: "आपकी location मिल रही है…",
-    gpsFail: "Location detect नहीं हो सकी"
+    myLocation: "मेरी वर्तमान जगह लें",
+    searching: "खोज जारी है…",
+    submit: "बुकिंग आगे बढ़ाएँ",
+    full: "पूरी बुकिंग खोलें",
+    pickupRequired: "सुझावों में से यात्रा शुरू करने का स्थान चुनें",
+    dropRequired: "सुझावों में से गंतव्य चुनें",
+    gps: "आपकी वर्तमान जगह खोजी जा रही है…",
+    gpsFail: "आपकी वर्तमान जगह नहीं मिल सकी",
+    gpsReady: "GPS सटीकता",
+    aria: "त्वरित यात्रा बुकिंग"
   }
 };
 
@@ -135,13 +139,13 @@ function HomeQuickBook({ onBookRide, language = "en" }) {
         address:
           reverse?.address ||
           `${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}`,
-        shortName: reverse?.shortName || "My Location"
+        shortName: reverse?.shortName || (language === "hi" ? "मेरी वर्तमान जगह" : "My Location")
       });
       setSelected((current) => ({ ...current, pickup }));
       setText((current) => ({ ...current, pickup: pickup.address }));
       setFocus("");
       setSuggestions([]);
-      setMessage(`GPS ±${Math.round(point.accuracy || 0)}m`);
+      setMessage(`${t.gpsReady} ±${Math.round(point.accuracy || 0)}m`);
     } catch (error) {
       setMessage(error?.message || t.gpsFail);
     } finally {
@@ -207,7 +211,7 @@ function HomeQuickBook({ onBookRide, language = "en" }) {
   };
 
   return (
-    <div className="homeQuickBook" aria-label="Quick ride booking">
+    <div className="homeQuickBook" aria-label={t.aria}>
       <div className="homeQuickFieldWrap">
         <span className="homeQuickDot pickup" aria-hidden="true" />
         <input
