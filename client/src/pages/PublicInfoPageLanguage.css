@@ -1,0 +1,25 @@
+.publicInfoLanguageButton {
+  border: 1px solid rgba(246, 190, 0, 0.36);
+  border-radius: 999px;
+  background: rgba(246, 190, 0, 0.08);
+  color: #f6be00;
+  padding: 9px 13px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.publicInfoLanguageButton:hover,
+.publicInfoLanguageButton:focus-visible {
+  border-color: #f6be00;
+  background: rgba(246, 190, 0, 0.15);
+  outline: none;
+}
+
+@media (max-width: 700px) {
+  .publicInfoLanguageButton {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
