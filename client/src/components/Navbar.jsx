@@ -13,21 +13,35 @@ const COPY = {
     login: "Login",
     signup: "Sign Up",
     more: "More",
-    language: "हिंदी"
+    language: "हिंदी",
+    driverTitle: "Driver Login",
+    driverAria: "Open Driver Login",
+    adminTitle: "Admin Login",
+    adminAria: "Open Admin Login",
+    languageAria: "Switch to Hindi",
+    navAria: "Mobile HimRideG navigation",
+    moreAria: "Open more navigation options"
   },
   hi: {
-    home: "होम",
-    services: "Services",
-    book: "Ride Book करें",
-    driver: "Driver Login",
+    home: "मुखपृष्ठ",
+    services: "सेवाएँ",
+    book: "यात्रा बुक करें",
+    driver: "चालक लॉगिन",
     about: "हमारे बारे में",
-    business: "Business",
-    help: "मदद",
-    admin: "Admin",
-    login: "Login",
-    signup: "Sign Up",
-    more: "More",
-    language: "English"
+    business: "व्यवसाय",
+    help: "सहायता",
+    admin: "प्रशासन",
+    login: "लॉगिन",
+    signup: "खाता बनाएँ",
+    more: "अधिक",
+    language: "English",
+    driverTitle: "चालक लॉगिन",
+    driverAria: "चालक लॉगिन खोलें",
+    adminTitle: "प्रशासन लॉगिन",
+    adminAria: "प्रशासन लॉगिन खोलें",
+    languageAria: "अंग्रेज़ी में बदलें",
+    navAria: "मोबाइल HimRideG नेविगेशन",
+    moreAria: "अधिक विकल्प खोलें"
   }
 };
 
@@ -73,8 +87,8 @@ function Navbar({
         <button
           type="button"
           onClick={onDriverLogin}
-          title="Driver Login"
-          aria-label="Open Driver Login"
+          title={t.driverTitle}
+          aria-label={t.driverAria}
         >
           🚕 {t.driver}
         </button>
@@ -95,7 +109,8 @@ function Navbar({
             fontWeight: "600",
             fontSize: "13px"
           }}
-          title="Admin Login"
+          title={t.adminTitle}
+          aria-label={t.adminAria}
         >
           🔐 {t.admin}
         </button>
@@ -108,8 +123,8 @@ function Navbar({
           type="button"
           className="homeLanguageButton"
           onClick={onLanguageToggle}
-          aria-label="Switch home page language"
-          title="Switch language"
+          aria-label={t.languageAria}
+          title={t.languageAria}
         >
           🌐 {t.language}
         </button>
@@ -123,7 +138,7 @@ function Navbar({
         </button>
       </div>
 
-      <nav className="mobileNavLinks" aria-label="Mobile HimRideG navigation">
+      <nav className="mobileNavLinks" aria-label={t.navAria}>
         <a href="#home" className="mobileNavDirectItem">
           {t.home}
         </a>
@@ -140,15 +155,15 @@ function Navbar({
           type="button"
           className="mobileNavDirectItem mobileDriverNavItem"
           onClick={onDriverLogin}
-          title="Driver Login"
-          aria-label="Open Driver Login"
+          title={t.driverTitle}
+          aria-label={t.driverAria}
         >
           <span aria-hidden="true">🚕</span>
           <span>{t.driver}</span>
         </button>
 
         <details className="mobileMoreMenu">
-          <summary aria-label="Open more navigation options">
+          <summary aria-label={t.moreAria}>
             {t.more}
             <span className="mobileMoreChevron" aria-hidden="true">▾</span>
           </summary>
@@ -161,8 +176,8 @@ function Navbar({
             <button
               type="button"
               onClick={onLanguageToggle}
-              title="Switch language"
-              aria-label="Switch home page language"
+              title={t.languageAria}
+              aria-label={t.languageAria}
             >
               <span aria-hidden="true">🌐</span>
               <span>{t.language}</span>
@@ -171,11 +186,11 @@ function Navbar({
             <button
               type="button"
               onClick={onAdminLogin}
-              title="Admin Login"
-              aria-label="Open Admin Login"
+              title={t.adminTitle}
+              aria-label={t.adminAria}
             >
               <span aria-hidden="true">🔐</span>
-              <span>{t.admin} Login</span>
+              <span>{t.adminTitle}</span>
             </button>
 
             <a href="#help">{t.help}</a>
