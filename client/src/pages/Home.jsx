@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import Features from "../components/Features";
+import HomeGrowthSections from "../components/HomeGrowthSections";
 import Footer from "../components/Footer";
 // Phase 4: HomeBookRide is lazy-loaded below so Leaflet is not in first paint.
 
@@ -16,6 +17,11 @@ const HomeBookRide = React.lazy(
   () => import("../components/HomeBookRide")
 );
 
+function getSavedHomeLanguage() {
+  const saved = String(localStorage.getItem("himrideg_home_language") || "en");
+  return saved === "hi" ? "hi" : "en";
+}
+
 function Home({
   onLogin,
   onRegister,
@@ -23,6 +29,7 @@ function Home({
   onAdminLogin
 }) {
   const [bookRideOpen, setBookRideOpen] = useState(false);
+  const [language, setLanguage] = useState(getSavedHomeLanguage);
 
   /*
   |--------------------------------------------------------------------------
@@ -92,6 +99,34 @@ function Home({
     onLogin?.();
   };
 
+  const toggleLanguage = () => {
+    setLanguage((current) => {
+      const next = current === "en" ? "hi" : "en";
+      localStorage.setItem("himrideg_home_language", next);
+      document.documentElement.lang = next === "hi" ? "hi" : "en";
+      return next;
+    });
+  };
+
+  const openScheduledRide = () => {
+    let existing = {};
+    try {
+      existing = JSON.parse(localStorage.getItem("himrideg_pending_booking") || "{}") || {};
+    } catch {
+      existing = {};
+    }
+
+    localStorage.setItem(
+      "himrideg_pending_booking",
+      JSON.stringify({
+        ...existing,
+        bookingMode: "scheduled"
+      })
+    );
+
+    setBookRideOpen(true);
+  };
+
   /*
   |--------------------------------------------------------------------------
   | Home Booking Screen
@@ -114,16 +149,28 @@ function Home({
         onBookRide={() => setBookRideOpen(true)}
         onDriverLogin={openDriverLogin}
         onAdminLogin={openAdminLogin}
+        language={language}
+        onLanguageToggle={toggleLanguage}
       />
 
       <main>
         <Hero
           onBookRide={() => setBookRideOpen(true)}
+          language={language}
         />
-        <Features />
+
+        <HomeGrowthSections
+          language={language}
+          onBookRide={() => setBookRideOpen(true)}
+          onScheduledRide={openScheduledRide}
+          onRecentRide={openCustomerLogin}
+          onDriverLogin={openDriverLogin}
+        />
+
+        <Features language={language} />
       </main>
 
-      <Footer />
+      <Footer language={language} />
     </div>
   );
 }
