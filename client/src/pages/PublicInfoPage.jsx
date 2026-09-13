@@ -162,6 +162,39 @@ const PAGE_CONTENT = {
     ]
   },
 
+  "/accessibility": {
+    title: "Accessibility",
+    description:
+      "How HimRideG is working to keep its web and mobile experience usable for more people.",
+    sections: [
+      {
+        heading: "Accessible interaction",
+        body: [
+          "HimRideG aims to keep important booking, account, Ride, payment and support actions usable with clear labels, readable contrast, keyboard-friendly controls where practical and meaningful focus states.",
+          "Important controls should not rely only on colour. Text labels and status messages are used alongside visual indicators wherever the product flow allows."
+        ]
+      },
+      {
+        heading: "Text and language",
+        body: [
+          "The public home experience supports English and Hindi content. Device and browser text-size or zoom controls can be used to enlarge the interface, and responsive layouts are designed to adapt across mobile and desktop screens."
+        ]
+      },
+      {
+        heading: "Location and maps",
+        body: [
+          "Map features are supported by text pickup/drop fields and status messages so essential booking information is not available only through map visuals. Location permission remains under the user's device or browser control."
+        ]
+      },
+      {
+        heading: "Need assistance?",
+        body: [
+          "If an accessibility issue prevents you from using an important HimRideG feature, contact HimRideG support and describe the screen, device and action that is difficult to use so the issue can be reviewed."
+        ]
+      }
+    ]
+  },
+
   "/help": {
     title: "Help Center",
     description:
@@ -295,6 +328,7 @@ function PublicInfoPage() {
 
         <nav className="publicInfoNav" aria-label="Public information">
           <a href="/safety/">Safety</a>
+          <a href="/accessibility/">Accessibility</a>
           <a href="/help/">Help</a>
           <a href="/contact/">Contact</a>
           <a className="publicInfoHomeLink" href="/">Book Ride</a>
@@ -330,6 +364,7 @@ function PublicInfoPage() {
           <a href="/privacy/">Privacy</a>
           <a href="/terms/">Terms</a>
           <a href="/refund-cancellation/">Cancellation & Refund</a>
+          <a href="/accessibility/">Accessibility</a>
           <a href="/contact/">Contact</a>
         </div>
 
