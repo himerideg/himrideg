@@ -25,25 +25,25 @@ const CONTENT = {
   },
   hi: {
     features: [
-      { icon: "🛡️", title: "Safe Rides", text: "हर Ride verified driver के साथ होती है। Approval से पहले vehicle documents, licence और permit check किए जाते हैं।" },
-      { icon: "💰", title: "Affordable Fare", text: "Hidden charges के बिना transparent pricing। Local rates के लिए customer और driver fare पर सहमति करते हैं।" },
-      { icon: "📍", title: "Live Tracking", text: "Journey के दौरान driver की live location और Ride status real time में देखें।" },
-      { icon: "📞", title: "24×7 Support", text: "Booking, driver और payment से जुड़े सवालों के लिए support उपलब्ध है।" }
+      { icon: "🛡️", title: "सुरक्षित यात्राएँ", text: "हर यात्रा सत्यापित चालक के साथ होती है। स्वीकृति से पहले वाहन के दस्तावेज़, ड्राइविंग लाइसेंस और परमिट की जाँच की जाती है। आपकी सुरक्षा हमारी प्राथमिकता है।" },
+      { icon: "💰", title: "उचित किराया", text: "बिना छिपे शुल्क के स्पष्ट मूल्य व्यवस्था। स्थानीय परिस्थितियों के अनुसार ग्राहक और चालक आपसी सहमति से किराया तय करते हैं।" },
+      { icon: "📍", title: "सीधी स्थान निगरानी", text: "यात्रा के दौरान चालक की वर्तमान जगह और यात्रा की स्थिति को वास्तविक समय में देखें।" },
+      { icon: "📞", title: "24×7 सहायता", text: "बुकिंग, चालक या भुगतान से जुड़े प्रश्नों के लिए सहायता उपलब्ध है। जरूरत पड़ने पर हम आपकी मदद के लिए मौजूद हैं।" }
     ],
     aboutItems: [
-      { id: "what", title: "HimRideG क्या है?", content: "HimRideG Himachal Pradesh के लिए बनाया गया local ride-hailing platform है, जो passengers को verified local taxi drivers से जोड़ता है।" },
-      { id: "vehicles", title: "कौन से vehicles allowed हैं?", content: "HimRideG पर verified commercial/taxi vehicles with yellow number plates allowed हैं। Onboarding में Vehicle RC, Commercial Permit और Vehicle Photo check होते हैं।" },
-      { id: "drivers", title: "Drivers verify कैसे होते हैं?", content: "Driver से identity proof, Driving Licence, Vehicle RC, Commercial Permit और Vehicle Photo लिया जाता है। Online होने से पहले admin review और approval होता है।" },
-      { id: "safety", title: "HimRideG safety कैसे रखता है?", content: "Verified driver identity, verified vehicle details, live GPS tracking, OTP-verified Ride start और Ride history safety flow का हिस्सा हैं।" },
-      { id: "local", title: "Local drivers क्यों?", content: "HimRideG Himachal के local drivers को passengers से जोड़ता है। Local drivers routes, terrain और conditions को बेहतर जानते हैं।" },
-      { id: "vision", title: "हमारी Vision", content: "Himachal Pradesh के districts और remote areas में safe, dependable और trusted taxi network बनाना।" }
+      { id: "what", title: "HimRideG क्या है?", content: "HimRideG हिमाचल प्रदेश के लिए बनाया गया स्थानीय टैक्सी मंच है। यह यात्रियों को सत्यापित स्थानीय टैक्सी चालकों से जोड़ता है ताकि हिमाचल में सुरक्षित और भरोसेमंद यात्रा मिल सके।" },
+      { id: "vehicles", title: "कौन से वाहन मान्य हैं?", content: "HimRideG पर केवल सत्यापित व्यावसायिक या टैक्सी वाहन, जिन पर पीली नंबर प्लेट हो, मान्य हैं। पंजीकरण के समय वाहन आरसी, व्यावसायिक परमिट और वाहन की तस्वीर की जाँच की जाती है। चालक को लागू परिवहन और कानूनी नियमों का पालन करना भी आवश्यक है।" },
+      { id: "drivers", title: "चालकों का सत्यापन कैसे होता है?", content: "हर चालक को आधार या पहचान प्रमाण, ड्राइविंग लाइसेंस, वाहन आरसी, व्यावसायिक परमिट और वाहन की तस्वीर देनी होती है। चालक के ऑनलाइन होने से पहले HimRideG प्रशासन इन दस्तावेज़ों की जाँच और स्वीकृति करता है।" },
+      { id: "safety", title: "HimRideG सुरक्षा कैसे सुनिश्चित करता है?", content: "हर यात्रा में सत्यापित चालक पहचान, सत्यापित वाहन विवरण, सीधी GPS निगरानी, OTP से सत्यापित यात्रा आरंभ और पूरी यात्रा का इतिहास शामिल रहता है। यात्रा शुरू होने से पहले उपलब्ध चालक और ग्राहक जानकारी की पुष्टि की जाती है।" },
+      { id: "local", title: "स्थानीय चालक क्यों?", content: "HimRideG हिमाचल के स्थानीय चालकों को यात्रियों से जोड़कर उनका समर्थन करता है। स्थानीय चालक रास्तों, पहाड़ी भूभाग और स्थानीय परिस्थितियों को बेहतर जानते हैं।" },
+      { id: "vision", title: "हमारा लक्ष्य", content: "हिमाचल प्रदेश के सभी जिलों और दूरस्थ क्षेत्रों में सुरक्षित, भरोसेमंद और विश्वसनीय टैक्सी सेवा नेटवर्क बनाना, ताकि राज्य के हर हिस्से तक स्थानीय परिवहन की पहुँच हो।" }
     ],
     aboutTag: "HIMRIDEG के बारे में",
-    aboutTitle: "अपने Ride Platform को जानें",
-    aboutText: "HimRideG के बारे में जरूरी जानकारी — देखने के लिए tap करें।",
-    whyTag: "WHY HIMRIDEG",
-    whyTitle: "Safe, Simple और Trusted Local Rides",
-    whyText: "Himachal Pradesh के local passengers और drivers के लिए बनाया गया।"
+    aboutTitle: "अपने यात्रा मंच को जानें",
+    aboutText: "HimRideG के बारे में जरूरी जानकारी देखने के लिए किसी प्रश्न पर दबाएँ।",
+    whyTag: "HIMRIDEG क्यों",
+    whyTitle: "सुरक्षित, सरल और भरोसेमंद स्थानीय यात्राएँ",
+    whyText: "हिमाचल प्रदेश के स्थानीय यात्रियों और चालकों के लिए बनाया गया।"
   }
 };
 
