@@ -1,6 +1,7 @@
 import api from "../api";
 import React, { useEffect, useState } from "react";
 import TaxiAnimation from "./TaxiAnimation";
+import HomeQuickBook from "./HomeQuickBook";
 import "../hero.css";
 
 function fmtStat(val) {
@@ -8,8 +9,44 @@ function fmtStat(val) {
   return String(val);
 }
 
-function Hero({ onBookRide }) {
+const COPY = {
+  en: {
+    tag: "AAPKI APNI RIDE",
+    title: "Travel With Us",
+    description:
+      "Verified drivers, transparent fares and live tracking for safe local and outstation taxi booking.",
+    verified: "Verified Drivers",
+    fare: "Transparent Fares",
+    tracking: "Live Ride Tracking",
+    book: "Book a Ride",
+    booking: "BOOK YOUR RIDE",
+    ready: "Ready to travel?",
+    full: "Open Book Ride",
+    riders: "Happy Riders",
+    drivers: "Verified Drivers",
+    support: "Customer Support"
+  },
+  hi: {
+    tag: "आपकी अपनी RIDE",
+    title: "हमारे साथ सफर करें",
+    description:
+      "Safe local और outstation taxi booking के लिए verified drivers, transparent fares और live tracking.",
+    verified: "Verified Drivers",
+    fare: "Transparent Fares",
+    tracking: "Live Ride Tracking",
+    book: "Ride Book करें",
+    booking: "अपनी RIDE BOOK करें",
+    ready: "सफर के लिए तैयार?",
+    full: "Full Booking खोलें",
+    riders: "Happy Riders",
+    drivers: "Verified Drivers",
+    support: "Customer Support"
+  }
+};
+
+function Hero({ onBookRide, language = "en" }) {
   const [stats, setStats] = useState({ customers: "...", drivers: "..." });
+  const t = COPY[language] || COPY.en;
 
   useEffect(() => {
     api.get("/auth/stats")
@@ -31,22 +68,19 @@ function Hero({ onBookRide }) {
 
       <div className="hrHeroContainer">
         <div className="hrHeroContent">
-          <span className="hrHeroTag">AAPKI APNI RIDE</span>
+          <span className="hrHeroTag">{t.tag}</span>
 
           <h1 className="hrHeroTitle">
             HimRideG
-            <span>Travel With Us</span>
+            <span>{t.title}</span>
           </h1>
 
-          <p className="hrHeroDescription">
-            Verified drivers, transparent fares and live
-            tracking for safe local and outstation taxi booking.
-          </p>
+          <p className="hrHeroDescription">{t.description}</p>
 
           <div className="hrHeroBenefits">
-            <span>✓ Verified Drivers</span>
-            <span>✓ Transparent Fares</span>
-            <span>✓ Live Ride Tracking</span>
+            <span>✓ {t.verified}</span>
+            <span>✓ {t.fare}</span>
+            <span>✓ {t.tracking}</span>
           </div>
 
           <div className="hrHeroActions">
@@ -55,7 +89,7 @@ function Hero({ onBookRide }) {
               className="hrPrimaryButton"
               onClick={onBookRide}
             >
-              Book a Ride
+              {t.book}
               <strong>→</strong>
             </button>
           </div>
@@ -65,8 +99,8 @@ function Hero({ onBookRide }) {
           <div className="hrBookingCard">
             <div className="hrBookingHeader">
               <div>
-                <span>BOOK YOUR RIDE</span>
-                <h2>Ready to travel?</h2>
+                <span>{t.booking}</span>
+                <h2>{t.ready}</h2>
               </div>
               <img
                 src="/himrideg-logo.webp"
@@ -75,12 +109,17 @@ function Hero({ onBookRide }) {
               />
             </div>
 
+            <HomeQuickBook
+              onBookRide={onBookRide}
+              language={language}
+            />
+
             <button
               className="hrFareButton"
               type="button"
               onClick={onBookRide}
             >
-              <span>Open Book Ride</span>
+              <span>{t.full}</span>
               <strong>→</strong>
             </button>
           </div>
@@ -92,7 +131,7 @@ function Hero({ onBookRide }) {
           <div className="hrStatIcon">👥</div>
           <div>
             <strong>{stats.customers}</strong>
-            <span>Happy Riders</span>
+            <span>{t.riders}</span>
           </div>
         </div>
 
@@ -100,7 +139,7 @@ function Hero({ onBookRide }) {
           <div className="hrStatIcon">🚖</div>
           <div>
             <strong>{stats.drivers}</strong>
-            <span>Verified Drivers</span>
+            <span>{t.drivers}</span>
           </div>
         </div>
 
@@ -108,7 +147,7 @@ function Hero({ onBookRide }) {
           <div className="hrStatIcon">🎧</div>
           <div>
             <strong>24×7</strong>
-            <span>Customer Support</span>
+            <span>{t.support}</span>
           </div>
         </div>
       </div>
