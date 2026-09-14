@@ -1,7 +1,6 @@
 import api from "../api";
 import React, { useEffect, useState } from "react";
 import TaxiAnimation from "./TaxiAnimation";
-import HomeQuickBook from "./HomeQuickBook";
 import "../hero.css";
 
 function fmtStat(val) {
@@ -21,7 +20,7 @@ const COPY = {
     book: "Book a Ride",
     booking: "BOOK YOUR RIDE",
     ready: "Ready to travel?",
-    full: "Open Full Booking",
+    full: "Open Book Ride",
     riders: "Happy Riders",
     drivers: "Verified Drivers",
     support: "Customer Support"
@@ -37,7 +36,7 @@ const COPY = {
     book: "यात्रा बुक करें",
     booking: "अपनी यात्रा बुक करें",
     ready: "सफर के लिए तैयार हैं?",
-    full: "पूरी बुकिंग खोलें",
+    full: "बुकिंग खोलें",
     riders: "संतुष्ट यात्री",
     drivers: "सत्यापित चालक",
     support: "ग्राहक सहायता"
@@ -108,11 +107,6 @@ function Hero({ onBookRide, language = "en" }) {
                 className="hrBookingLogo"
               />
             </div>
-
-            <HomeQuickBook
-              onBookRide={onBookRide}
-              language={language}
-            />
 
             <button
               className="hrFareButton"
