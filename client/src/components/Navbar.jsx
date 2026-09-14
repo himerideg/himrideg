@@ -3,43 +3,35 @@ import React from "react";
 const COPY = {
   en: {
     home: "Home",
-    services: "Services",
     book: "Book Ride",
     driver: "Driver Login",
     about: "About",
-    business: "Business",
-    help: "Help",
     admin: "Admin",
+    help: "Help",
     login: "Login",
     signup: "Sign Up",
     more: "More",
-    language: "हिंदी",
     driverTitle: "Driver Login",
     driverAria: "Open Driver Login",
     adminTitle: "Admin Login",
     adminAria: "Open Admin Login",
-    languageAria: "Switch to Hindi",
     navAria: "Mobile HimRideG navigation",
     moreAria: "Open more navigation options"
   },
   hi: {
     home: "मुखपृष्ठ",
-    services: "सेवाएँ",
     book: "यात्रा बुक करें",
     driver: "चालक लॉगिन",
     about: "हमारे बारे में",
-    business: "व्यवसाय",
-    help: "सहायता",
     admin: "प्रशासन",
+    help: "सहायता",
     login: "लॉगिन",
     signup: "खाता बनाएँ",
     more: "अधिक",
-    language: "English",
     driverTitle: "चालक लॉगिन",
     driverAria: "चालक लॉगिन खोलें",
     adminTitle: "प्रशासन लॉगिन",
     adminAria: "प्रशासन लॉगिन खोलें",
-    languageAria: "अंग्रेज़ी में बदलें",
     navAria: "मोबाइल HimRideG नेविगेशन",
     moreAria: "अधिक विकल्प खोलें"
   }
@@ -51,8 +43,7 @@ function Navbar({
   onBookRide,
   onDriverLogin,
   onAdminLogin,
-  language = "en",
-  onLanguageToggle
+  language = "en"
 }) {
   const t = COPY[language] || COPY.en;
 
@@ -78,9 +69,11 @@ function Navbar({
 
       <nav className="navLinks">
         <a href="#home">{t.home}</a>
-        <a href="#services">{t.services}</a>
 
-        <button type="button" onClick={onBookRide}>
+        <button
+          type="button"
+          onClick={onBookRide}
+        >
           {t.book}
         </button>
 
@@ -93,7 +86,6 @@ function Navbar({
           🚕 {t.driver}
         </button>
 
-        <a href="/business/">{t.business}</a>
         <a href="#about">{t.about}</a>
 
         <button
@@ -120,20 +112,18 @@ function Navbar({
 
       <div className="navActions">
         <button
+          className="loginButton"
           type="button"
-          className="homeLanguageButton"
-          onClick={onLanguageToggle}
-          aria-label={t.languageAria}
-          title={t.languageAria}
+          onClick={onLogin}
         >
-          🌐 {t.language}
-        </button>
-
-        <button className="loginButton" type="button" onClick={onLogin}>
           {t.login}
         </button>
 
-        <button className="signupButton" type="button" onClick={onRegister}>
+        <button
+          className="signupButton"
+          type="button"
+          onClick={onRegister}
+        >
           {t.signup}
         </button>
       </div>
@@ -169,19 +159,7 @@ function Navbar({
           </summary>
 
           <div className="mobileMoreDropdown">
-            <a href="#services">{t.services}</a>
-            <a href="/business/">{t.business}</a>
             <a href="#about">{t.about}</a>
-
-            <button
-              type="button"
-              onClick={onLanguageToggle}
-              title={t.languageAria}
-              aria-label={t.languageAria}
-            >
-              <span aria-hidden="true">🌐</span>
-              <span>{t.language}</span>
-            </button>
 
             <button
               type="button"
