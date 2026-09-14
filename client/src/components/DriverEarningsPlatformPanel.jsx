@@ -52,9 +52,9 @@ export default function DriverEarningsPlatformPanel({
 
           <p className="v75FeeHindiMessage">
             {fee.testMode
-              ? "Test Mode On है। नई Ride लेने पर प्लेटफॉर्म फीस का लॉक लागू नहीं होगा। टेस्ट पूरा होने पर Admin से टेस्ट मोड बंद करें।"
+              ? "Test mode is active. Platform fee blocking will not apply when accepting new rides. Once testing is complete, ask the admin to disable Test Mode."
               : fee.blocked
-                ? "नई Ride लेने के लिए पहले अपनी Outstanding Platform Fee जमा करें। बकाया फीस ₹100 या उससे ज्यादा होने पर नई Ride स्वीकार नहीं होगी।"
+                ? "Pay your outstanding platform fee before accepting a new ride. New rides are blocked when the outstanding fee reaches ₹100 or more."
                 : due > 0
                   ? "Your outstanding platform fee is below ₹100, so you can continue accepting new rides. Pay it on time to avoid interruptions."
                   : "Your platform fee is fully cleared. You can accept new rides."}
@@ -82,7 +82,7 @@ export default function DriverEarningsPlatformPanel({
           <div>
             <small>Primary Receiving Account</small>
             <strong>{primary ? (primary.type === "bank" ? primary.bankName || "Primary Bank Account" : "Primary UPI") : "No account selected"}</strong>
-            <span>{primary ? (primary.type === "bank" ? `${primary.maskedAccount || "Account"} • ${primary.ifsc || "IFSC"}` : primary.maskedUpi || primary.upiId || "Saved UPI") : "App/Website के UPI & Bank Settings से Account Add"}</span>
+            <span>{primary ? (primary.type === "bank" ? `${primary.maskedAccount || "Account"} • ${primary.ifsc || "IFSC"}` : primary.maskedUpi || primary.upiId || "Saved UPI") : "Add an account from the App/Website UPI & Bank Settings"}</span>
           </div>
           <button type="button" className="v75ManageLink" onClick={onOpenPaymentSettings}>{primary ? "Manage" : "Add"}</button>
         </div>
