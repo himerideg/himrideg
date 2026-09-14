@@ -16,14 +16,11 @@ const original = source;
 |--------------------------------------------------------------------------
 | V84 — Complete dashboard Hindi coverage, LAYOUT SAFE
 |--------------------------------------------------------------------------
-| This patch changes text translation only. It does NOT change Customer,
-| Driver or Admin dashboard JSX structure, CSS, dimensions, cards, maps,
-| buttons, ride flow, payment flow, wallet, platform fee or socket logic.
+| Text translation only. No Customer/Driver/Admin JSX layout, CSS, map,
+| ride, payment, wallet, platform-fee or socket behavior is changed here.
 |--------------------------------------------------------------------------
 */
 
-// Defensive fix in case an earlier build did not apply V83 for authenticated
-// dashboards which also render on pathname "/".
 source = source.replace(
   '  return path === "/" || publicPaths.has(path);',
   '  return publicPaths.has(path);'
@@ -31,38 +28,203 @@ source = source.replace(
 
 if (!source.includes("V84_COMPLETE_DASHBOARD_TRANSLATIONS")) {
   const anchor = '  { en: "Admin Dashboard", hi: "प्रशासक डैशबोर्ड" },\n';
-
   if (!source.includes(anchor)) {
     console.error("HimRideG V84 dictionary anchor missing");
     process.exit(1);
   }
 
-  const additions = `  // V84_COMPLETE_DASHBOARD_TRANSLATIONS\n  { en: "HIMACHAL KI APNI RIDE", hi: "हिमाचल की अपनी यात्रा" },\n  { en: "HimRideG Driver", hi: "HimRideG चालक" },\n  { en: "HimRideG Customer", hi: "HimRideG ग्राहक" },\n  { en: "HimRideG Admin", hi: "HimRideG प्रशासन" },\n  { en: "Admin Panel", hi: "प्रशासन पैनल" },\n  { en: "Admin Portal", hi: "प्रशासन पोर्टल" },\n  { en: "Overview", hi: "सारांश" },\n  { en: "Requests", hi: "अनुरोध" },\n  { en: "Request", hi: "अनुरोध" },\n  { en: "New Requests", hi: "नए अनुरोध" },\n  { en: "Driver Rides", hi: "चालक यात्राएँ" },\n  { en: "Scheduled", hi: "निर्धारित" },\n  { en: "Active", hi: "सक्रिय" },\n  { en: "Waiting Payment", hi: "भुगतान की प्रतीक्षा" },\n  { en: "Completed", hi: "पूर्ण" },\n  { en: "Cancelled", hi: "रद्द" },\n  { en: "Accepted", hi: "स्वीकृत" },\n  { en: "Started", hi: "शुरू" },\n  { en: "My QR", hi: "मेरा क्यूआर" },\n  { en: "My Profile", hi: "मेरी प्रोफ़ाइल" },\n  { en: "Driver Profile", hi: "चालक प्रोफ़ाइल" },\n  { en: "Customer Profile", hi: "ग्राहक प्रोफ़ाइल" },\n  { en: "Personal Details", hi: "व्यक्तिगत विवरण" },\n  { en: "Payment Settings", hi: "भुगतान सेटिंग" },\n  { en: "Save Changes", hi: "बदलाव सहेजें" },\n  { en: "Back to Dashboard", hi: "डैशबोर्ड पर वापस जाएँ" },\n  { en: "Online • Available", hi: "ऑनलाइन • उपलब्ध" },\n  { en: "Online • Busy", hi: "ऑनलाइन • व्यस्त" },\n  { en: "Ride notifications", hi: "यात्रा सूचनाएँ" },\n  { en: "Toggle online status", hi: "ऑनलाइन स्थिति बदलें" },\n  { en: "Is section me koi ride nahi hai", hi: "इस भाग में कोई यात्रा नहीं है" },\n  { en: "No ride requests", hi: "कोई यात्रा अनुरोध नहीं है" },\n  { en: "No new requests", hi: "कोई नया अनुरोध नहीं है" },\n  { en: "No active ride", hi: "कोई सक्रिय यात्रा नहीं है" },\n  { en: "No completed rides", hi: "कोई पूर्ण यात्रा नहीं है" },\n  { en: "No scheduled rides", hi: "कोई निर्धारित यात्रा नहीं है" },\n  { en: "No payment pending rides", hi: "भुगतान लंबित कोई यात्रा नहीं है" },\n  { en: "Current Ride", hi: "वर्तमान यात्रा" },\n  { en: "Incoming Requests", hi: "आने वाले अनुरोध" },\n  { en: "Request Details", hi: "अनुरोध विवरण" },\n  { en: "Customer Name", hi: "ग्राहक का नाम" },\n  { en: "Requested Vehicle", hi: "माँगा गया वाहन" },\n  { en: "Requested Vehicle Type", hi: "माँगा गया वाहन प्रकार" },\n  { en: "Vehicle", hi: "वाहन" },\n  { en: "Location", hi: "स्थान" },\n  { en: "My Location", hi: "मेरी जगह" },\n  { en: "Open Map", hi: "नक्शा खोलें" },\n  { en: "View Route", hi: "मार्ग देखें" },\n  { en: "Start Navigation", hi: "नेविगेशन शुरू करें" },\n  { en: "Customer Contact", hi: "ग्राहक संपर्क" },\n  { en: "Driver Contact", hi: "चालक संपर्क" },\n  { en: "Phone", hi: "फ़ोन" },\n  { en: "Call", hi: "कॉल करें" },\n  { en: "Message", hi: "संदेश" },\n  { en: "Open", hi: "खोलें" },\n  { en: "View", hi: "देखें" },\n  { en: "Book New Ride", hi: "नई यात्रा बुक करें" },\n  { en: "BOOK A RIDE", hi: "यात्रा बुक करें" },\n  { en: "Travel With Us", hi: "हमारे साथ यात्रा करें" },\n  { en: "Recent Activity", hi: "हाल की गतिविधि" },\n  { en: "My Account", hi: "मेरा खाता" },\n  { en: "Account Details", hi: "खाता विवरण" },\n  { en: "Passenger", hi: "यात्री" },\n  { en: "Passengers", hi: "यात्री" },\n  { en: "Schedule", hi: "समय निर्धारित करें" },\n  { en: "Schedule Ride", hi: "यात्रा निर्धारित करें" },\n  { en: "Scheduled Ride", hi: "निर्धारित यात्रा" },\n  { en: "Payment Option", hi: "भुगतान विकल्प" },\n  { en: "Driver Details", hi: "चालक विवरण" },\n  { en: "Ride Details", hi: "यात्रा विवरण" },\n  { en: "Booking Details", hi: "बुकिंग विवरण" },\n  { en: "Booking ID", hi: "बुकिंग आईडी" },\n  { en: "Ride ID", hi: "यात्रा आईडी" },\n  { en: "Created At", hi: "बनाने का समय" },\n  { en: "Travel Date", hi: "यात्रा तारीख" },\n  { en: "Pickup Time", hi: "पिकअप समय" },\n  { en: "Drop Time", hi: "गंतव्य समय" },\n  { en: "Search Driver", hi: "चालक खोजें" },\n  { en: "Searching for driver", hi: "चालक खोजा जा रहा है" },\n  { en: "Waiting for driver", hi: "चालक की प्रतीक्षा है" },\n  { en: "Driver is arriving", hi: "चालक पिकअप की ओर आ रहा है" },\n  { en: "Driver has arrived", hi: "चालक पहुँच गया है" },\n  { en: "Driver Applications", hi: "चालक आवेदन" },\n  { en: "Waiting Approval", hi: "स्वीकृति की प्रतीक्षा" },\n  { en: "Driver Documents", hi: "चालक दस्तावेज़" },\n  { en: "Document Verification", hi: "दस्तावेज़ सत्यापन" },\n  { en: "Approve Application", hi: "आवेदन स्वीकृत करें" },\n  { en: "Reject Application", hi: "आवेदन अस्वीकार करें" },\n  { en: "Send Warning", hi: "चेतावनी भेजें" },\n  { en: "Warnings", hi: "चेतावनियाँ" },\n  { en: "Blocked Drivers", hi: "अवरुद्ध चालक" },\n  { en: "Waiting Drivers", hi: "प्रतीक्षारत चालक" },\n  { en: "All Drivers", hi: "सभी चालक" },\n  { en: "All Customers", hi: "सभी ग्राहक" },\n  { en: "Bookings", hi: "बुकिंग" },\n  { en: "Withdrawals", hi: "निकासी" },\n  { en: "Withdrawal Requests", hi: "निकासी अनुरोध" },\n  { en: "Pending Withdrawals", hi: "लंबित निकासी" },\n  { en: "Paid Withdrawals", hi: "भुगतान की गई निकासी" },\n  { en: "Rejected Withdrawals", hi: "अस्वीकृत निकासी" },\n  { en: "Mark Paid", hi: "भुगतान पूर्ण चिह्नित करें" },\n  { en: "Admin Note", hi: "प्रशासनिक टिप्पणी" },\n  { en: "Payout Reference", hi: "भुगतान संदर्भ" },\n  { en: "Refresh Data", hi: "जानकारी रीफ़्रेश करें" },\n  { en: "Driver Test Mode", hi: "चालक परीक्षण मोड" },\n  { en: "Test Drivers", hi: "परीक्षण चालक" },\n  { en: "All Bookings", hi: "सभी बुकिंग" },\n  { en: "Pending Bookings", hi: "लंबित बुकिंग" },\n  { en: "Accepted Bookings", hi: "स्वीकृत बुकिंग" },\n  { en: "Started Bookings", hi: "शुरू हुई बुकिंग" },\n  { en: "Completed Bookings", hi: "पूर्ण बुकिंग" },\n  { en: "Cancelled Bookings", hi: "रद्द बुकिंग" },\n  { en: "Search by name, phone or vehicle", hi: "नाम, फ़ोन या वाहन से खोजें" },\n  { en: "No drivers found", hi: "कोई चालक नहीं मिला" },\n  { en: "No customers found", hi: "कोई ग्राहक नहीं मिला" },\n  { en: "No bookings found", hi: "कोई बुकिंग नहीं मिली" },\n  { en: "No withdrawal requests", hi: "कोई निकासी अनुरोध नहीं है" },\n`;
+  const translations = [
+    ["HIMACHAL KI APNI RIDE", "हिमाचल की अपनी यात्रा"],
+    ["HimRideG Driver", "HimRideG चालक"],
+    ["HimRideG Customer", "HimRideG ग्राहक"],
+    ["HimRideG Admin", "HimRideG प्रशासन"],
+    ["Admin Panel", "प्रशासन पैनल"],
+    ["Admin Portal", "प्रशासन पोर्टल"],
+    ["Overview", "सारांश"],
+    ["Requests", "अनुरोध"],
+    ["Request", "अनुरोध"],
+    ["New Requests", "नए अनुरोध"],
+    ["Driver Rides", "चालक यात्राएँ"],
+    ["Scheduled", "निर्धारित"],
+    ["Active", "सक्रिय"],
+    ["Waiting Payment", "भुगतान की प्रतीक्षा"],
+    ["Completed", "पूर्ण"],
+    ["Cancelled", "रद्द"],
+    ["Accepted", "स्वीकृत"],
+    ["Started", "शुरू"],
+    ["My QR", "मेरा क्यूआर"],
+    ["My Profile", "मेरी प्रोफ़ाइल"],
+    ["Driver Profile", "चालक प्रोफ़ाइल"],
+    ["Customer Profile", "ग्राहक प्रोफ़ाइल"],
+    ["Personal Details", "व्यक्तिगत विवरण"],
+    ["Payment Settings", "भुगतान सेटिंग"],
+    ["Save Changes", "बदलाव सहेजें"],
+    ["Back to Dashboard", "डैशबोर्ड पर वापस जाएँ"],
+    ["Online • Available", "ऑनलाइन • उपलब्ध"],
+    ["Online • Busy", "ऑनलाइन • व्यस्त"],
+    ["Ride notifications", "यात्रा सूचनाएँ"],
+    ["Toggle online status", "ऑनलाइन स्थिति बदलें"],
+    ["Is section me koi ride nahi hai", "इस भाग में कोई यात्रा नहीं है"],
+    ["No ride requests", "कोई यात्रा अनुरोध नहीं है"],
+    ["No new requests", "कोई नया अनुरोध नहीं है"],
+    ["No active ride", "कोई सक्रिय यात्रा नहीं है"],
+    ["No completed rides", "कोई पूर्ण यात्रा नहीं है"],
+    ["No scheduled rides", "कोई निर्धारित यात्रा नहीं है"],
+    ["No payment pending rides", "भुगतान लंबित कोई यात्रा नहीं है"],
+    ["Current Ride", "वर्तमान यात्रा"],
+    ["Incoming Requests", "आने वाले अनुरोध"],
+    ["Request Details", "अनुरोध विवरण"],
+    ["Customer Name", "ग्राहक का नाम"],
+    ["Requested Vehicle", "माँगा गया वाहन"],
+    ["Requested Vehicle Type", "माँगा गया वाहन प्रकार"],
+    ["Vehicle", "वाहन"],
+    ["Location", "स्थान"],
+    ["My Location", "मेरी जगह"],
+    ["Open Map", "नक्शा खोलें"],
+    ["View Route", "मार्ग देखें"],
+    ["Start Navigation", "नेविगेशन शुरू करें"],
+    ["Customer Contact", "ग्राहक संपर्क"],
+    ["Driver Contact", "चालक संपर्क"],
+    ["Phone", "फ़ोन"],
+    ["Call", "कॉल करें"],
+    ["Message", "संदेश"],
+    ["Open", "खोलें"],
+    ["View", "देखें"],
+    ["Book New Ride", "नई यात्रा बुक करें"],
+    ["BOOK A RIDE", "यात्रा बुक करें"],
+    ["Travel With Us", "हमारे साथ यात्रा करें"],
+    ["Recent Activity", "हाल की गतिविधि"],
+    ["My Account", "मेरा खाता"],
+    ["Account Details", "खाता विवरण"],
+    ["Passenger", "यात्री"],
+    ["Passengers", "यात्री"],
+    ["Schedule", "समय निर्धारित करें"],
+    ["Schedule Ride", "यात्रा निर्धारित करें"],
+    ["Scheduled Ride", "निर्धारित यात्रा"],
+    ["Payment Option", "भुगतान विकल्प"],
+    ["Driver Details", "चालक विवरण"],
+    ["Ride Details", "यात्रा विवरण"],
+    ["Booking Details", "बुकिंग विवरण"],
+    ["Booking ID", "बुकिंग आईडी"],
+    ["Ride ID", "यात्रा आईडी"],
+    ["Created At", "बनाने का समय"],
+    ["Travel Date", "यात्रा तारीख"],
+    ["Pickup Time", "पिकअप समय"],
+    ["Drop Time", "गंतव्य समय"],
+    ["Search Driver", "चालक खोजें"],
+    ["Searching for driver", "चालक खोजा जा रहा है"],
+    ["Waiting for driver", "चालक की प्रतीक्षा है"],
+    ["Driver is arriving", "चालक पिकअप की ओर आ रहा है"],
+    ["Driver has arrived", "चालक पहुँच गया है"],
+    ["Driver Applications", "चालक आवेदन"],
+    ["Waiting Approval", "स्वीकृति की प्रतीक्षा"],
+    ["Driver Documents", "चालक दस्तावेज़"],
+    ["Document Verification", "दस्तावेज़ सत्यापन"],
+    ["Approve Application", "आवेदन स्वीकृत करें"],
+    ["Reject Application", "आवेदन अस्वीकार करें"],
+    ["Send Warning", "चेतावनी भेजें"],
+    ["Warnings", "चेतावनियाँ"],
+    ["Blocked Drivers", "अवरुद्ध चालक"],
+    ["Waiting Drivers", "प्रतीक्षारत चालक"],
+    ["All Drivers", "सभी चालक"],
+    ["All Customers", "सभी ग्राहक"],
+    ["Bookings", "बुकिंग"],
+    ["Withdrawals", "निकासी"],
+    ["Withdrawal Requests", "निकासी अनुरोध"],
+    ["Pending Withdrawals", "लंबित निकासी"],
+    ["Paid Withdrawals", "भुगतान की गई निकासी"],
+    ["Rejected Withdrawals", "अस्वीकृत निकासी"],
+    ["Mark Paid", "भुगतान पूर्ण चिह्नित करें"],
+    ["Admin Note", "प्रशासनिक टिप्पणी"],
+    ["Payout Reference", "भुगतान संदर्भ"],
+    ["Refresh Data", "जानकारी रीफ़्रेश करें"],
+    ["Driver Test Mode", "चालक परीक्षण मोड"],
+    ["Test Drivers", "परीक्षण चालक"],
+    ["All Bookings", "सभी बुकिंग"],
+    ["Pending Bookings", "लंबित बुकिंग"],
+    ["Accepted Bookings", "स्वीकृत बुकिंग"],
+    ["Started Bookings", "शुरू हुई बुकिंग"],
+    ["Completed Bookings", "पूर्ण बुकिंग"],
+    ["Cancelled Bookings", "रद्द बुकिंग"],
+    ["Search by name, phone or vehicle", "नाम, फ़ोन या वाहन से खोजें"],
+    ["No drivers found", "कोई चालक नहीं मिला"],
+    ["No customers found", "कोई ग्राहक नहीं मिला"],
+    ["No bookings found", "कोई बुकिंग नहीं मिली"],
+    ["No withdrawal requests", "कोई निकासी अनुरोध नहीं है"]
+  ];
+
+  const additions =
+    '  // V84_COMPLETE_DASHBOARD_TRANSLATIONS\n' +
+    translations
+      .map(([en, hi]) =>
+        `  { en: ${JSON.stringify(en)}, hi: ${JSON.stringify(hi)} },`
+      )
+      .join("\n") +
+    "\n";
 
   source = source.replace(anchor, anchor + additions);
 }
 
 if (!source.includes("V84_DECORATED_TEXT_TRANSLATION")) {
-  const anchor = `  const exact = aliasMap.get(normalize(value));\n  if (exact) return language === "hi" ? exact.hi : exact.en;\n\n`;
+  const anchor =
+    '  const exact = aliasMap.get(normalize(value));\n' +
+    '  if (exact) return language === "hi" ? exact.hi : exact.en;\n\n';
 
   if (!source.includes(anchor)) {
     console.error("HimRideG V84 dynamic translation anchor missing");
     process.exit(1);
   }
 
-  const replacement = `  const exact = aliasMap.get(normalize(value));\n  if (exact) return language === "hi" ? exact.hi : exact.en;\n\n  // V84_DECORATED_TEXT_TRANSLATION\n  // Preserve arrows / emoji around a normal UI label, e.g. \"← Dashboard\"\n  // or \"💰 Wallet\", while translating only the label itself.\n  const decorated = value.match(/^([^A-Za-z0-9\\u0900-\\u097F₹]*)(.*?)([^A-Za-z0-9\\u0900-\\u097F%₹)]*)$/u);\n  if (decorated) {\n    const decoratedEntry = aliasMap.get(normalize(decorated[2]));\n    if (decoratedEntry) {\n      const translatedCore = language === "hi" ? decoratedEntry.hi : decoratedEntry.en;\n      return \\`\\${decorated[1]}\\${translatedCore}\\${decorated[3]}\\`;\n    }\n  }\n\n`;
+  const replacement = [
+    '  const exact = aliasMap.get(normalize(value));',
+    '  if (exact) return language === "hi" ? exact.hi : exact.en;',
+    '',
+    '  // V84_DECORATED_TEXT_TRANSLATION',
+    '  // Preserve arrows / emoji around a normal UI label without changing layout.',
+    '  const decorated = value.match(/^([^A-Za-z0-9\\u0900-\\u097F₹]*)(.*?)([^A-Za-z0-9\\u0900-\\u097F%₹)]*)$/u);',
+    '  if (decorated) {',
+    '    const decoratedEntry = aliasMap.get(normalize(decorated[2]));',
+    '    if (decoratedEntry) {',
+    '      const translatedCore = language === "hi" ? decoratedEntry.hi : decoratedEntry.en;',
+    '      return decorated[1] + translatedCore + decorated[3];',
+    '    }',
+    '  }',
+    ''
+  ].join("\n") + "\n";
 
   source = source.replace(anchor, replacement);
 }
 
 if (!source.includes("V84_AMOUNT_ACTION_PATTERNS")) {
-  const anchor = `  const patterns = [\n`;
+  const anchor = '  const patterns = [\n';
   if (!source.includes(anchor)) {
     console.error("HimRideG V84 patterns anchor missing");
     process.exit(1);
   }
 
-  const additions = `  // V84_AMOUNT_ACTION_PATTERNS\n    {\n      re: /^(?:✅\\s*)?Accept\\s*₹\\s*([\\d,.]+)$/i,\n      en: (m) => \\`Accept ₹\\${m[1]}\\`,\n      hi: (m) => \\`स्वीकार करें ₹\\${m[1]}\\`\n    },\n    {\n      re: /^(?:❌\\s*)?Reject$/i,\n      en: () => \"Reject\",\n      hi: () => \"अस्वीकार करें\"\n    },\n    {\n      re: /^Final Fare\\s*₹\\s*([\\d,.]+)$/i,\n      en: (m) => \\`Final Fare ₹\\${m[1]}\\`,\n      hi: (m) => \\`अंतिम किराया ₹\\${m[1]}\\`\n    },\n    {\n      re: /^Fare\\s*₹\\s*([\\d,.]+)$/i,\n      en: (m) => \\`Fare ₹\\${m[1]}\\`,\n      hi: (m) => \\`किराया ₹\\${m[1]}\\`\n    },\n`;
+  const additions = [
+    '  // V84_AMOUNT_ACTION_PATTERNS',
+    '    {',
+    '      re: /^(?:✅\\s*)?Accept\\s*₹\\s*([\\d,.]+)$/i,',
+    '      en: (m) => "Accept ₹" + m[1],',
+    '      hi: (m) => "स्वीकार करें ₹" + m[1]',
+    '    },',
+    '    {',
+    '      re: /^(?:❌\\s*)?Reject$/i,',
+    '      en: () => "Reject",',
+    '      hi: () => "अस्वीकार करें"',
+    '    },',
+    '    {',
+    '      re: /^Final Fare\\s*₹\\s*([\\d,.]+)$/i,',
+    '      en: (m) => "Final Fare ₹" + m[1],',
+    '      hi: (m) => "अंतिम किराया ₹" + m[1]',
+    '    },',
+    '    {',
+    '      re: /^Fare\\s*₹\\s*([\\d,.]+)$/i,',
+    '      en: (m) => "Fare ₹" + m[1],',
+    '      hi: (m) => "किराया ₹" + m[1]',
+    '    },'
+  ].join("\n") + "\n";
 
   source = source.replace(anchor, anchor + additions);
 }
