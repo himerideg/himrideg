@@ -48,8 +48,8 @@ patch("src/hooks/useDriverPlatformFee.js", [
 patch("src/components/DriverEarningsPlatformPanel.jsx", [
   {
     label: "driver direct payment commission description",
-    from: "Customer का Direct UPI/Cash किराया Driver को मिलेगा और HimRideG केवल 10% प्लेटफॉर्म फीस ट्रैक करेगा। RazorpayX चालू होने के बाद अपने आप भुगतान इसी चुने हुए मुख्य खाते पर जाएगा। {loading ? \"अपडेट हो रहा है…\" : \"\"}",
-    to: "Customer का Direct UPI/Cash किराया Driver को मिलेगा और HimRideG केवल {money(fee.commissionPercent || 5)}% प्लेटफॉर्म फीस ट्रैक करेगा। Driver का हिस्सा {money(fee.driverSharePercent || 95)}% रहेगा। RazorpayX चालू होने के बाद अपने आप भुगतान इसी चुने हुए मुख्य खाते पर जाएगा। {loading ? \"अपडेट हो रहा है…\" : \"\"}"
+    from: "The driver receives the customer\'s fare directly through UPI or cash, while HimRideG tracks only the 10% platform fee. Once RazorpayX is enabled, automatic payouts will be sent to this selected primary account. {loading ? \"Updating…\" : \"\"}",
+    to: "The driver receives the customer\'s fare directly through UPI or cash, while HimRideG tracks only the {money(fee.commissionPercent || 5)}% platform fee. The driver keeps {money(fee.driverSharePercent || 95)}%. Once RazorpayX is enabled, automatic payouts will be sent to this selected primary account. {loading ? \"Updating…\" : \"\"}"
   }
 ]);
 
