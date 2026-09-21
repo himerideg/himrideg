@@ -1713,7 +1713,10 @@ function CustomerDashboard({
       activeRide?.otpVerified
     );
 
+    // Manual OTP rule: customer must never generate/recover OTP merely because
+    // the driver marked arrived. Driver explicitly generates it face-to-face.
     if (
+      true ||
       !bookingId ||
       !["driver_arrived", "arrived"].includes(status) ||
       verified ||
