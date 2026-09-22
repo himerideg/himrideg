@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 Disallow: /adminlogin/
-Sitemap: https://www.himrideg.com/sitemap.xml
+Sitemap: https://himrideg.com/sitemap.xml
