@@ -97,8 +97,9 @@ router.post("/cash-confirm", confirmCashPayment);
 |--------------------------------------------------------------------------
 | Fare goes to driver's own saved UPI. Customer claim alone never marks the
 | ride paid; assigned driver must verify money in their account and confirm.
-| Financial settlement is intentionally cash-like so only 10% HimRideG fee is
-| recorded as due/paid. No bank credentials are exposed to the customer.
+| Financial settlement is intentionally cash-like so the distance-based
+| HimRideG fee is recorded as due/paid (0-15 km = 8%, above 15 km = 5%).
+| No bank credentials are exposed to the customer.
 */
 router.get("/direct-driver/history", getDirectPaymentHistory);
 router.get("/:bookingId/direct-driver", getDirectDriverPaymentDetails);
