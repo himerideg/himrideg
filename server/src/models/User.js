@@ -656,7 +656,7 @@ const driverProfileSchema =
         type: Number,
         min: 0,
         max: 100,
-        default: 10
+        default: 8
       }
     },
     {
