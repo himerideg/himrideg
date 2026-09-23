@@ -188,7 +188,7 @@ exports.claimDirectDriverPayment = async (req, res) => {
     /*
     | Compatibility: existing payment-pending/cash-confirm UI already knows how
     | to wait for driver acknowledgement. Financial settlement remains cash-like
-    | because money went directly to driver; HimRideG only records 10% fee due.
+    | because money went directly to driver; HimRideG records the distance-based fee due (0-15 km = 8%, above 15 km = 5%).
     */
     booking.paymentMethod = "cash";
     booking.paymentStatus = "pending";
