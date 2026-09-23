@@ -1497,6 +1497,20 @@ const updateCustomerProfile =
         req.body?.email
       );
 
+    const gender = String(req.body?.gender || "").trim().toLowerCase();
+    if (gender && !["male", "female", "other"].includes(gender)) {
+      throw new ApiError(400, "Gender must be male, female or other");
+    }
+
+    let dateOfBirth = null;
+    if (req.body?.dateOfBirth) {
+      const parsedDob = new Date(req.body.dateOfBirth);
+      if (Number.isNaN(parsedDob.getTime()) || parsedDob > new Date()) {
+        throw new ApiError(400, "Valid date of birth required");
+      }
+      dateOfBirth = parsedDob;
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Profile Image
@@ -1524,6 +1538,9 @@ const updateCustomerProfile =
     user.email =
       email ||
       undefined;
+
+    user.gender = gender;
+    user.dateOfBirth = dateOfBirth;
 
     user.profileImage =
       profileImage;

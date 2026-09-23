@@ -6938,13 +6938,22 @@ function DriverDashboard({
                     )}
 
                     {selectedRide.status === "driver_arrived" && (
-                      <button
-                        type="button"
-                        disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
-                        onClick={() => { setOtpRide(selectedRide); setOtp(""); }}
-                      >
-                        🔐 Enter Customer OTP
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
+                          onClick={() => regenerateRideOtp(selectedRide)}
+                        >
+                          🔐 Generate OTP (Customer Saamne Ho)
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
+                          onClick={() => { setOtpRide(selectedRide); setOtp(""); }}
+                        >
+                          ✅ Enter Customer OTP
+                        </button>
+                      </>
                     )}
 
                     {selectedRide.status === "started" && (

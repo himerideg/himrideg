@@ -45,12 +45,23 @@ function Footer() {
       <div className="footerLegalSummary">
         <section id="privacy">
           <h3>Privacy</h3>
-          <p>HimRideG account, booking, location, driver verification aur payment data ko service operate karne, safety aur legal compliance ke liye process karta hai. Payment secrets browser me store nahi kiye jaate.</p>
+          <p>HimRideG account, booking, location, driver verification aur payment data ko service, safety, fraud prevention, settlement aur legal compliance ke liye process karta hai. Payment secrets browser me store nahi kiye jaate. Access/correction/deletion/grievance ke liye <a href="mailto:himrideg@gmail.com">himrideg@gmail.com</a> par likhein.</p>
         </section>
 
         <section id="terms">
           <h3>Terms</h3>
-          <p>HimRideG verified commercial taxi drivers aur customers ko connect karta hai. Fare driver-customer negotiation ke baad customer acceptance par lock hota hai. Ride, cancellation aur payment records safety aur settlement ke liye maintain hote hain.</p>
+          <p>HimRideG ek technology platform hai jo customers ko independent licensed taxi drivers se connect karta hai; vehicle, permit, insurance, conduct aur ride execution driver ki responsibility hai. Pickup/drop, passenger count aur contact details accurate dein. Fare customer ke in-app acceptance par lock hota hai aur completed ride ka locked fare due rahega.</p>
+          <p>OTP sirf saamne driver/vehicle verify karke share karein. Illegal goods, harassment, fraud, payment bypass, false booking ya account sharing prohibited hai. Emergency me 112, complaint me ride ID/screenshots ke saath <a href="mailto:himrideg@gmail.com">himrideg@gmail.com</a>.</p>
+        </section>
+
+        <section id="cancellation-refund">
+          <h3>Cancellation & Refund</h3>
+          <p>Applicable cancellation/no-show fee booking screen par pehle dikhayi jayegi. Customer-requested cancellation ya driver pickup par pahunchne ke baad cancellation par fee lag sakti hai. Eligible online refunds original payment method par gateway/bank timeline ke anusaar process honge; mandatory consumer/statutory rights prabhavit nahi hote.</p>
+        </section>
+
+        <section id="contact">
+          <h3>Grievance contact</h3>
+          <p>HimRideG, Vill Racchiyara, PO Saperu, Teh Palampur, District Kangra, Himachal Pradesh 176061 · <a href="mailto:himrideg@gmail.com">himrideg@gmail.com</a> · Terms version: 23 September 2026.</p>
         </section>
       </div>
 
@@ -62,6 +73,8 @@ function Footer() {
         <div>
           <a href="#privacy">Privacy</a>
           <a href="#terms">Terms</a>
+          <a href="#cancellation-refund">Cancellation & Refund</a>
+          <a href="#contact">Grievance contact</a>
         </div>
       </div>
     </footer>

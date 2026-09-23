@@ -2361,9 +2361,6 @@ async function markDriverArrived({
   | This works even when customer app is background/killed; customer app is no
   | longer required to call regenerate before the OTP exists.
   */
-  const otp = generateOtp(4);
-  const otpHash = await bcrypt.hash(otp, 10);
-  const otpExpiresAt = addMinutes(new Date(), DEFAULT_OTP_EXPIRY_MINUTES);
 
   const booking =
     await Booking.findOneAndUpdate(
@@ -2394,14 +2391,7 @@ async function markDriverArrived({
           driverArrivedAt:
             new Date(),
 
-          rideStartOtp: {
-            otpHash,
-            expiresAt: otpExpiresAt,
-            attempts: 0,
-            maxAttempts: MAX_OTP_ATTEMPTS,
-            verified: false,
-            verifiedAt: null
-          }
+          rideStartOtp: null
         }
       },
 
@@ -2430,15 +2420,6 @@ async function markDriverArrived({
   /* OTP event first so a foreground customer receives the plain OTP before
      the arrived-status recovery effect gets a chance to request another one. */
   safeEmit(
-    emitRideOtpGenerated,
-    {
-      booking,
-      rideStartOtp: otp,
-      otpExpiresAt
-    }
-  );
-
-  safeEmit(
     emitDriverArrived,
     {
       booking
@@ -2455,16 +2436,14 @@ async function markDriverArrived({
   );
 
   safePush(booking.customer, {
-    title: `Driver Arrived • OTP ${otp}`,
-    body: `Ride start OTP ${otp}. Driver ko saamne milne ke baad batayein.`,
+    title: "Driver Arrived",
+    body: "Driver pickup par pahunch gaya hai. Driver aapko dekhne ke baad ride-start OTP generate karega.",
     data: {
-      type: "ride_otp",
-      soundEvent: "otp",
+      type: "driver_arrived",
+      soundEvent: "driver_arrived",
       role: "customer",
       bookingId: String(booking._id),
-      status: booking.status,
-      otp,
-      otpExpiresAt
+      status: booking.status
     }
   });
 

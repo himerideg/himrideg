@@ -135,6 +135,7 @@ function CustomerLoginPage({
   const [googleReady, setGoogleReady] = useState(false);
   const [googleError, setGoogleError] = useState("");
   const [googleArmed, setGoogleArmed] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(false);
 
   const googleButtonRef = useRef(null);
   const googleCallbackRef = useRef(null);
@@ -326,6 +327,11 @@ function CustomerLoginPage({
   const startGoogleVerification = () => {
     if (loading) return;
 
+    if (!legalAccepted) {
+      notify("Continue karne se pehle Terms, Privacy aur Cancellation rules accept karein.", "error");
+      return;
+    }
+
     const clean = cleanPhone(phone);
 
     if (!isValidPhone(clean)) {
@@ -511,10 +517,10 @@ function CustomerLoginPage({
             </button>
           </div>
 
-          <p className="customerTermsText">
-            Google login ke liye koi checkbox compulsory nahi hai. Continue
-            karne par HimRideG Terms & Privacy Policy apply hoti hai.
-          </p>
+          <label className="customerTermsText customerTermsCheck">
+            <input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} />
+            <span>मैं HimRideG <a href="#terms">Terms</a>, <a href="#privacy">Privacy</a> और <a href="#cancellation-refund">Cancellation/Refund rules</a> पढ़कर accept करता/करती हूँ.</span>
+          </label>
 
           {/*
             Customer login deliberately isolated hai. Driver aur Admin ke
