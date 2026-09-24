@@ -1945,21 +1945,6 @@ async function acceptRide({
   }
 
   try {
-    const otp =
-      generateOtp(4);
-
-    const otpHash =
-      await bcrypt.hash(
-        otp,
-        10
-      );
-
-    const otpExpiresAt =
-      addMinutes(
-        new Date(),
-        DEFAULT_OTP_EXPIRY_MINUTES
-      );
-
     booking.driver =
       driverObjectId;
 
@@ -1969,16 +1954,7 @@ async function acceptRide({
     booking.acceptedAt =
       new Date();
 
-    booking.rideStartOtp = {
-      otpHash,
-      expiresAt:
-        otpExpiresAt,
-      attempts: 0,
-      maxAttempts:
-        MAX_OTP_ATTEMPTS,
-      verified: false,
-      verifiedAt: null
-    };
+    booking.rideStartOtp = null;
 
     booking.dispatchQueue.forEach(
       (request) => {
@@ -2021,19 +1997,6 @@ async function acceptRide({
     );
 
     safeEmit(
-      emitRideOtpGenerated,
-      {
-        booking:
-          populated,
-
-        rideStartOtp:
-          otp,
-
-        otpExpiresAt
-      }
-    );
-
-    safeEmit(
       emitRideStatusUpdated,
       {
         booking:
@@ -2070,12 +2033,7 @@ async function acceptRide({
 
     return {
       booking:
-        populated,
-
-      rideStartOtp:
-        otp,
-
-      otpExpiresAt
+        populated
     };
   } catch (error) {
     await releaseDriver(
@@ -2624,7 +2582,6 @@ async function regenerateRideStartOtp({
 
   if (
     ![
-      "customer",
       "driver",
       "admin"
     ].includes(role)
@@ -2667,11 +2624,6 @@ async function regenerateRideStartOtp({
 
   if (
     ![
-      "accepted",
-      "fare_offered",
-      "negotiating",
-      "fare_accepted",
-      "driver_arriving",
       "driver_arrived"
     ].includes(
       booking.status
