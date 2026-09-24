@@ -3865,7 +3865,7 @@ function DriverDashboard({
           updatedRide || ride
         );
 
-        setOtp(String(newOtp));
+        setOtp("");
 
         showNotice(
           "success",
