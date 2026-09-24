@@ -4,6 +4,7 @@ const Booking = require("../models/Booking");
 
 const rideService = require("../services/rideService");
 const { sendPushToUser } = require("../services/pushNotificationService");
+const { commissionBreakdown } = require("../utils/commissionPolicy");
 
 /*
 |--------------------------------------------------------------------------
@@ -65,29 +66,13 @@ function isRideFinished(booking) {
   ].includes(booking.status);
 }
 
-function calculateCommission(
-  finalFare,
-  commissionPercent = 10
-) {
-  const fare = Number(finalFare);
-  const percent = Number(
-    commissionPercent
-  );
-
-  const commissionAmount =
-    Math.round(
-      fare * percent
-    ) / 100;
-
-  const driverPayable =
-    Math.round(
-      (fare - commissionAmount) *
-        100
-    ) / 100;
+function calculateCommission(finalFare, booking) {
+  const data = commissionBreakdown(finalFare, booking);
 
   return {
-    commissionAmount,
-    driverPayable
+    commissionPercent: data.commissionPercent,
+    commissionAmount: data.platformCommission,
+    driverPayable: data.driverPayable
   };
 }
 
@@ -1176,19 +1161,13 @@ exports.acceptFare = async (
       });
     }
 
-    const commissionPercent =
-      Number(
-        booking
-          .platformCommissionPercent ||
-          10
-      );
-
     const {
+      commissionPercent,
       commissionAmount,
       driverPayable
     } = calculateCommission(
       acceptedFare,
-      commissionPercent
+      booking
     );
 
     booking.finalFare =
@@ -1693,19 +1672,13 @@ exports.customerAcceptFinalFare =
             : booking.driverOfferedFare
         );
 
-      const commissionPercent =
-        Number(
-          booking
-            .platformCommissionPercent ||
-            10
-        );
-
       const {
+        commissionPercent,
         commissionAmount,
         driverPayable
       } = calculateCommission(
         acceptedFare,
-        commissionPercent
+        booking
       );
 
       booking.finalFare =

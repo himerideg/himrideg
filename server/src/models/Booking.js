@@ -972,7 +972,7 @@ const bookingSchema = new mongoose.Schema(
 
     platformCommissionPercent: {
       type: Number,
-      default: 10,
+      default: 8,
       min: 0,
       max: 100
     },

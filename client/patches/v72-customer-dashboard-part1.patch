@@ -1,0 +1,103 @@
+--- a/src/pages/CustomerDashboard.jsx
++++ b/src/pages/CustomerDashboard.jsx
+@@ -12,10 +12,12 @@
+ import CustomerBookRide from "../components/CustomerBookRide";
+ import PaymentModal from "../components/paymentmodal";
+ import ResponseTimeoutBadge from "../components/ResponseTimeoutBadge";
++import CustomerSafetyPage from "../components/CustomerSafetyPage";
+ import { playHimRideGEventSound } from "../utils/himridegSounds";
+ 
+ import "../dashboard.css";
+ import "../customer-dashboard-v2.css";
++import "../customer-mobile-app-parity.css";
+ import "../payment-modal.css";
+ import "../fare-negotiation.css";
+ 
+@@ -1280,6 +1282,15 @@
+     );
+   }
+ 
++  if (type === "safety") {
++    return (
++      <svg {...commonProps}>
++        <path d="M12 3 20 6v5c0 5.1-3.4 8.6-8 10-4.6-1.4-8-4.9-8-10V6z" />
++        <path d="m9.2 12 1.8 1.8 4-4" />
++      </svg>
++    );
++  }
++
+   if (type === "wallet") {
+     return (
+       <svg {...commonProps}>
+@@ -1297,6 +1308,7 @@
+     </svg>
+   );
+ }
++
+ 
+ function CustomerDashboard({
+   user,
+@@ -2696,7 +2708,7 @@
+   }, []);
+ 
+   const scrollToRides = (tab) => {
+-    setCustomerPage("dashboard");
++    setCustomerPage("rides");
+     setRideTab(tab);
+ 
+     window.setTimeout(() => {
+@@ -2754,7 +2766,7 @@
+      Render
+   ────────────────────────────────────────────────────────────────── */
+   return (
+-    <div className="customerV2">
++    <div className={`customerV2 customerPage-${customerPage}`}>
+       <header className="cvTopbar">
+         <button
+           className="cvBrand"
+@@ -2827,8 +2839,36 @@
+             onShowCompleted={() => scrollToRides("completed")}
+             onRefresh={loadBookings}
+           />
++        ) : customerPage === "safety" ? (
++          <CustomerSafetyPage activeRide={activeRide} onBack={openDashboardPage} />
+         ) : (
+           <>
++        <section className="cvAppMobileHome">
++          <div className="cvAppLocationRow">
++            <span>⌾</span>
++            <strong>{activeRide ? pickupOf(activeRide).split(",")[0] : "Himachal Pradesh"}</strong>
++            <button type="button" onClick={() => scrollToRides("active")}>🔔{activeRides.length > 0 ? <b>{activeRides.length > 9 ? "9+" : activeRides.length}</b> : null}</button>
++          </div>
++          <div className="cvAppBanner">
++            <div className="cvAppBannerShade" />
++            <div className="cvAppBannerCopy">
++              <small>Hello,</small>
++              <h2>{String(profile.name || "Customer").trim().split(/\s+/)[0]}</h2>
++              {activeRide ? (
++                <>
++                  <p><span>{pickupOf(activeRide)}</span><b>→</b><strong>{dropOf(activeRide)}</strong></p>
++                  <button type="button" onClick={() => document.getElementById("customer-active-ride")?.scrollIntoView({ behavior: "smooth" })}>{statusText(activeRide.status)} · Open ride →</button>
++                </>
++              ) : (
++                <>
++                  <p className="cvAppTravel">Travel <strong>With Us</strong></p>
++                  <button type="button" className="cvAppGo" onClick={openBookRide}>GO <b>›</b></button>
++                </>
++              )}
++            </div>
++          </div>
++        </section>
++
+         <section className="cvHero">
+           <div>
+             <h1>
+@@ -2865,7 +2905,7 @@
+         </section>
+ 
+         <section className="cvOverview">
+-          <article className="cvActiveRide">
++          <article className="cvActiveRide" id="customer-active-ride">
+             <header>
+               <h2>Your Active Ride</h2>
+               <span className={activeRide ? "live" : "idle"}>

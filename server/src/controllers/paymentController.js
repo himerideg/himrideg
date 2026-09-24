@@ -4,9 +4,10 @@ const Booking = require("../models/Booking");
 const User = require("../models/User");
 const walletService = require("../services/walletService");
 const { sendPushToUser } = require("../services/pushNotificationService");
-
-const PLATFORM_COMMISSION_PERCENT = 10;
-const DRIVER_SHARE_PERCENT = 100 - PLATFORM_COMMISSION_PERCENT;
+const {
+  commissionBreakdown,
+  commissionPolicyForBooking
+} = require("../utils/commissionPolicy");
 
 const getFare = (booking) =>
   Number(booking?.finalFare ?? booking?.fare?.finalFare ?? 0) || 0;
@@ -229,12 +230,11 @@ async function applyCapturedPayment(booking, paymentEntity, { signature = "" } =
     return booking;
   }
 
-  const commissionPercent = PLATFORM_COMMISSION_PERCENT;
-  booking.platformCommissionPercent = PLATFORM_COMMISSION_PERCENT;
-  booking.platformCommissionAmount =
-    Math.round(((fare * commissionPercent) / 100) * 100) / 100;
-  booking.driverPayableAmount =
-    Math.max(0, fare - booking.platformCommissionAmount);
+  const commissionData = commissionBreakdown(fare, booking);
+  const commissionPercent = commissionData.commissionPercent;
+  booking.platformCommissionPercent = commissionPercent;
+  booking.platformCommissionAmount = commissionData.platformCommission;
+  booking.driverPayableAmount = commissionData.driverPayable;
   booking.paymentMethod = "online";
   booking.paymentStatus = "paid";
   booking.razorpayOrderId = orderId;
@@ -300,6 +300,7 @@ exports.createPaymentOrder = async (req, res) => {
       });
     }
 
+    const commissionPolicy = commissionPolicyForBooking(booking);
     const amountInPaise = Math.round(fare * 100);
     const receipt = `ride_${String(booking._id).slice(-12)}_${Date.now().toString().slice(-8)}`.slice(0, 40);
 
@@ -312,8 +313,9 @@ exports.createPaymentOrder = async (req, res) => {
         customerId: String(req.user?._id || ""),
         paymentPlan: paymentPlanOf(booking) || "online_after_ride",
         paymentContext: "post_ride",
-        platformCommissionPercent: String(PLATFORM_COMMISSION_PERCENT),
-        driverWalletSharePercent: String(DRIVER_SHARE_PERCENT),
+        platformCommissionPercent: String(commissionPolicy.commissionPercent),
+        driverWalletSharePercent: String(commissionPolicy.driverSharePercent),
+        rideDistanceKm: String(commissionPolicy.distanceKm),
         settlementMode: "driver_earnings_wallet"
       }
     });
@@ -342,8 +344,9 @@ exports.createPaymentOrder = async (req, res) => {
         customerEmail: req.user?.email || "",
         paymentPlan: paymentPlanOf(booking),
         paymentContext: "post_ride",
-        platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
-        driverSharePercent: DRIVER_SHARE_PERCENT
+        platformCommissionPercent: commissionPolicy.commissionPercent,
+        driverSharePercent: commissionPolicy.driverSharePercent,
+        rideDistanceKm: commissionPolicy.distanceKm
       }
     });
   } catch (error) {
@@ -496,9 +499,9 @@ exports.verifyPayment = async (req, res) => {
         paymentId: booking.razorpayPaymentId,
         paidAt: booking.paidAt,
         fare,
-        platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
+        platformCommissionPercent: Number(booking.platformCommissionPercent),
         platformCommission: booking.platformCommissionAmount,
-        driverSharePercent: DRIVER_SHARE_PERCENT,
+        driverSharePercent: 100 - Number(booking.platformCommissionPercent),
         driverPayable: booking.driverPayableAmount,
         walletSettlementStatus: booking.walletSettlementStatus || "not_settled"
       }
@@ -704,16 +707,16 @@ exports.confirmCashPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: "Final fare valid nahi hai" });
     }
 
-    const commissionPercent = PLATFORM_COMMISSION_PERCENT;
-    const commissionAmount =
-      Math.round(((fare * commissionPercent) / 100) * 100) / 100;
-    booking.platformCommissionPercent = PLATFORM_COMMISSION_PERCENT;
+    const commissionData = commissionBreakdown(fare, booking);
+    const commissionPercent = commissionData.commissionPercent;
+    const commissionAmount = commissionData.platformCommission;
+    booking.platformCommissionPercent = commissionPercent;
     booking.paymentMethod = "cash";
     booking.paymentChoiceAfterRide = "cash";
     booking.paymentStatus = "paid";
     booking.paidAt = new Date();
     booking.platformCommissionAmount = commissionAmount;
-    booking.driverPayableAmount = Math.max(0, fare - commissionAmount);
+    booking.driverPayableAmount = commissionData.driverPayable;
     booking.paymentFailureReason = "";
     syncEmbeddedPayment(booking);
     await booking.save();
@@ -788,8 +791,8 @@ exports.confirmCashPayment = async (req, res) => {
         paidAt: booking.paidAt,
         fare,
         commission: booking.platformCommissionAmount,
-        platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
-        driverSharePercent: DRIVER_SHARE_PERCENT,
+        platformCommissionPercent: Number(booking.platformCommissionPercent),
+        driverSharePercent: 100 - Number(booking.platformCommissionPercent),
         driverPayable: booking.driverPayableAmount,
         walletSettlementStatus: booking.walletSettlementStatus || "not_settled"
       }

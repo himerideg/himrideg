@@ -1,12 +1,52 @@
 import React from "react";
 
+const COPY = {
+  en: {
+    home: "Home",
+    book: "Book Ride",
+    driver: "Driver Login",
+    about: "About",
+    admin: "Admin",
+    help: "Help",
+    login: "Login",
+    signup: "Sign Up",
+    more: "More",
+    driverTitle: "Driver Login",
+    driverAria: "Open Driver Login",
+    adminTitle: "Admin Login",
+    adminAria: "Open Admin Login",
+    navAria: "Mobile HimRideG navigation",
+    moreAria: "Open more navigation options"
+  },
+  hi: {
+    home: "मुखपृष्ठ",
+    book: "यात्रा बुक करें",
+    driver: "चालक लॉगिन",
+    about: "हमारे बारे में",
+    admin: "प्रशासन",
+    help: "सहायता",
+    login: "लॉगिन",
+    signup: "खाता बनाएँ",
+    more: "अधिक",
+    driverTitle: "चालक लॉगिन",
+    driverAria: "चालक लॉगिन खोलें",
+    adminTitle: "प्रशासन लॉगिन",
+    adminAria: "प्रशासन लॉगिन खोलें",
+    navAria: "मोबाइल HimRideG नेविगेशन",
+    moreAria: "अधिक विकल्प खोलें"
+  }
+};
+
 function Navbar({
   onLogin,
   onRegister,
   onBookRide,
   onDriverLogin,
-  onAdminLogin
+  onAdminLogin,
+  language = "en"
 }) {
+  const t = COPY[language] || COPY.en;
+
   return (
     <header className="siteNavbar">
       <a
@@ -28,32 +68,25 @@ function Navbar({
       </a>
 
       <nav className="navLinks">
-        <a href="#home">Home</a>
+        <a href="#home">{t.home}</a>
 
         <button
           type="button"
           onClick={onBookRide}
         >
-          Book Ride
+          {t.book}
         </button>
 
-        {/*
-        |--------------------------------------------------------------------
-        | Dedicated Driver Login
-        |--------------------------------------------------------------------
-        | This button now clearly says Driver Login and uses only the
-        | dedicated onDriverLogin callback supplied by Home/App.
-        */}
         <button
           type="button"
           onClick={onDriverLogin}
-          title="Driver Login"
-          aria-label="Open Driver Login"
+          title={t.driverTitle}
+          aria-label={t.driverAria}
         >
-          🚕 Driver Login
+          🚕 {t.driver}
         </button>
 
-        <a href="#about">About</a>
+        <a href="#about">{t.about}</a>
 
         <button
           type="button"
@@ -68,12 +101,13 @@ function Navbar({
             fontWeight: "600",
             fontSize: "13px"
           }}
-          title="Admin Login"
+          title={t.adminTitle}
+          aria-label={t.adminAria}
         >
-          🔐 Admin
+          🔐 {t.admin}
         </button>
 
-        <a href="#help">Help</a>
+        <a href="#help">{t.help}</a>
       </nav>
 
       <div className="navActions">
@@ -82,7 +116,7 @@ function Navbar({
           type="button"
           onClick={onLogin}
         >
-          Login
+          {t.login}
         </button>
 
         <button
@@ -90,22 +124,13 @@ function Navbar({
           type="button"
           onClick={onRegister}
         >
-          Sign Up
+          {t.signup}
         </button>
       </div>
 
-      {/*
-      |--------------------------------------------------------------------
-      | Mobile Navbar Menu — 2026-08-30
-      |--------------------------------------------------------------------
-      | Mobile must behave like the desktop navbar: role logins stay inside
-      | the navbar instead of appearing as large standalone cards. The
-      | right-side Login / Sign Up buttons above remain fixed and visible.
-      | Tabs that fit are shown directly; remaining links are under More.
-      */}
-      <nav className="mobileNavLinks" aria-label="Mobile HimRideG navigation">
+      <nav className="mobileNavLinks" aria-label={t.navAria}>
         <a href="#home" className="mobileNavDirectItem">
-          Home
+          {t.home}
         </a>
 
         <button
@@ -113,44 +138,43 @@ function Navbar({
           className="mobileNavDirectItem"
           onClick={onBookRide}
         >
-          Book Ride
+          {t.book}
         </button>
 
         <button
           type="button"
           className="mobileNavDirectItem mobileDriverNavItem"
           onClick={onDriverLogin}
-          title="Driver Login"
-          aria-label="Open Driver Login"
+          title={t.driverTitle}
+          aria-label={t.driverAria}
         >
           <span aria-hidden="true">🚕</span>
-          <span>Driver Login</span>
+          <span>{t.driver}</span>
         </button>
 
         <details className="mobileMoreMenu">
-          <summary aria-label="Open more navigation options">
-            More
+          <summary aria-label={t.moreAria}>
+            {t.more}
             <span className="mobileMoreChevron" aria-hidden="true">▾</span>
           </summary>
 
           <div className="mobileMoreDropdown">
-            <a href="#about">About</a>
+            <a href="#about">{t.about}</a>
 
             <button
               type="button"
               onClick={onAdminLogin}
-              title="Admin Login"
-              aria-label="Open Admin Login"
+              title={t.adminTitle}
+              aria-label={t.adminAria}
             >
               <span aria-hidden="true">🔐</span>
-              <span>Admin Login</span>
+              <span>{t.adminTitle}</span>
             </button>
 
-            <a href="#help">Help</a>
+            <a href="#help">{t.help}</a>
           </div>
         </details>
       </nav>
-
     </header>
   );
 }

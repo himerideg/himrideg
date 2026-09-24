@@ -13,6 +13,10 @@ const {
 const {
   sendPushToUser
 } = require("../services/pushNotificationService");
+const {
+  commissionBreakdown,
+  commissionPolicyForBooking
+} = require("../utils/commissionPolicy");
 
 
 /*
@@ -20,7 +24,7 @@ const {
 | REAL DRIVER EARNINGS WALLET MODE
 |--------------------------------------------------------------------------
 | Customer ka full locked fare Razorpay par collect hota hai. HimRideG ka
-| fixed platform commission 10% hai. Baki 90% driver ke internal earnings
+| distance-based platform commission hai: 0-15 km par 8%, 15 km se zyada 5%.
 | wallet/ledger me credit hota hai, aur driver withdrawal RazorpayX payout
 | flow se karta hai. Legacy Razorpay Route direct-transfer code preserve hai
 | aur REAL_MONEY_MODE=false par fallback ke roop me available rahega.
@@ -29,7 +33,6 @@ const {
 | ya RBI prepaid wallet nahi hai. Real cash-out RazorpayX payout ke through hi
 | hota hai.
 */
-const PLATFORM_COMMISSION_PERCENT = 10;
 
 function realWalletModeEnabled() {
   /*
@@ -48,27 +51,26 @@ function realWalletModeEnabled() {
   return !["false", "0", "off", "no"].includes(raw);
 }
 
-function enforceTenPercentCommission(booking) {
+function enforceDistanceBasedCommission(booking) {
   if (!booking) return booking;
 
   const fare = Number(finalFareOf(booking) || 0);
-  const commission = Math.max(0, Math.round((fare * PLATFORM_COMMISSION_PERCENT) / 100));
-  const driverPayable = Math.max(0, fare - commission);
+  const commissionData = commissionBreakdown(fare, booking);
 
-  booking.platformCommissionPercent = PLATFORM_COMMISSION_PERCENT;
-  booking.platformCommissionAmount = commission;
-  booking.driverPayableAmount = driverPayable;
+  booking.platformCommissionPercent = commissionData.commissionPercent;
+  booking.platformCommissionAmount = commissionData.platformCommission;
+  booking.driverPayableAmount = commissionData.driverPayable;
 
   if (booking.fare) {
     booking.fare.finalFare = fare;
-    booking.fare.platformFee = commission;
+    booking.fare.platformFee = commissionData.platformCommission;
   }
 
   return booking;
 }
 
 async function settleOnlineForCurrentMoneyMode(booking, paymentId) {
-  enforceTenPercentCommission(booking);
+  enforceDistanceBasedCommission(booking);
 
   if (!realWalletModeEnabled()) {
     return settleOnlinePayment(booking, { paymentId });
@@ -84,8 +86,8 @@ async function settleOnlineForCurrentMoneyMode(booking, paymentId) {
       status: "pending",
       mode: "internal_wallet_razorpayx",
       reason: "ride_not_completed",
-      commissionPercent: PLATFORM_COMMISSION_PERCENT,
-      driverSharePercent: 100 - PLATFORM_COMMISSION_PERCENT
+      commissionPercent: commissionPolicyForBooking(booking).commissionPercent,
+      driverSharePercent: commissionPolicyForBooking(booking).driverSharePercent
     };
   }
 
@@ -98,15 +100,15 @@ async function settleOnlineForCurrentMoneyMode(booking, paymentId) {
     status: refreshed?.walletSettlementStatus || "settled",
     mode: "internal_wallet_razorpayx",
     walletSettledAt: refreshed?.walletSettledAt || null,
-    commissionPercent: Number(refreshed?.platformCommissionPercent || PLATFORM_COMMISSION_PERCENT),
+    commissionPercent: Number(refreshed?.platformCommissionPercent ?? commissionPolicyForBooking(booking).commissionPercent),
     platformCommission: Number(refreshed?.platformCommissionAmount || 0),
     driverPayable: Number(refreshed?.driverPayableAmount || 0),
-    driverSharePercent: 100 - PLATFORM_COMMISSION_PERCENT
+    driverSharePercent: 100 - Number(refreshed?.platformCommissionPercent ?? commissionPolicyForBooking(booking).commissionPercent)
   };
 }
 
 async function settleCashForCurrentMoneyMode(booking) {
-  enforceTenPercentCommission(booking);
+  enforceDistanceBasedCommission(booking);
 
   if (!realWalletModeEnabled()) {
     return settleCashCommission(booking);
@@ -121,10 +123,10 @@ async function settleCashForCurrentMoneyMode(booking) {
     status: refreshed?.walletSettlementStatus || "settled",
     mode: "internal_wallet_razorpayx",
     walletSettledAt: refreshed?.walletSettledAt || null,
-    commissionPercent: Number(refreshed?.platformCommissionPercent || PLATFORM_COMMISSION_PERCENT),
+    commissionPercent: Number(refreshed?.platformCommissionPercent ?? commissionPolicyForBooking(booking).commissionPercent),
     platformCommission: Number(refreshed?.platformCommissionAmount || 0),
     driverPayable: Number(refreshed?.driverPayableAmount || 0),
-    driverSharePercent: 100 - PLATFORM_COMMISSION_PERCENT
+    driverSharePercent: 100 - Number(refreshed?.platformCommissionPercent ?? commissionPolicyForBooking(booking).commissionPercent)
   };
 }
 
@@ -372,7 +374,7 @@ async function createPaymentOrder(req, res) {
       });
     }
 
-    enforceTenPercentCommission(booking);
+    enforceDistanceBasedCommission(booking);
 
     const fare = finalFareOf(booking);
     const amountInPaise = Math.round(fare * 100);
@@ -531,7 +533,7 @@ async function verifyPayment(req, res) {
     booking.razorpayPaymentId = razorpay_payment_id;
     booking.razorpaySignature = razorpay_signature;
 
-    enforceTenPercentCommission(booking);
+    enforceDistanceBasedCommission(booking);
 
     const amounts = syncPaymentFields(booking, {
       method: "online",
@@ -561,8 +563,8 @@ async function verifyPayment(req, res) {
         fare: amounts.fare,
         platformCommission: amounts.commission,
         driverPayable: amounts.driverPayable,
-        platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
-        driverSharePercent: 100 - PLATFORM_COMMISSION_PERCENT,
+        platformCommissionPercent: Number(booking.platformCommissionPercent),
+        driverSharePercent: 100 - Number(booking.platformCommissionPercent),
         moneyMode: realWalletModeEnabled()
           ? "internal_wallet_razorpayx"
           : "razorpay_route",
@@ -967,7 +969,7 @@ async function confirmCashPayment(req, res) {
 
     booking.paymentChoiceAfterRide = "cash";
     const paidAt = new Date();
-    enforceTenPercentCommission(booking);
+    enforceDistanceBasedCommission(booking);
 
     const amounts = syncPaymentFields(booking, {
       method: "cash",
@@ -993,8 +995,8 @@ async function confirmCashPayment(req, res) {
         fare: amounts.fare,
         platformCommission: amounts.commission,
         driverPayable: amounts.driverPayable,
-        platformCommissionPercent: PLATFORM_COMMISSION_PERCENT,
-        driverSharePercent: 100 - PLATFORM_COMMISSION_PERCENT,
+        platformCommissionPercent: Number(booking.platformCommissionPercent),
+        driverSharePercent: 100 - Number(booking.platformCommissionPercent),
         moneyMode: realWalletModeEnabled()
           ? "internal_wallet_razorpayx"
           : "razorpay_route",
@@ -1254,7 +1256,7 @@ async function razorpayWebhook(req, res) {
         booking.razorpayOrderId = orderId || booking.razorpayOrderId;
         booking.razorpayPaymentId = paymentId || booking.razorpayPaymentId;
 
-        enforceTenPercentCommission(booking);
+        enforceDistanceBasedCommission(booking);
 
         syncPaymentFields(booking, {
           method: "online",

@@ -2,7 +2,8 @@ const express =
   require("express");
 
 const {
-  protect
+  protect,
+  allowRoles
 } = require(
   "../middlewares/auth"
 );
@@ -22,6 +23,17 @@ const walletController =
     "../controllers/walletController"
   );
 
+const platformFeeController =
+  require(
+    "../controllers/platformFeeController"
+  );
+
+const {
+  getDriverTestMode
+} = require(
+  "../controllers/driverTestModeController"
+);
+
 const router =
   express.Router();
 
@@ -32,6 +44,7 @@ const router =
 */
 
 router.use(protect);
+router.use(allowRoles("driver"));
 
 /*
 |--------------------------------------------------------------------------
@@ -203,7 +216,46 @@ router.post(
 
 /*
 |--------------------------------------------------------------------------
-| Withdrawal Request
+| Admin Managed Test Mode
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/test-mode",
+  getDriverTestMode
+);
+
+/*
+|--------------------------------------------------------------------------
+| Platform Fee — temporary direct-driver-payment model
+|--------------------------------------------------------------------------
+| Driver can keep accepting while due < ₹100. At ₹100+ the ride request is
+| still visible, but ride acceptance is blocked server-side until this fee is
+| paid below the threshold. These endpoints use normal Razorpay Payments, not
+| RazorpayX, so they work while payout activation is pending.
+*/
+
+router.get(
+  "/platform-fee",
+  platformFeeController
+    .getPlatformFeeStatus
+);
+
+router.post(
+  "/platform-fee/create-order",
+  platformFeeController
+    .createPlatformFeeOrder
+);
+
+router.post(
+  "/platform-fee/verify",
+  platformFeeController
+    .verifyPlatformFee
+);
+
+/*
+|--------------------------------------------------------------------------
+| Wallet / Payout
 |--------------------------------------------------------------------------
 */
 
@@ -217,6 +269,36 @@ router.patch(
   "/wallet/payout-settings",
   walletController
     .savePayoutSettings
+);
+
+router.post(
+  "/wallet/payout-methods",
+  walletController
+    .addPayoutMethod
+);
+
+router.patch(
+  "/wallet/payout-methods/:methodId/primary",
+  walletController
+    .setPrimaryPayoutMethod
+);
+
+router.delete(
+  "/wallet/payout-methods/:methodId",
+  walletController
+    .deletePayoutMethod
+);
+
+router.get(
+  "/wallet/withdrawals",
+  walletController
+    .getWithdrawalHistory
+);
+
+router.post(
+  "/wallet/withdrawals/:withdrawalId/retry",
+  walletController
+    .retryWithdrawal
 );
 
 router.post(

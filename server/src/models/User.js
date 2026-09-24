@@ -572,14 +572,12 @@ const driverProfileSchema =
           "rejected",
           "suspended"
         ],
-        default: "not_submitted",
-        index: true
+        default: "not_submitted"
       },
 
       isApproved: {
         type: Boolean,
-        default: false,
-        index: true
+        default: false
       },
 
       rejectionReason: {
@@ -658,7 +656,7 @@ const driverProfileSchema =
         type: Number,
         min: 0,
         max: 100,
-        default: 10
+        default: 8
       }
     },
     {

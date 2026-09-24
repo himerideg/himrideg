@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import Features from "../components/Features";
@@ -16,6 +16,11 @@ const HomeBookRide = React.lazy(
   () => import("../components/HomeBookRide")
 );
 
+function getSavedHomeLanguage() {
+  const saved = String(localStorage.getItem("himrideg_home_language") || "en");
+  return saved === "hi" ? "hi" : "en";
+}
+
 function Home({
   onLogin,
   onRegister,
@@ -23,6 +28,39 @@ function Home({
   onAdminLogin
 }) {
   const [bookRideOpen, setBookRideOpen] = useState(false);
+  const [language, setLanguage] = useState(getSavedHomeLanguage);
+
+  useEffect(() => {
+    document.documentElement.lang = language === "hi" ? "hi" : "en";
+    localStorage.setItem("himrideg_home_language", language);
+  }, [language]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Shared Hindi / English state — layout untouched
+  |--------------------------------------------------------------------------
+  | The global language control is fixed-position and does not participate in
+  | Home layout. Home only listens for the shared selection so its existing
+  | sections can switch copy without adding/removing any visual blocks.
+  */
+  useEffect(() => {
+    const syncLanguage = (event) => {
+      const next = event?.detail?.language === "hi" ? "hi" : "en";
+      setLanguage(next);
+    };
+
+    const syncStoredLanguage = () => {
+      setLanguage(getSavedHomeLanguage());
+    };
+
+    window.addEventListener("himrideg:language-change", syncLanguage);
+    window.addEventListener("storage", syncStoredLanguage);
+
+    return () => {
+      window.removeEventListener("himrideg:language-change", syncLanguage);
+      window.removeEventListener("storage", syncStoredLanguage);
+    };
+  }, []);
 
   /*
   |--------------------------------------------------------------------------
@@ -30,13 +68,8 @@ function Home({
   |--------------------------------------------------------------------------
   |
   | App.jsx already sends a dedicated onDriverLogin callback which opens
-  | /driverlogin/. Earlier Home.jsx was ignoring that prop and was calling
-  | the normal customer onLogin callback instead. Because of that the Driver
-  | button could open the customer login page.
-  |
-  | Keep the stored account type for existing compatibility, but use the
-  | dedicated driver callback whenever it is available.
-  |
+  | /driverlogin/. Keep the stored account type for existing compatibility,
+  | and preserve the dedicated driver callback.
   */
   const openDriverLogin = () => {
     localStorage.setItem(
@@ -49,8 +82,6 @@ function Home({
       return;
     }
 
-    // Legacy fallback only. Existing integrations that still pass only
-    // onLogin will continue to work instead of breaking.
     onLogin?.();
   };
 
@@ -72,10 +103,6 @@ function Home({
   |--------------------------------------------------------------------------
   | Admin Login
   |--------------------------------------------------------------------------
-  |
-  | Same dedicated-navigation fix as Driver Login. App.jsx already provides
-  | onAdminLogin for /adminlogin/, so do not route it through customer login.
-  |
   */
   const openAdminLogin = () => {
     localStorage.setItem(
@@ -88,9 +115,18 @@ function Home({
       return;
     }
 
-    // Legacy fallback preserves old Home usage.
     onLogin?.();
   };
+
+  /*
+  | V82 compatibility anchor. The global fixed language switch is the visible
+  | control; this function remains intentionally layout-neutral.
+  */
+  const toggleLanguage = () => {
+    setLanguage((current) => current === "en" ? "hi" : "en");
+  };
+
+  void toggleLanguage;
 
   /*
   |--------------------------------------------------------------------------
@@ -102,6 +138,7 @@ function Home({
       <HomeBookRide
         onBack={() => setBookRideOpen(false)}
         onContinue={openCustomerLogin}
+        language={language}
       />
     );
   }
@@ -114,16 +151,19 @@ function Home({
         onBookRide={() => setBookRideOpen(true)}
         onDriverLogin={openDriverLogin}
         onAdminLogin={openAdminLogin}
+        language={language}
       />
 
       <main>
         <Hero
           onBookRide={() => setBookRideOpen(true)}
+          language={language}
         />
-        <Features />
+
+        <Features language={language} />
       </main>
 
-      <Footer />
+      <Footer language={language} />
     </div>
   );
 }

@@ -1,0 +1,55 @@
+.appLanguageToggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 12000;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid rgba(245, 197, 24, 0.58);
+  border-radius: 999px;
+  background: rgba(8, 8, 8, 0.94);
+  color: #f5c518;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  font: inherit;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.appLanguageToggle span {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.appLanguageToggle strong {
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.appLanguageToggle:hover,
+.appLanguageToggle:focus-visible {
+  background: #f5c518;
+  color: #090909;
+  border-color: #f5c518;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 700px) {
+  .appLanguageToggle {
+    top: 10px;
+    right: 10px;
+    min-height: 34px;
+    padding: 7px 10px;
+  }
+
+  .appLanguageToggle strong {
+    font-size: 12px;
+  }
+}

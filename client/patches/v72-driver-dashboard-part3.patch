@@ -1,0 +1,120 @@
+--- a/src/pages/DriverDashboard.jsx
++++ b/src/pages/DriverDashboard.jsx
+@@ -5963,6 +6055,58 @@
+                       <div>
+                         <strong>Ride Requests</strong>
+                         <small>New customer requests aur notifications</small>
++                      </div>
++                      <b>›</b>
++                    </button>
++
++                    <button
++                      type="button"
++                      className="hgDriverHubCard"
++                      onClick={() => setProfileTab("documents")}
++                    >
++                      <span className="hgDriverHubIcon">🛡️</span>
++                      <div>
++                        <strong>Safety & Compliance</strong>
++                        <small>Verification documents, taxi compliance aur account safety</small>
++                      </div>
++                      <b>›</b>
++                    </button>
++
++                    <button
++                      type="button"
++                      className="hgDriverHubCard"
++                      onClick={() => window.alert("Refer and Earn feature public rollout ke saath enable hoga.")}
++                    >
++                      <span className="hgDriverHubIcon">↗</span>
++                      <div>
++                        <strong>Refer and Earn</strong>
++                        <small>Dusre verified taxi drivers ko HimRideG par invite karein</small>
++                      </div>
++                      <b>›</b>
++                    </button>
++
++                    <button
++                      type="button"
++                      className="hgDriverHubCard"
++                      onClick={() => setProfileTab("profile")}
++                    >
++                      <span className="hgDriverHubIcon">⚙</span>
++                      <div>
++                        <strong>Account Settings</strong>
++                        <small>Contact, vehicle aur personal account settings</small>
++                      </div>
++                      <b>›</b>
++                    </button>
++
++                    <button
++                      type="button"
++                      className="hgDriverHubCard"
++                      onClick={() => window.alert("Help: ride, payment ya driver verification issue ke liye HimRideG support se contact karein.")}
++                    >
++                      <span className="hgDriverHubIcon">?</span>
++                      <div>
++                        <strong>Help</strong>
++                        <small>Ride, payment aur verification support</small>
+                       </div>
+                       <b>›</b>
+                     </button>
+@@ -6503,7 +6647,7 @@
+         <nav className="driverDesktopNav">
+           <button className={activeTab === "dashboard" ? "active" : ""} type="button" onClick={() => setActiveTab("dashboard")}>Dashboard</button>
+           <button className={activeTab === "requests" ? "active" : ""} type="button" onClick={() => setActiveTab("requests")}>Requests</button>
+-          <button className={["active", "scheduled", "payment", "completed"].includes(activeTab) ? "active" : ""} type="button" onClick={() => setActiveTab("active")}>My Rides</button>
++          <button className={["active", "scheduled", "payment", "completed", "history"].includes(activeTab) ? "active" : ""} type="button" onClick={() => setActiveTab("active")}>My Rides</button>
+           <button type="button" onClick={() => setEarningsOpen(true)}>💰 Wallet</button>
+           <button type="button" onClick={() => setWalletQrOpen(true)}>My QR</button>
+           <button
+@@ -6981,16 +7125,22 @@
+           </>
+         ) : (
+           <section className="driverRidesPage">
+-            <header><div><small>DRIVER RIDES</small><h2>{activeTab === "requests" ? "New Requests" : "My Rides"}</h2></div><button type="button" onClick={() => setActiveTab("dashboard")}>← Dashboard</button></header>
+-            <div className="driverRideTabs">
+-              {[["requests","New Requests"],["scheduled","Scheduled"],["active","Active"],["payment","Waiting Payment"],["completed","Completed"]].map(([value,label]) => <button type="button" key={value} className={activeTab === value ? "active" : ""} onClick={() => setActiveTab(value)}>{label}</button>)}
+-            </div>
++            <header><div><small>{activeTab === "history" ? "RIDE HISTORY" : "DRIVER RIDES"}</small><h2>{activeTab === "requests" ? "New Requests" : activeTab === "history" ? "Ride History" : "My Rides"}</h2></div><button type="button" onClick={() => setActiveTab("dashboard")}>← Dashboard</button></header>
++            {activeTab === "history" ? (
++              <div className="driverRideTabs driverHistoryTabs">
++                {[["all","All"],["completed","Completed"],["cancelled","Cancelled"]].map(([value,label]) => <button type="button" key={value} className={historyFilter === value ? "active" : ""} onClick={() => setHistoryFilter(value)}>{label}</button>)}
++              </div>
++            ) : (
++              <div className="driverRideTabs">
++                {[["requests","New Requests"],["scheduled","Scheduled"],["active","Active"],["payment","Waiting Payment"],["completed","Completed"]].map(([value,label]) => <button type="button" key={value} className={activeTab === value ? "active" : ""} onClick={() => setActiveTab(value)}>{label}</button>)}
++              </div>
++            )}
+             <div className="driverRidesList">
+               {tabRides.length ? tabRides.map((ride) => {
+                 const rideId = getId(ride);
+ 
+                 const completedDetailsOpen =
+-                  ["completed", "payment"].includes(activeTab) &&
++                  ["completed", "payment", "history"].includes(activeTab) &&
+                   completedRideOpenId === rideId;
+ 
+                 return (
+@@ -7253,6 +7403,21 @@
+             rideStatus={locationTrackingRide.status}
+           />
+         )}
++
++        <nav className="driverAppBottomNav" aria-label="Driver mobile navigation">
++          <button type="button" className={activeTab === "dashboard" && !profileOpen ? "active" : ""} onClick={() => { setProfileOpen(false); setActiveTab("dashboard"); }}>
++            <span>🏠</span><small>Dashboard</small>
++          </button>
++          <button type="button" className={activeTab === "requests" && !profileOpen ? "active" : ""} onClick={() => { setProfileOpen(false); setActiveTab("requests"); }}>
++            <span>📡</span><small>Requests</small>{pendingRides > 0 ? <b>{pendingRides > 9 ? "9+" : pendingRides}</b> : null}
++          </button>
++          <button type="button" className={activeTab === "history" && !profileOpen ? "active" : ""} onClick={() => { setProfileOpen(false); setActiveTab("history"); }}>
++            <span>↺</span><small>History</small>
++          </button>
++          <button type="button" className={profileOpen ? "active" : ""} onClick={() => { setProfileTab("hub"); setProfileOpen(true); }}>
++            <span>👤</span><small>Account</small>
++          </button>
++        </nav>
+       </main>
+     </div>)}
+     </div>

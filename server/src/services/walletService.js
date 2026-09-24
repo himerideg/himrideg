@@ -3,10 +3,11 @@ const User = require("../models/User");
 const WalletTransaction = require("../models/WalletTransaction");
 const WithdrawalRequest = require("../models/WithdrawalRequest");
 const razorpayX = require("./razorpayXService");
+const {
+  commissionBreakdown
+} = require("../utils/commissionPolicy");
 
 const SUCCESS_PAYOUT_STATUSES = new Set(["processed"]);
-const PLATFORM_COMMISSION_PERCENT = 10;
-const DRIVER_SHARE_PERCENT = 100 - PLATFORM_COMMISSION_PERCENT;
 
 const FAILED_PAYOUT_STATUSES = new Set(["failed", "reversed", "cancelled", "rejected"]);
 
@@ -137,18 +138,16 @@ async function settleRidePayment(bookingOrId) {
     | REAL WALLET RULE:
     | Payment settlement me sirf FINAL LOCKED FARE valid hai. Estimated fare,
     | initial driver offer ya kisi aur fallback amount ko driver wallet credit
-    | banane ke liye use nahi karna. HimRideG commission exactly 10% hai.
+    | banane ke liye use nahi karna. Commission ride distance policy se aata hai:
+    | 0-15 km = 8%, 15 km se zyada = 5%.
     */
     const fare = money(
       locked.finalFare ?? locked.fare?.finalFare ?? 0
     );
-    const commissionPercent = PLATFORM_COMMISSION_PERCENT;
-    const commission = money(
-      (fare * commissionPercent) / 100
-    );
-    const driverEarning = money(
-      fare - commission
-    );
+    const commissionData = commissionBreakdown(fare, locked);
+    const commissionPercent = commissionData.commissionPercent;
+    const commission = money(commissionData.platformCommission);
+    const driverEarning = money(commissionData.driverPayable);
 
     if (fare <= 0) throw new Error("Final locked fare valid nahi hai");
 
@@ -213,7 +212,7 @@ async function settleRidePayment(bookingOrId) {
           fare,
           commissionPercent,
           platformCommission: commission,
-          driverSharePercent: DRIVER_SHARE_PERCENT,
+          driverSharePercent: 100 - commissionPercent,
           driverEarning,
           recoveredDue,
           walletCredit,
@@ -823,9 +822,14 @@ async function getWalletSummary(driverId) {
     wallet: driver.wallet || {},
     walletMode: "real_driver_earnings_ledger",
     moneyMode: "internal_wallet_razorpayx",
-    commissionPercent: PLATFORM_COMMISSION_PERCENT,
-    driverSharePercent: DRIVER_SHARE_PERCENT,
-    walletRule: "Customer paid final fare ka 10% HimRideG commission; 90% driver earnings wallet credit after ride completion",
+    commissionPercent: null,
+    driverSharePercent: null,
+    commissionPolicy: {
+      shortTripMaxKm: 15,
+      shortTripCommissionPercent: 8,
+      longTripCommissionPercent: 5
+    },
+    walletRule: "0-15 km ride par 8% HimRideG commission / 92% driver; 15 km se zyada par 5% commission / 95% driver.",
     todayEarnings: money(todayAgg[0]?.amount),
     monthEarnings: money(monthAgg[0]?.amount),
     payoutsEnabled: payoutReadiness.ready && payoutLiveAccess.ok,

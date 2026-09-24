@@ -37,6 +37,15 @@ const {
 );
 
 const {
+  listDriverTestModes,
+  updateDriverTestMode,
+  resetDriverTestPlatformFee,
+  resetDriverTestHistory
+} = require(
+  "../controllers/adminDriverTestModeController"
+);
+
+const {
   adminLoginLimiter
 } = require("../middlewares/rateLimits");
 
@@ -99,6 +108,32 @@ router.get(
 router.patch(
   "/withdrawals/:id/:action",
   updateWithdrawal
+);
+
+/*
+|--------------------------------------------------------------------------
+| Driver Test Mode Management
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/driver-test-modes",
+  listDriverTestModes
+);
+
+router.patch(
+  "/drivers/:driverId/test-mode",
+  updateDriverTestMode
+);
+
+router.post(
+  "/drivers/:driverId/test-mode/reset-platform-fee",
+  resetDriverTestPlatformFee
+);
+
+router.post(
+  "/drivers/:driverId/test-mode/reset-history",
+  resetDriverTestHistory
 );
 
 /*

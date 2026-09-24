@@ -1,6 +1,7 @@
 const Booking = require("../models/Booking");
 const User = require("../models/User");
 const WalletLedger = require("../models/WalletLedger");
+const { commissionBreakdown } = require("../utils/commissionPolicy");
 
 function sameId(first, second) {
   if (!first || !second) return false;
@@ -17,15 +18,16 @@ function finalFareOf(booking) {
 
 function commissionOf(booking) {
   const fare = finalFareOf(booking);
-  const percent = Number(
-    booking?.platformCommissionPercent ?? 10
-  );
-  return Math.max(0, Math.round((fare * percent) / 100));
+  const saved = Number(booking?.platformCommissionAmount);
+  if (Number.isFinite(saved) && saved >= 0) return saved;
+  return commissionBreakdown(fare, booking).platformCommission;
 }
 
 function driverPayableOf(booking) {
   const fare = finalFareOf(booking);
-  return Math.max(0, fare - commissionOf(booking));
+  const saved = Number(booking?.driverPayableAmount);
+  if (Number.isFinite(saved) && saved >= 0) return saved;
+  return commissionBreakdown(fare, booking).driverPayable;
 }
 
 function ensurePaymentAccess(booking, user, options = {}) {

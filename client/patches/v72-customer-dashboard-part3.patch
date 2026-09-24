@@ -1,0 +1,70 @@
+--- a/src/pages/CustomerDashboard.jsx
++++ b/src/pages/CustomerDashboard.jsx
+@@ -3389,50 +3448,45 @@
+         Desktop/tablet top navigation 1250px se neeche hidden hoti hai, isliye
+         yeh dedicated mobile navigation uska functional replacement hai.
+       */}
+-      <nav className="cvMobileBottomNav" aria-label="Customer mobile navigation">
++      <nav className="cvMobileBottomNav cvMobileBottomNavAppParity" aria-label="Customer mobile navigation">
+         <button
+           type="button"
+-          className={customerPage === "dashboard" ? "active" : ""}
++          className={customerPage === "dashboard" && !profileOpen ? "active" : ""}
+           onClick={openDashboardPage}
+-          aria-label="Dashboard"
++          aria-label="Ride"
+         >
+           <MobileNavIcon type="home" />
+-          <span>Home</span>
++          <span>Ride</span>
+         </button>
+ 
+         <button
+           type="button"
+-          onClick={() => scrollToRides("active")}
++          className={customerPage === "rides" && !profileOpen ? "active" : ""}
++          onClick={() => scrollToRides(activeRides.length ? "active" : "completed")}
+           aria-label="My Rides"
+         >
+           <MobileNavIcon type="rides" />
+           <span>My Rides</span>
++          {activeRides.length > 0 ? <b className="cvMobileNavBadge">{activeRides.length > 9 ? "9+" : activeRides.length}</b> : null}
+         </button>
+ 
+         <button
+           type="button"
+-          className="cvMobileBookButton"
+-          onClick={openBookingsFromNav}
+-          aria-label="Book new ride"
++          className={customerPage === "safety" && !profileOpen ? "active" : ""}
++          onClick={() => {
++            setProfileOpen(false);
++            setCustomerPage("safety");
++            window.scrollTo({ top: 0, behavior: "smooth" });
++          }}
++          aria-label="Safety"
+         >
+-          <span className="cvMobileBookIcon">
+-            <MobileNavIcon type="book" />
+-          </span>
+-          <span>Book</span>
++          <MobileNavIcon type="safety" />
++          <span>Safety</span>
+         </button>
+ 
+         <button
+           type="button"
+-          className={customerPage === "wallet" ? "active" : ""}
+-          onClick={openWalletPage}
+-          aria-label="Wallet"
+-        >
+-          <MobileNavIcon type="wallet" />
+-          <span>Wallet</span>
+-        </button>
+-
+-        <button
+-          type="button"
++          className={profileOpen ? "active" : ""}
+           onClick={() => setProfileOpen(true)}
+           aria-label="Profile"
+         >
