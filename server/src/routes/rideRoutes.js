@@ -9,9 +9,23 @@ const driverRideFeedController =
     "../controllers/driverRideFeedController"
   );
 
+const User = require(
+  "../models/User"
+);
+
 const {
   protect,
 } = require("../middlewares/auth");
+
+const {
+  requirePlatformFeeBelowThreshold
+} = require("../middlewares/platformFeeGate");
+
+const {
+  recoverExpiredRideFeed
+} = require(
+  "../middlewares/recoverExpiredRideFeed"
+);
 
 const {
   rideMutationLimiter,
@@ -121,11 +135,16 @@ router.get(
 | Driver Ride Feed
 |--------------------------------------------------------------------------
 | This route must remain above dynamic routes.
+| Expired dispatch entries no longer make an otherwise-active searching ride
+| disappear from an online/available driver's list. Recovery middleware only
+| adds recent unassigned rides after all pending dispatch windows have expired;
+| accept endpoint still re-validates and atomically claims the ride.
 |--------------------------------------------------------------------------
 */
 
 router.get(
   "/driver/feed",
+  recoverExpiredRideFeed,
   driverRideFeedController
     .getDriverRideFeed
 );
@@ -141,6 +160,7 @@ router.get(
 
 router.get(
   "/mine",
+  recoverExpiredRideFeed,
   (req, res, next) => {
     if (
       req.user?.role === "driver"
@@ -177,6 +197,249 @@ router.get(
   "/driver/active",
   rideController
     .getDriverActiveRide
+);
+
+/*
+|--------------------------------------------------------------------------
+| Nearby Online Drivers — Customer Map
+|--------------------------------------------------------------------------
+| GET /api/v2/rides/online-drivers
+|
+| Query:
+|   latitude / lat
+|   longitude / lng / lon
+|   radiusMeters (optional, default 25000, max 50000)
+|   limit (optional, default 30, max 50)
+|
+| ADD-ONLY:
+| - Existing ride routes untouched.
+| - Only approved + active + online + available + free drivers are returned.
+| - Private fields such as phone, email, documents and wallet are not returned.
+| - This static route MUST remain above "/:bookingId".
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/online-drivers",
+  async (req, res, next) => {
+    try {
+      if (
+        ![
+          "customer",
+          "admin"
+        ].includes(
+          req.user?.role
+        )
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Only customers and admin can view online drivers",
+        });
+      }
+
+      const latitude =
+        Number(
+          req.query.latitude ??
+          req.query.lat
+        );
+
+      const longitude =
+        Number(
+          req.query.longitude ??
+          req.query.lng ??
+          req.query.lon
+        );
+
+      const coordinatesValid =
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude) &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
+
+      if (!coordinatesValid) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Valid latitude and longitude are required",
+        });
+      }
+
+      const radiusMeters =
+        Math.min(
+          Math.max(
+            Number(
+              req.query.radiusMeters
+            ) || 25000,
+            100
+          ),
+          50000
+        );
+
+      const driverLimit =
+        Math.min(
+          Math.max(
+            Number(
+              req.query.limit
+            ) || 30,
+            1
+          ),
+          50
+        );
+
+      const drivers =
+        await User.aggregate([
+          {
+            $geoNear: {
+              near: {
+                type: "Point",
+                coordinates: [
+                  longitude,
+                  latitude
+                ]
+              },
+
+              distanceField:
+                "distanceMeters",
+
+              spherical: true,
+
+              maxDistance:
+                radiusMeters,
+
+              key:
+                "currentLocation.geo",
+
+              query: {
+                role: "driver",
+
+                isActive: true,
+
+                accountStatus:
+                  "active",
+
+                isOnline: true,
+
+                isAvailable: true,
+
+                currentRide: null,
+
+                "driverProfile.isApproved":
+                  true
+              }
+            }
+          },
+
+          {
+            $limit:
+              driverLimit
+          },
+
+          {
+            $project: {
+              name: 1,
+              profileImage: 1,
+
+              isOnline: 1,
+              isAvailable: 1,
+
+              currentLocation: {
+                latitude:
+                  "$currentLocation.latitude",
+
+                longitude:
+                  "$currentLocation.longitude",
+
+                heading:
+                  "$currentLocation.heading",
+
+                speed:
+                  "$currentLocation.speed",
+
+                accuracy:
+                  "$currentLocation.accuracy",
+
+                updatedAt:
+                  "$currentLocation.updatedAt"
+              },
+
+              vehicle: {
+                vehicleType:
+                  "$driverProfile.vehicle.vehicleType",
+
+                brand:
+                  "$driverProfile.vehicle.brand",
+
+                model:
+                  "$driverProfile.vehicle.model",
+
+                color:
+                  "$driverProfile.vehicle.color",
+
+                registrationNumber:
+                  "$driverProfile.vehicle.registrationNumber"
+              },
+
+              rating:
+                "$driverProfile.rating",
+
+              ratingCount:
+                "$driverProfile.ratingCount",
+
+              distanceMeters: 1,
+
+              distanceKm: {
+                $round: [
+                  {
+                    $divide: [
+                      "$distanceMeters",
+                      1000
+                    ]
+                  },
+                  2
+                ]
+              },
+
+              etaMinutes: {
+                $max: [
+                  {
+                    $ceil: {
+                      $multiply: [
+                        {
+                          $divide: [
+                            "$distanceMeters",
+                            1000
+                          ]
+                        },
+                        3
+                      ]
+                    }
+                  },
+                  1
+                ]
+              }
+            }
+          }
+        ]);
+
+      return res.status(200).json({
+        success: true,
+        statusCode: 200,
+        message:
+          "Online drivers fetched successfully",
+
+        data: {
+          drivers,
+          count:
+            drivers.length
+        }
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
 );
 
 /*
@@ -237,17 +500,22 @@ router.post(
 |--------------------------------------------------------------------------
 | PATCH backend support
 | POST frontend compatibility support
+| Platform-fee gate intentionally runs only at acceptance time so a driver
+| with ₹100+ due can still SEE incoming ride requests, but cannot accept one
+| until the outstanding HimRideG platform fee is paid below the threshold.
 |--------------------------------------------------------------------------
 */
 
 router.patch(
   "/:bookingId/accept",
+  requirePlatformFeeBelowThreshold,
   driverRideFeedController
     .acceptAvailableRide
 );
 
 router.post(
   "/:bookingId/accept",
+  requirePlatformFeeBelowThreshold,
   driverRideFeedController
     .acceptAvailableRide
 );
@@ -283,6 +551,7 @@ router.patch(
   "/:bookingId/driver-release",
   driverRideFeedController.releaseAcceptedRide
 );
+
 router.post(
   "/:bookingId/driver-release",
   driverRideFeedController.releaseAcceptedRide
