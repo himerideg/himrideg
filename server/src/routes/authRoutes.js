@@ -56,9 +56,10 @@ router.get("/google/status", (req, res) => {
 
 router.get("/stats", async (req, res) => {
   try {
-    const [customerCount, driverCount] = await Promise.all([
+    const [customerCount, driverCount, onlineDriverCount] = await Promise.all([
       User.countDocuments({ role: "customer", accountStatus: { $ne: "deleted" } }),
-      User.countDocuments({ role: "driver", "driverProfile.isApproved": true, accountStatus: { $ne: "blocked" } })
+      User.countDocuments({ role: "driver", "driverProfile.isApproved": true, accountStatus: { $ne: "blocked" } }),
+      User.countDocuments({ role: "driver", "driverProfile.isApproved": true, isOnline: true, accountStatus: { $ne: "blocked" } })
     ]);
 
     // Format: exact number tak floor to nearest 10, then show "X+"
@@ -73,8 +74,10 @@ router.get("/stats", async (req, res) => {
       data: {
         customers: fmt(customerCount),
         drivers: fmt(driverCount),
+        onlineDrivers: onlineDriverCount,
         rawCustomers: customerCount,
-        rawDrivers: driverCount
+        rawDrivers: driverCount,
+        rawOnlineDrivers: onlineDriverCount
       }
     });
   } catch (err) {
