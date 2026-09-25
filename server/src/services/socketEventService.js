@@ -640,12 +640,19 @@ const emitRideOtpGenerated = ({
         )
       : false;
 
-  const rideSent =
-    payload.bookingId
-      ? emitRideEvent(
-          payload.bookingId,
+  const driverSent =
+    payload.driverId
+      ? emitDriverEvent(
+          payload.driverId,
           SOCKET_EVENTS.OTP_GENERATED,
-          payload
+          {
+            ...payload,
+            data: {
+              booking,
+              expiresAt: resolvedExpiresAt,
+              otpGenerated: Boolean(resolvedOtp)
+            }
+          }
         )
       : false;
 
@@ -665,7 +672,7 @@ const emitRideOtpGenerated = ({
 
   return (
     customerSent ||
-    rideSent ||
+    driverSent ||
     adminSent
   );
 };
