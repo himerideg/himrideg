@@ -505,6 +505,27 @@ async function updateKnownBookingLocationScalable({
         location;
 
       await booking.save();
+
+      await User.updateOne(
+        {
+          _id:
+            driverId,
+
+          role:
+            "driver"
+        },
+
+        {
+          $set: {
+            currentLocation:
+              location,
+
+            lastSeenAt:
+              location.updatedAt ||
+              new Date()
+          }
+        }
+      );
     }
 
     return {
