@@ -3844,20 +3844,9 @@ function DriverDashboard({
           responseData?.booking ||
           null;
 
-        const newOtp =
-          responseData?.rideStartOtp ||
-          responseData?.otp ||
-          "";
-
         if (updatedRide?._id) {
           updateLocalBooking(
             updatedRide
-          );
-        }
-
-        if (!newOtp) {
-          throw new Error(
-            "Naya OTP response me nahi mila"
           );
         }
 
@@ -3865,11 +3854,13 @@ function DriverDashboard({
           updatedRide || ride
         );
 
-        setOtp(String(newOtp));
+        // Plain OTP customer ke phone par hi dikhega. Driver customer se
+        // OTP poochkar manually enter karega.
+        setOtp("");
 
         showNotice(
           "success",
-          `Naya ride OTP: ${newOtp}`
+          "OTP customer ko bhej diya. Customer se OTP poochkar manually enter karein."
         );
 
         await loadBookings?.();
