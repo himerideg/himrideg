@@ -1945,21 +1945,6 @@ async function acceptRide({
   }
 
   try {
-    const otp =
-      generateOtp(4);
-
-    const otpHash =
-      await bcrypt.hash(
-        otp,
-        10
-      );
-
-    const otpExpiresAt =
-      addMinutes(
-        new Date(),
-        DEFAULT_OTP_EXPIRY_MINUTES
-      );
-
     booking.driver =
       driverObjectId;
 
@@ -1969,16 +1954,9 @@ async function acceptRide({
     booking.acceptedAt =
       new Date();
 
-    booking.rideStartOtp = {
-      otpHash,
-      expiresAt:
-        otpExpiresAt,
-      attempts: 0,
-      maxAttempts:
-        MAX_OTP_ATTEMPTS,
-      verified: false,
-      verifiedAt: null
-    };
+    // OTP must not exist at acceptance. The assigned driver generates it
+    // only after reaching pickup and explicitly tapping Generate OTP.
+    booking.rideStartOtp = null;
 
     booking.dispatchQueue.forEach(
       (request) => {
@@ -2021,19 +1999,6 @@ async function acceptRide({
     );
 
     safeEmit(
-      emitRideOtpGenerated,
-      {
-        booking:
-          populated,
-
-        rideStartOtp:
-          otp,
-
-        otpExpiresAt
-      }
-    );
-
-    safeEmit(
       emitRideStatusUpdated,
       {
         booking:
@@ -2070,12 +2035,7 @@ async function acceptRide({
 
     return {
       booking:
-        populated,
-
-      rideStartOtp:
-        otp,
-
-      otpExpiresAt
+        populated
     };
   } catch (error) {
     await releaseDriver(
@@ -2623,22 +2583,9 @@ async function regenerateRideStartOtp({
     );
 
   if (
-    ![
-      "customer",
-      "driver",
-      "admin"
-    ].includes(role)
-  ) {
-    throw new RideServiceError(
-      "OTP regeneration access denied",
-      403,
-      "OTP_ACCESS_DENIED"
-    );
-  }
-
-  if (
-    role === "customer" &&
-    booking.customer
+    role !== "driver" ||
+    !booking.driver ||
+    booking.driver
       .toString() !==
       currentUserId.toString()
   ) {
@@ -2650,29 +2597,9 @@ async function regenerateRideStartOtp({
   }
 
   if (
-    role === "driver" &&
-    (
-      !booking.driver ||
-      booking.driver
-        .toString() !==
-        currentUserId.toString()
-    )
-  ) {
-    throw new RideServiceError(
-      "OTP regeneration access denied",
-      403,
-      "OTP_ACCESS_DENIED"
-    );
-  }
-
-  if (
     ![
-      "accepted",
-      "fare_offered",
-      "negotiating",
-      "fare_accepted",
-      "driver_arriving",
-      "driver_arrived"
+      "driver_arrived",
+      "arrived"
     ].includes(
       booking.status
     )
@@ -2736,10 +2663,11 @@ async function regenerateRideStartOtp({
     });
   }
 
+  // Never return the plain OTP to the driver. Customer receives it through
+  // the private customer socket room / push notification only.
   return {
     booking,
-    rideStartOtp:
-      otp,
+    otpGenerated: true,
     otpExpiresAt
   };
 }
@@ -4218,23 +4146,8 @@ async function acceptRideAtomic({
   }
 
   try {
-    const otp =
-      generateOtp(4);
-
-    const otpHash =
-      await bcrypt.hash(
-        otp,
-        10
-      );
-
     const now =
       new Date();
-
-    const otpExpiresAt =
-      addMinutes(
-        now,
-        DEFAULT_OTP_EXPIRY_MINUTES
-      );
 
     const booking =
       await Booking.findOneAndUpdate(
@@ -4318,23 +4231,9 @@ async function acceptRideAtomic({
             fareAcceptedAt:
               null,
 
-            rideStartOtp: {
-              otpHash,
-
-              expiresAt:
-                otpExpiresAt,
-
-              attempts: 0,
-
-              maxAttempts:
-                MAX_OTP_ATTEMPTS,
-
-              verified:
-                false,
-
-              verifiedAt:
-                null
-            }
+            // OTP is generated only after arrival + explicit driver action.
+            rideStartOtp:
+              null
           }
         },
 
@@ -4403,19 +4302,6 @@ async function acceptRideAtomic({
     );
 
     safeEmit(
-      emitRideOtpGenerated,
-      {
-        booking:
-          populated,
-
-        rideStartOtp:
-          otp,
-
-        otpExpiresAt
-      }
-    );
-
-    safeEmit(
       emitRideStatusUpdated,
       {
         booking:
@@ -4426,14 +4312,33 @@ async function acceptRideAtomic({
       }
     );
 
+    safePush(populated.customer, {
+      title: "Driver Accepted Your Ride 🚕",
+      body: "Driver ne ride accept kar li. Ab driver fare bhejega.",
+      data: {
+        type: "ride_accepted",
+        soundEvent: "driver_accepted_customer",
+        role: "customer",
+        bookingId: String(populated._id),
+        status: populated.status
+      }
+    });
+
+    safePush(driverObjectId, {
+      title: "Ride Accepted — Send Fare",
+      body: "Customer ride aapko assign ho gayi. Apna initial fare bhejein.",
+      data: {
+        type: "ride_accepted",
+        soundEvent: "fare_initial",
+        role: "driver",
+        bookingId: String(populated._id),
+        status: populated.status
+      }
+    });
+
     return {
       booking:
-        populated,
-
-      rideStartOtp:
-        otp,
-
-      otpExpiresAt
+        populated
     };
   } catch (error) {
     await releaseDriver(
