@@ -612,6 +612,42 @@ const emitRideOtpGenerated = ({
   const resolvedExpiresAt =
     expiresAt ?? otpExpiresAt ?? null;
 
+  const bookingObject =
+    booking?.toObject
+      ? booking.toObject({
+          virtuals: false,
+          getters: false
+        })
+      : (
+          booking &&
+          typeof booking === "object"
+            ? { ...booking }
+            : booking
+        );
+
+  if (
+    bookingObject?.rideStartOtp &&
+    typeof bookingObject.rideStartOtp === "object"
+  ) {
+    bookingObject.rideStartOtp = {
+      expiresAt:
+        bookingObject.rideStartOtp.expiresAt ||
+        resolvedExpiresAt ||
+        null,
+      attempts:
+        bookingObject.rideStartOtp.attempts ?? 0,
+      maxAttempts:
+        bookingObject.rideStartOtp.maxAttempts ?? null,
+      verified:
+        Boolean(
+          bookingObject.rideStartOtp.verified
+        ),
+      verifiedAt:
+        bookingObject.rideStartOtp.verifiedAt ||
+        null
+    };
+  }
+
   const payload = createEventPayload({
     booking,
     message:
@@ -620,7 +656,8 @@ const emitRideOtpGenerated = ({
     data: {
       otp: resolvedOtp,
       expiresAt: resolvedExpiresAt,
-      booking,
+      booking:
+        bookingObject,
 
       ...(
         data &&
@@ -648,7 +685,8 @@ const emitRideOtpGenerated = ({
           {
             ...payload,
             data: {
-              booking,
+              booking:
+                bookingObject,
               expiresAt: resolvedExpiresAt,
               otpGenerated: Boolean(resolvedOtp)
             }
@@ -663,7 +701,8 @@ const emitRideOtpGenerated = ({
         ...payload,
 
         data: {
-          booking,
+          booking:
+            bookingObject,
           expiresAt: resolvedExpiresAt,
           otpGenerated: Boolean(resolvedOtp)
         }
