@@ -222,6 +222,18 @@ function DriverLocationTracker({
       }
     };
 
+    // Fast first fix: cached/normal-accuracy point makes the live marker
+    // available quickly while the high-accuracy watcher warms up.
+    navigator.geolocation.getCurrentPosition(
+      sendLocation,
+      () => {},
+      {
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 15000
+      }
+    );
+
     const watchId =
       navigator.geolocation.watchPosition(
         sendLocation,
@@ -256,8 +268,10 @@ function DriverLocationTracker({
           if (
             error.code === error.TIMEOUT
           ) {
+            // watchPosition retry karta rahega; isse terminal failure ki tarah
+            // show na karo jab GPS/socket recover ho raha ho.
             setMessage(
-              "Location request timeout ho gayi."
+              "📡 GPS signal retry ho raha hai..."
             );
 
             return;
@@ -270,7 +284,7 @@ function DriverLocationTracker({
 
         {
           enableHighAccuracy: true,
-          timeout: 20000,
+          timeout: 30000,
           maximumAge: 5000
         }
       );
