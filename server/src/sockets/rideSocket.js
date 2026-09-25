@@ -1174,6 +1174,17 @@ const handleJoinRide =
             bookingId
           );
 
+          if (!socket.authorizedRideCustomers) {
+            socket.authorizedRideCustomers = new Map();
+          }
+
+          socket.authorizedRideCustomers.set(
+            bookingId,
+            getBookingCustomerId(
+              booking
+            )
+          );
+
           sendSuccess(
             callback,
             "Ride room joined successfully",
@@ -1237,6 +1248,10 @@ const handleLeaveRide =
           );
 
           socket.authorizedRideIds?.delete(
+            bookingId
+          );
+
+          socket.authorizedRideCustomers?.delete(
             bookingId
           );
 
@@ -1325,9 +1340,26 @@ const handleDriverLocationUpdate =
               realtime: true
             };
 
-            io.to(
-              roomName
-            ).emit(
+            const customerId =
+              socket.authorizedRideCustomers?.get(
+                bookingId
+              );
+
+            let liveTargets =
+              io.to(
+                roomName
+              );
+
+            if (customerId) {
+              liveTargets =
+                liveTargets.to(
+                  getCustomerRoom(
+                    customerId
+                  )
+                );
+            }
+
+            liveTargets.emit(
               SOCKET_EVENTS.DRIVER_LOCATION_UPDATED,
               fastEventPayload
             );
