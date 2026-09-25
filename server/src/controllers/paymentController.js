@@ -630,18 +630,20 @@ exports.confirmCashPayment = async (req, res) => {
 
     const actorRole = String(req.user?.role || "").toLowerCase();
     const actorId = String(req.user?._id || "");
-    const customerOwnsRide =
-      actorRole === "customer" &&
-      getCustomerId(booking) === actorId;
+    // Customer may select Cash Payment, but only the assigned driver can
+    // confirm that physical cash was actually received. Admin remains an
+    // emergency/manual recovery authority.
+    const customerOwnsRide = false;
     const assignedDriver =
       actorRole === "driver" &&
       getDriverId(booking) === actorId;
     const adminActor = actorRole === "admin";
 
-    if (!customerOwnsRide && !assignedDriver && !adminActor) {
+    if (!assignedDriver && !adminActor) {
       return res.status(403).json({
         success: false,
-        message: "Sirf is ride ka customer, assigned driver ya admin cash payment complete kar sakta hai"
+        code: "DRIVER_CASH_CONFIRMATION_REQUIRED",
+        message: "Cash payment ko sirf assigned driver Cash Received confirm karke Paid kar sakta hai"
       });
     }
     if (booking.status !== "completed") {
@@ -672,30 +674,24 @@ exports.confirmCashPayment = async (req, res) => {
     const legacyCashPending =
       isLegacyCashPendingBooking(booking);
 
-    if (customerOwnsRide && !cashWasSelected && !legacyCashPending) {
+    if (!cashWasSelected && !legacyCashPending) {
       return res.status(409).json({
         success: false,
-        message: "Pehle Cash Payment choose karein, phir Payment Done dabayein"
+        code: "CASH_NOT_SELECTED",
+        message: "Customer ko pehle Cash Payment select karna hoga; uske baad assigned driver Cash Received confirm karega"
       });
     }
 
     /*
     |--------------------------------------------------------------------------
-    | FINAL INDEPENDENT CASH RULE
+    | DRIVER-AUTHORITATIVE CASH RULE
     |--------------------------------------------------------------------------
-    | Ride complete hone ke baad customer apni side se Payment Done kar sakta
-    | hai, aur assigned driver apni side se Receive Cash confirm kar sakta hai.
-    | Dono me se JO PEHLE confirm kare wahi payment ko paid banata hai aur driver
-    | immediately release hota hai. Driver ko customer action ka wait nahi hai.
-    |
-    | Online payment successful ho chuki ho to upar paymentStatus === "paid"
-    | branch idempotently return karti hai aur cash me overwrite nahi hota.
+    | Customer Cash Payment select karta hai. Payment pending hi rehti hai.
+    | Physical cash receive hone ke baad assigned driver Cash Received confirm
+    | karta hai; tabhi payment Paid hoti hai aur driver next ride ke liye
+    | release hota hai. Customer-side confirmation payment ko Paid nahi kar sakti.
     |--------------------------------------------------------------------------
     */
-    if (!cashWasSelected && !legacyCashPending) {
-      booking.cashSelectedAt = new Date();
-      booking.paymentChoiceAfterRide = "cash";
-    }
 
     if (legacyCashPending) {
       booking.cashSelectedAt = booking.cashSelectedAt || new Date();
@@ -721,7 +717,7 @@ exports.confirmCashPayment = async (req, res) => {
     syncEmbeddedPayment(booking);
     await booking.save();
 
-    // ADD-ONLY: customer Done ya driver Receive Cash — first confirmation wins.
+    // Assigned driver Cash Received confirmation is the payment authority.
     await releaseDriverAfterPaidBooking(booking);
     await walletService.settleRidePayment(booking._id);
 
@@ -736,9 +732,7 @@ exports.confirmCashPayment = async (req, res) => {
         amount: fare,
         paidAt: booking.paidAt,
         confirmedBy: actorRole,
-        message: customerOwnsRide
-          ? "Customer ne Cash Payment Done confirm kiya"
-          : "Cash Payment Successful"
+        message: "Assigned driver confirmed Cash Received"
       };
 
       io.to(`user:${customerId}`).emit("payment:confirmed", cashPaymentPayload);
@@ -762,9 +756,7 @@ exports.confirmCashPayment = async (req, res) => {
     if (customerId) {
       sendPushToUser(customerId, {
         title: "Cash Payment Successful ✅",
-        body: customerOwnsRide
-          ? `₹${fare} Cash Payment Done ho gayi.`
-          : `Driver ne ₹${fare} cash received confirm kar diya.`,
+        body: `Driver ne ₹${fare} cash received confirm kar diya.`,
         data: { ...pushData, soundEvent: "cash_payment_success", role: "customer" }
       }).catch(() => {});
     }
@@ -772,18 +764,14 @@ exports.confirmCashPayment = async (req, res) => {
     if (driverId) {
       sendPushToUser(driverId, {
         title: `Payment Received ₹${fare}`,
-        body: customerOwnsRide
-          ? "Customer ne Cash Payment Done confirm ki. Aap next ride le sakte hain."
-          : "Cash payment successfully confirm ho gayi. Ab aap next ride le sakte hain.",
+        body: "Cash payment successfully confirm ho gayi. Ab aap next ride le sakte hain.",
         data: { ...pushData, soundEvent: "payment_received_driver", role: "driver" }
       }).catch(() => {});
     }
 
     return res.status(200).json({
       success: true,
-      message: customerOwnsRide
-        ? "Cash Payment Done! Driver release ho gaya. ✅"
-        : "Cash payment confirm ho gaya! Driver release ho gaya. ✅",
+      message: "Cash payment confirm ho gaya! Driver release ho gaya. ✅",
       data: {
         bookingId: booking._id,
         paymentStatus: "paid",
