@@ -587,6 +587,14 @@ router.post(
     .verifyRideStartOtp
 );
 
+// Customer reconnect/resume recovery. This returns the SAME already-generated
+// OTP and never creates a new one.
+router.get(
+  "/:bookingId/start-otp",
+  rideController
+    .getCustomerRideStartOtp
+);
+
 router.post(
   "/:bookingId/regenerate-start-otp",
   rideController
