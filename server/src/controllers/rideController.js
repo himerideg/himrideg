@@ -848,6 +848,50 @@ async function verifyRideStartOtp(
 
 /*
 |--------------------------------------------------------------------------
+| Customer Recover Existing Start OTP
+|--------------------------------------------------------------------------
+*/
+
+async function getCustomerRideStartOtp(
+  req,
+  res,
+  next
+) {
+  try {
+    const { userId, role } =
+      getAuthenticatedUser(req);
+
+    requireRole(
+      role,
+      ["customer"],
+      "Only the booking customer can recover the ride OTP"
+    );
+
+    const result =
+      await rideService.getCustomerRideStartOtp({
+        bookingId:
+          getBookingId(req),
+
+        customerId:
+          userId
+      });
+
+    return sendSuccess(res, {
+      message:
+        result?.otp
+          ? "Ride start OTP recovered successfully"
+          : "Ride start OTP status loaded successfully",
+
+      data:
+        result
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
 | Regenerate Start OTP
 |--------------------------------------------------------------------------
 */
@@ -1256,6 +1300,7 @@ module.exports = {
   markDriverArrived,
 
   verifyRideStartOtp,
+  getCustomerRideStartOtp,
   regenerateRideStartOtp,
 
   startRide,
