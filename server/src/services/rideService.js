@@ -312,6 +312,116 @@ function generateOtp(length = 4) {
     .toString();
 }
 
+function getRideOtpRecoveryKey() {
+  const secret =
+    process.env.RIDE_OTP_RECOVERY_SECRET ||
+    process.env.JWT_ACCESS_SECRET ||
+    process.env.ACCESS_TOKEN_SECRET ||
+    process.env.JWT_SECRET ||
+    "";
+
+  if (!secret) {
+    throw new RideServiceError(
+      "Ride OTP recovery secret is not configured",
+      500,
+      "OTP_RECOVERY_SECRET_MISSING"
+    );
+  }
+
+  return crypto
+    .createHash("sha256")
+    .update(
+      `himrideg:ride-otp-recovery:${secret}`
+    )
+    .digest();
+}
+
+function encryptRideOtpForCustomer({
+  bookingId,
+  otp
+}) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(
+    "aes-256-gcm",
+    getRideOtpRecoveryKey(),
+    iv
+  );
+
+  cipher.setAAD(
+    Buffer.from(
+      String(bookingId),
+      "utf8"
+    )
+  );
+
+  const ciphertext = Buffer.concat([
+    cipher.update(
+      String(otp),
+      "utf8"
+    ),
+    cipher.final()
+  ]);
+
+  const tag = cipher.getAuthTag();
+
+  return {
+    recoveryCiphertext:
+      ciphertext.toString("base64"),
+    recoveryIv:
+      iv.toString("base64"),
+    recoveryTag:
+      tag.toString("base64")
+  };
+}
+
+function decryptRideOtpForCustomer({
+  bookingId,
+  recoveryCiphertext,
+  recoveryIv,
+  recoveryTag
+}) {
+  if (
+    !recoveryCiphertext ||
+    !recoveryIv ||
+    !recoveryTag
+  ) {
+    return "";
+  }
+
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    getRideOtpRecoveryKey(),
+    Buffer.from(
+      recoveryIv,
+      "base64"
+    )
+  );
+
+  decipher.setAAD(
+    Buffer.from(
+      String(bookingId),
+      "utf8"
+    )
+  );
+
+  decipher.setAuthTag(
+    Buffer.from(
+      recoveryTag,
+      "base64"
+    )
+  );
+
+  return Buffer.concat([
+    decipher.update(
+      Buffer.from(
+        recoveryCiphertext,
+        "base64"
+      )
+    ),
+    decipher.final()
+  ]).toString("utf8");
+}
+
 async function generateBookingNumber() {
   for (
     let attempt = 0;
@@ -2542,18 +2652,166 @@ async function verifyRideStartOtp({
     .verifiedAt =
     new Date();
 
+  booking.rideStartOtp
+    .recoveryCiphertext =
+    null;
+
+  booking.rideStartOtp
+    .recoveryIv =
+    null;
+
+  booking.rideStartOtp
+    .recoveryTag =
+    null;
+
   await booking.save();
+
+  const safeBooking =
+    await getBookingOrThrow(
+      booking._id,
+      {
+        populate: true
+      }
+    );
 
   safeEmit(
     emitRideOtpVerified,
     {
-      booking,
+      booking:
+        safeBooking,
       driverId:
         driverObjectId
     }
   );
 
-  return booking;
+  return safeBooking;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Customer OTP Recovery
+|--------------------------------------------------------------------------
+|
+| This endpoint never generates or regenerates an OTP. It returns the SAME
+| already-generated OTP only to the booking customer while the driver is at
+| pickup, the OTP is unverified, and it is still valid.
+|--------------------------------------------------------------------------
+*/
+
+async function getCustomerRideStartOtp({
+  bookingId,
+  customerId
+}) {
+  const bookingObjectId =
+    objectId(
+      bookingId,
+      "Booking ID"
+    );
+
+  const customerObjectId =
+    objectId(
+      customerId,
+      "Customer ID"
+    );
+
+  const booking =
+    await Booking.findOne({
+      _id:
+        bookingObjectId,
+      customer:
+        customerObjectId,
+      status: {
+        $in: [
+          "driver_arrived",
+          "arrived"
+        ]
+      }
+    }).select(
+      [
+        "customer",
+        "driver",
+        "status",
+        "rideStartOtp.expiresAt",
+        "rideStartOtp.verified",
+        "rideStartOtp.verifiedAt",
+        "+rideStartOtp.recoveryCiphertext",
+        "+rideStartOtp.recoveryIv",
+        "+rideStartOtp.recoveryTag"
+      ].join(" ")
+    );
+
+  if (!booking) {
+    throw new RideServiceError(
+      "Ride OTP is not available for this customer",
+      404,
+      "OTP_RECOVERY_NOT_AVAILABLE"
+    );
+  }
+
+  if (
+    booking.rideStartOtp
+      ?.verified
+  ) {
+    return {
+      otpGenerated: true,
+      verified: true,
+      expired: false,
+      otp: "",
+      otpExpiresAt:
+        booking.rideStartOtp
+          ?.expiresAt ||
+        null
+    };
+  }
+
+  const otpExpiresAt =
+    booking.rideStartOtp
+      ?.expiresAt ||
+    null;
+
+  const expired =
+    Boolean(
+      otpExpiresAt &&
+      new Date(
+        otpExpiresAt
+      ).getTime() <=
+        Date.now()
+    );
+
+  if (expired) {
+    return {
+      otpGenerated: true,
+      verified: false,
+      expired: true,
+      otp: "",
+      otpExpiresAt
+    };
+  }
+
+  const plainOtp =
+    decryptRideOtpForCustomer({
+      bookingId:
+        booking._id,
+      recoveryCiphertext:
+        booking.rideStartOtp
+          ?.recoveryCiphertext,
+      recoveryIv:
+        booking.rideStartOtp
+          ?.recoveryIv,
+      recoveryTag:
+        booking.rideStartOtp
+          ?.recoveryTag
+    });
+
+  return {
+    otpGenerated:
+      Boolean(plainOtp),
+    verified: false,
+    expired: false,
+    otp:
+      plainOtp,
+    otpExpiresAt
+  };
 }
 
 /*
@@ -2626,8 +2884,16 @@ async function regenerateRideStartOtp({
       DEFAULT_OTP_EXPIRY_MINUTES
     );
 
+  const recoveryPayload =
+    encryptRideOtpForCustomer({
+      bookingId:
+        booking._id,
+      otp
+    });
+
   booking.rideStartOtp = {
     otpHash,
+    ...recoveryPayload,
     expiresAt:
       otpExpiresAt,
     attempts: 0,
@@ -2639,34 +2905,43 @@ async function regenerateRideStartOtp({
 
   await booking.save();
 
+  const safeBooking =
+    await getBookingOrThrow(
+      booking._id,
+      {
+        populate: true
+      }
+    );
+
   safeEmit(
     emitRideOtpGenerated,
     {
-      booking,
+      booking:
+        safeBooking,
       rideStartOtp:
         otp,
       otpExpiresAt
     }
   );
 
-  if (String(booking.status || "").toLowerCase() === "driver_arrived") {
-    safePush(booking.customer, {
+  if (String(safeBooking.status || "").toLowerCase() === "driver_arrived") {
+    safePush(safeBooking.customer, {
       title: `Ride Start OTP: ${otp}`,
       body: `OTP ${otp} driver ko saamne milne ke baad batayein.`,
       data: {
         type: "ride_otp",
         role: "customer",
-        bookingId: String(booking._id),
+        bookingId: String(safeBooking._id),
         otp,
         otpExpiresAt
       }
     });
   }
 
-  // Never return the plain OTP to the driver. Customer receives it through
-  // the private customer socket room / push notification only.
+  // Never return the plain OTP or encrypted recovery material to the driver.
   return {
-    booking,
+    booking:
+      safeBooking,
     otpGenerated: true,
     otpExpiresAt
   };
@@ -4501,6 +4776,7 @@ module.exports = {
   markDriverArrived,
 
   verifyRideStartOtp,
+  getCustomerRideStartOtp,
   regenerateRideStartOtp,
 
   startRide,
