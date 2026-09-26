@@ -131,6 +131,27 @@ const rideOtpSchema = new mongoose.Schema(
       default: null
     },
 
+    // Encrypted copy exists only so the booking customer can recover the SAME
+    // already-generated OTP after reconnecting. These fields are never exposed
+    // by normal booking queries and are cleared after OTP verification.
+    recoveryCiphertext: {
+      type: String,
+      select: false,
+      default: null
+    },
+
+    recoveryIv: {
+      type: String,
+      select: false,
+      default: null
+    },
+
+    recoveryTag: {
+      type: String,
+      select: false,
+      default: null
+    },
+
     expiresAt: {
       type: Date,
       default: null
