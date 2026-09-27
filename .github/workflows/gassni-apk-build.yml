@@ -1,0 +1,92 @@
+name: GASSNI APK Build
+
+on:
+  push:
+    branches:
+      - gassni-apk-build-20260927
+    paths:
+      - "_gassni_build/**"
+      - ".github/workflows/gassni-apk-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout temporary build branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Reconstruct GASSNI source
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/gassni-src
+          base64 -d _gassni_build/source.tar.xz.b64 > /tmp/gassni-source.tar.xz
+          tar -xJf /tmp/gassni-source.tar.xz -C /tmp/gassni-src
+          base64 -d _gassni_build/sounds.tar.xz.b64 > /tmp/gassni-sounds.tar.xz
+          tar -xJf /tmp/gassni-sounds.tar.xz -C /tmp/gassni-src/gassni_ci
+          base64 -d _gassni_build/debug.keystore.b64 > /tmp/gassni-debug.keystore
+          test -f /tmp/gassni-src/gassni_ci/package.json
+          test -f /tmp/gassni-src/gassni_ci/assets/gassni-logo.png
+
+      - name: Install dependencies
+        working-directory: /tmp/gassni-src/gassni_ci
+        run: npm ci
+
+      - name: Generate Android native project
+        working-directory: /tmp/gassni-src/gassni_ci
+        env:
+          CI: "1"
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Restore stable signing key and notification sounds
+        working-directory: /tmp/gassni-src/gassni_ci
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cp /tmp/gassni-debug.keystore android/app/debug.keystore
+          mkdir -p android/app/src/main/res/raw
+          cp assets/sounds/*.wav android/app/src/main/res/raw/
+          grep -nE "namespace|applicationId|versionCode|versionName|signingConfig" android/app/build.gradle || true
+
+      - name: Build installable APK
+        working-directory: /tmp/gassni-src/gassni_ci/android
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8"
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify APK exists
+        working-directory: /tmp/gassni-src/gassni_ci
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ls -lah android/app/build/outputs/apk/release/
+          test -f android/app/build/outputs/apk/release/app-release.apk
+          cp android/app/build/outputs/apk/release/app-release.apk /tmp/GASSNI_TENT_HOUSE_V16_2.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GASSNI_TENT_HOUSE_V16_2_APK
+          path: /tmp/GASSNI_TENT_HOUSE_V16_2.apk
+          if-no-files-found: error
+          retention-days: 7
