@@ -414,7 +414,7 @@ function HomeBookRide({
                     form.pickup
                       ?.longitude,
 
-                  limit: 7,
+                  limit: 12,
                 }
               );
 
@@ -1163,10 +1163,18 @@ function HomeBookRide({
                                 </strong>
 
                                 <small>
-                                  {
-                                    item.address ||
-                                    item.display_name
-                                  }
+                                  {item.address || item.display_name}
+                                </small>
+
+                                <small className="hbrSuggestionMeta">
+                                  {[
+                                    item.type && item.type !== "place"
+                                      ? item.type.replace(/_/g, " ")
+                                      : "",
+                                    Number.isFinite(Number(item.distanceKm))
+                                      ? `${Number(item.distanceKm).toFixed(1)} km away`
+                                      : ""
+                                  ].filter(Boolean).join(" • ")}
                                 </small>
                               </span>
                             </button>
@@ -1400,8 +1408,8 @@ function HomeBookRide({
               scrollWheelZoom
             >
               <TileLayer
-                attribution="&copy; OpenStreetMap contributors"
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution="&copy; OpenStreetMap contributors &copy; CARTO"
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
               />
 
               <FitRoute
