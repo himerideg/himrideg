@@ -1,5 +1,7 @@
 import api from "./api";
 
+const locationSearchCache = new Map();
+
 export function normalizeLocation(value) {
   if (!value) return null;
 
@@ -36,13 +38,23 @@ export function normalizeLocation(value) {
       value.shortName ||
       value.name ||
       value.address?.split(",")?.[0] ||
-      "Location"
+      "Location",
+    city: value.city || value.town || value.village || "",
+    district: value.district || value.county || "",
+    state: value.state || "",
+    type: value.type || "place",
+    provider: value.provider || "himrideg",
+    distanceKm: Number.isFinite(Number(value.distanceKm)) ? Number(value.distanceKm) : null
   };
 }
 
 export async function searchLocations(query, options = {}) {
   const text = String(query || "").trim();
   if (text.length < 2) return [];
+
+  const cacheKey = `${text.toLowerCase()}|${Number(options.latitude || 0).toFixed(2)}|${Number(options.longitude || 0).toFixed(2)}`;
+  const cached = locationSearchCache.get(cacheKey);
+  if (cached && Date.now() - cached.savedAt < 90000) return cached.results;
 
   const response = await api.get("/maps/autocomplete", {
     params: {
@@ -63,9 +75,16 @@ export async function searchLocations(query, options = {}) {
     response.data?.results ||
     [];
 
-  return (Array.isArray(rows) ? rows : [])
+  const results = (Array.isArray(rows) ? rows : [])
     .map(normalizeLocation)
     .filter(Boolean);
+
+  locationSearchCache.set(cacheKey, { savedAt: Date.now(), results });
+  if (locationSearchCache.size > 30) {
+    locationSearchCache.delete(locationSearchCache.keys().next().value);
+  }
+
+  return results;
 }
 
 export async function reverseLocation(latitude, longitude, options = {}) {
