@@ -375,3 +375,15 @@
     height: 280px;
   }
 }
+
+.hbrSuggestions button .hbrSuggestionMeta {
+  margin-top: 5px;
+  color: #d6ab27;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.hbrMap .leaflet-tile-pane {
+  filter: saturate(1.05) contrast(1.03);
+}
