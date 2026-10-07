@@ -211,6 +211,16 @@ app.use(cookieParser());
 
 app.use(requestDiagnostics);
 
+// Shared rate cache is refreshed before payment and fare APIs use it.
+const { refreshCommissionSettings } = require("./utils/commissionPolicy");
+app.use("/api/v2", (req, res, next) => {
+  refreshCommissionSettings().then(() => next(), next);
+});
+const commissionRefreshTimer = setInterval(() => {
+  refreshCommissionSettings(true).catch(() => {});
+}, 5000);
+commissionRefreshTimer.unref?.();
+
 /*
 |--------------------------------------------------------------------------
 | Razorpay / RazorpayX Webhooks — RAW BODY REQUIRED
@@ -445,4 +455,4 @@ app.use(notFound);
 
 app.use(errorHandler);
 
-module.exports = app;
+module.exports = app;

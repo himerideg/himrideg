@@ -90,7 +90,7 @@ export default function DriverEarningsPlatformPanel({
         <button type="button" className="v75SecondaryButton" onClick={onOpenPaymentSettings}>UPI & Bank Settings</button>
 
         <div className="v75Future">
-          The driver receives the customer's fare directly through UPI or cash, while HimRideG tracks only the 10% platform fee. Once RazorpayX is enabled, automatic payouts will be sent to this selected primary account. {loading ? "Updating…" : ""}
+          New rides have 0% platform commission during the six-month offer. Existing dues from earlier rides, if any, remain in the account. Once RazorpayX is enabled, automatic payouts will be sent to this selected primary account. {loading ? "Updating…" : ""}
         </div>
       </section>
 

@@ -49,6 +49,8 @@ const {
   adminLoginLimiter
 } = require("../middlewares/rateLimits");
 
+const commissionAdmin = require("../controllers/adminCommissionController");
+
 const router =
   express.Router();
 
@@ -71,6 +73,10 @@ router.post(
 */
 
 router.use(protect);
+
+router.get("/commission", commissionAdmin.getCommissionSettings);
+router.put("/commission", commissionAdmin.saveCommissionSettings);
+router.post("/commission/preview", commissionAdmin.previewCommission);
 
 /*
 |--------------------------------------------------------------------------
@@ -327,4 +333,4 @@ router.patch("/control/deletion-requests/:id/approve", adminControlCenter.approv
 router.patch("/control/deletion-requests/:id/reject", adminControlCenter.rejectDeletion);
 
 module.exports =
-  router;
+  router;

@@ -3,6 +3,7 @@ import api from"../api";
 import"../admin-dashboard.css";
 // ADD-ONLY V92: complaints, user lists, warnings, account deletion
 import AdminControlCenter from"../components/AdminControlCenter";
+import AdminCommissionPanel from"../components/AdminCommissionPanel";
 
 const bookingTabs=["all","pending","accepted","started","completed","cancelled"];
 
@@ -586,6 +587,11 @@ function AdminDashboard({
       label:"Withdrawals"
     },
     {
+      id:"commission",
+      icon:"%",
+      label:"Commission"
+    },
+    {
       id:"warnings",
       icon:"⚠",
       label:"Warnings",
@@ -1012,6 +1018,7 @@ function AdminDashboard({
               {activeSection==="drivers"&&"Driver Management"}
               {activeSection==="bookings"&&"Ride Management"}
               {activeSection==="withdrawals"&&"Wallet Withdrawals"}
+              {activeSection==="commission"&&"Commission"}
               {activeSection==="control"&&"Control Center"}
               {activeSection==="complaints"&&"Customer Complaints"}
               {activeSection==="customers"&&"All Customers"}
@@ -1048,6 +1055,7 @@ function AdminDashboard({
         </header>
 
         <main className="adminContent">
+          {activeSection==="commission"&&<AdminCommissionPanel />}
           {/* ADD-ONLY V92 */}
           {["control","complaints","customers","allDrivers","deletion"].includes(activeSection)&&(
             <AdminControlCenter
@@ -1940,4 +1948,4 @@ function StatCard({
   );
 }
 
-export default AdminDashboard;
+export default AdminDashboard;

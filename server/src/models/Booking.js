@@ -1048,9 +1048,14 @@ const bookingSchema = new mongoose.Schema(
 
     platformCommissionPercent: {
       type: Number,
-      default: 8,
+      default: 0,
       min: 0,
       max: 100
+    },
+
+    commissionPolicyLockedAt: {
+      type: Date,
+      default: null
     },
 
     platformCommissionAmount: {
@@ -1390,4 +1395,4 @@ bookingSchema.methods.addRejectedDriver =
 module.exports = mongoose.model(
   "Booking",
   bookingSchema
-);
+);

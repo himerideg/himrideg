@@ -2340,23 +2340,12 @@ const handleFareNegotiation =
           booking.status =
             "fare_accepted";
 
-          const commissionPercent =
-            booking
-              .platformCommissionPercent ||
-            10;
-
-          booking.platformCommissionAmount =
-            Math.round(
-              (
-                finalFare *
-                commissionPercent
-              ) / 100
-            );
-
-          booking.driverPayableAmount =
-            finalFare -
-            booking
-              .platformCommissionAmount;
+          const { commissionBreakdown } = require("../utils/commissionPolicy");
+          const commission = commissionBreakdown(finalFare, booking);
+          booking.platformCommissionPercent = commission.commissionPercent;
+          booking.platformCommissionAmount = commission.platformCommission;
+          booking.driverPayableAmount = commission.driverPayable;
+          booking.commissionPolicyLockedAt = new Date();
 
           await booking.save();
 

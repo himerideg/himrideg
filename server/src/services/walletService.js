@@ -4,7 +4,8 @@ const WalletTransaction = require("../models/WalletTransaction");
 const WithdrawalRequest = require("../models/WithdrawalRequest");
 const razorpayX = require("./razorpayXService");
 const {
-  commissionBreakdown
+  commissionBreakdown,
+  getCommissionSettings
 } = require("../utils/commissionPolicy");
 
 const SUCCESS_PAYOUT_STATUSES = new Set(["processed"]);
@@ -824,12 +825,10 @@ async function getWalletSummary(driverId) {
     moneyMode: "internal_wallet_razorpayx",
     commissionPercent: null,
     driverSharePercent: null,
-    commissionPolicy: {
-      shortTripMaxKm: 15,
-      shortTripCommissionPercent: 8,
-      longTripCommissionPercent: 5
-    },
-    walletRule: "0-15 km ride par 8% HimRideG commission / 92% driver; 15 km se zyada par 5% commission / 95% driver.",
+    commissionPolicy: getCommissionSettings(),
+    walletRule: getCommissionSettings().active
+      ? "Admin commission policy applies to new fare locks."
+      : "New rides: 0% HimRideG commission, driver keeps the full fare.",
     todayEarnings: money(todayAgg[0]?.amount),
     monthEarnings: money(monthAgg[0]?.amount),
     payoutsEnabled: payoutReadiness.ready && payoutLiveAccess.ok,

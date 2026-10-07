@@ -1188,6 +1188,8 @@ exports.acceptFare = async (
     booking.driverPayableAmount =
       driverPayable;
 
+    booking.commissionPolicyLockedAt = new Date();
+
     booking.fareStatus =
       "fare_accepted";
 
@@ -1698,6 +1700,8 @@ exports.customerAcceptFinalFare =
 
       booking.driverPayableAmount =
         driverPayable;
+
+      booking.commissionPolicyLockedAt = new Date();
 
       booking.fareStatus =
         "fare_accepted";

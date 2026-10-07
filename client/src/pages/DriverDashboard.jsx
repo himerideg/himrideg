@@ -5588,11 +5588,11 @@ function DriverDashboard({
               </article>
               <article>
                 <span>HimRideG Commission</span>
-                <strong>10%</strong>
+                <strong>{walletData?.commissionPolicy?.active ? "Admin rate" : "0%"}</strong>
               </article>
               <article>
                 <span>Driver Online Share</span>
-                <strong>90%</strong>
+                <strong>{walletData?.commissionPolicy?.active ? "Fare minus commission" : "100%"}</strong>
               </article>
             </div>
 
@@ -5606,9 +5606,9 @@ function DriverDashboard({
               <h3>💰 Real Driver Earnings Wallet</h3>
               <p>
                 Customer Paytm / UPI se locked fare pay karega. Ride complete +
-                payment verify hone ke baad <strong>10% HimRideG commission</strong>
-                platform Razorpay collection me retain hogi aur <strong>90% driver
-                share</strong> is earnings wallet me credit hoga. Withdrawal live
+                payment verify hone ke baad <strong>6 mahine ke offer mein 0% HimRideG commission</strong>
+                lagegi aur <strong>poora fare driver earnings</strong> mein credit hoga.
+                Offer ke baad admin se activate hui policy lagegi. Withdrawal live
                 RazorpayX payout se saved UPI ya bank account par jayega.
               </p>
               <button

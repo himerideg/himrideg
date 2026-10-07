@@ -3,7 +3,7 @@ import "../driver-v75-parity.css";
 
 const idOf = (value) => String(value?._id || value?.id || value || "");
 const fareOf = (ride) => Number(ride?.finalFare ?? ride?.fare?.finalFare ?? 0) || 0;
-const feeOf = (ride) => Number(ride?.platformCommissionAmount ?? (fareOf(ride) * 0.1)) || 0;
+const feeOf = (ride) => Number(ride?.platformCommissionAmount ?? 0) || 0;
 const netOf = (ride) => Number(ride?.driverPayableAmount ?? Math.max(0, fareOf(ride) - feeOf(ride))) || 0;
 const customerOf = (ride) => String(ride?.customer?.name || ride?.customerName || "HimRideG Customer");
 const pickupOf = (ride) => String(ride?.pickup?.address || ride?.pickupAddress || (typeof ride?.pickup === "string" ? ride.pickup : "") || "Pickup");
@@ -101,7 +101,7 @@ export default function DriverHistoryHub({ bookings = [], walletData = null, onB
         <div className="v75List">
           {earningRows.length ? earningRows.map((ride) => {
             const rideId = idOf(ride); const open = openId === rideId; const paid = paidOf(ride);
-            return <article className="v75Record" key={rideId}><button type="button" className="v75RecordMain" onClick={() => setOpenId(open ? "" : rideId)}><div><span className="v75RecordName">{customerOf(ride)}</span><span className="v75Route">{pickupOf(ride)} → {dropOf(ride)} · {dateTime(ride)}</span></div><strong className="v75RecordAmount">₹{money(netOf(ride))}</strong><span className={`v75Status ${paid ? "" : "due"}`}>{paid ? "Received ✓" : "Payment Pending"}</span></button>{open ? <div className="v75RecordDetail"><div><small>Fare</small><strong>₹{money(fareOf(ride))}</strong></div><div><small>Platform Fee (10%)</small><strong>₹{money(feeOf(ride))}</strong></div><div><small>Driver Net</small><strong>₹{money(netOf(ride))}</strong></div><div><small>Payment Method</small><strong>{paymentMethod(ride)}</strong></div><div><small>Payment</small><strong>{paid ? "Paid ✓" : "Pending"}</strong></div><div><small>Ride ID</small><strong>{ride?.bookingNumber || rideId.slice(-8)}</strong></div></div> : null}</article>;
+            return <article className="v75Record" key={rideId}><button type="button" className="v75RecordMain" onClick={() => setOpenId(open ? "" : rideId)}><div><span className="v75RecordName">{customerOf(ride)}</span><span className="v75Route">{pickupOf(ride)} → {dropOf(ride)} · {dateTime(ride)}</span></div><strong className="v75RecordAmount">₹{money(netOf(ride))}</strong><span className={`v75Status ${paid ? "" : "due"}`}>{paid ? "Received ✓" : "Payment Pending"}</span></button>{open ? <div className="v75RecordDetail"><div><small>Fare</small><strong>₹{money(fareOf(ride))}</strong></div><div><small>Platform Fee</small><strong>₹{money(feeOf(ride))}</strong></div><div><small>Driver Net</small><strong>₹{money(netOf(ride))}</strong></div><div><small>Payment Method</small><strong>{paymentMethod(ride)}</strong></div><div><small>Payment</small><strong>{paid ? "Paid ✓" : "Pending"}</strong></div><div><small>Ride ID</small><strong>{ride?.bookingNumber || rideId.slice(-8)}</strong></div></div> : null}</article>;
           }) : <div className="v75Future">Is filter me abhi earning record nahi hai.</div>}
         </div>
       </section>

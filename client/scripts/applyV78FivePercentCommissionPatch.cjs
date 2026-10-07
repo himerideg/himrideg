@@ -3,6 +3,13 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 
+// Commission is now controlled by the admin policy; do not restore the V78 5% UI.
+if (fs.readFileSync(path.join(root, "src/hooks/useDriverPlatformFee.js"), "utf8")
+  .includes("commissionPercent: 0,")) {
+  console.log("[V78] Legacy rate patch skipped: admin commission policy is active.");
+  process.exit(0);
+}
+
 function patch(relativePath, transforms) {
   const file = path.join(root, relativePath);
   if (!fs.existsSync(file)) {

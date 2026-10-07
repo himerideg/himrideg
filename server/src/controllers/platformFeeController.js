@@ -7,6 +7,7 @@ const {
   PLATFORM_FEE_BLOCK_THRESHOLD,
   feeDueOf
 } = require("../middlewares/platformFeeGate");
+const { getCommissionSettings } = require("../utils/commissionPolicy");
 
 function driverId(req) {
   return req.user?._id || req.user?.id;
@@ -43,7 +44,12 @@ function statusPayload(driver) {
     canAcceptRides: due < PLATFORM_FEE_BLOCK_THRESHOLD,
     reminderRequired: due > 0,
     paymentReady: livePaymentReady(),
-    totalCommissionPaid: money(driver?.wallet?.totalCommissionPaid || 0)
+    totalCommissionPaid: money(driver?.wallet?.totalCommissionPaid || 0),
+    commissionPercent: getCommissionSettings().active && getCommissionSettings().mode === "percent"
+      ? getCommissionSettings().shortRate : 0,
+    driverSharePercent: getCommissionSettings().active && getCommissionSettings().mode === "percent"
+      ? 100 - getCommissionSettings().shortRate : 100,
+    commissionMode: getCommissionSettings().active ? getCommissionSettings().mode : "percent"
   };
 }
 

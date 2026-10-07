@@ -3673,6 +3673,9 @@ async function driverReleaseRide({
   booking.fareAcceptedAt =
     null;
 
+  booking.commissionPolicyLockedAt =
+    null;
+
   if (booking.fare) {
     booking.fare.finalFare =
       0;

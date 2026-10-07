@@ -10,6 +10,8 @@ export default function useDriverPlatformFee() {
     reminderRequired: false,
     paymentReady: true,
     totalCommissionPaid: 0,
+    commissionPercent: 0,
+    driverSharePercent: 100,
     testMode: false
   });
   const [loading, setLoading] = useState(false);
@@ -43,6 +45,8 @@ export default function useDriverPlatformFee() {
           : Boolean(data?.reminderRequired ?? due > 0),
         paymentReady: Boolean(data?.paymentReady ?? true),
         totalCommissionPaid: Math.max(0, Number(data?.totalCommissionPaid || 0)),
+        commissionPercent: Math.max(0, Number(data?.commissionPercent ?? 0)),
+        driverSharePercent: Math.max(0, Number(data?.driverSharePercent ?? 100)),
         testMode,
         testModeNote: String(testData?.note || ""),
         lastTestResetAt: testData?.lastResetAt || null,
