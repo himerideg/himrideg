@@ -44,12 +44,32 @@ exports.saveCommissionSettings = async (req, res) => {
       longRate: Number(longRate),
       updatedBy: req.user._id
     };
+    // V93: change history ke liye purani settings
+    const beforeRow = await CommissionSettings.findOne({ key: "global" }).lean();
     const row = await CommissionSettings.findOneAndUpdate(
       { key: "global" },
       { $set: update, $setOnInsert: { key: "global" } },
       { upsert: true, new: true, runValidators: true }
     );
     setCommissionSettings(row);
+    // V93: audit log (fail hone par bhi save valid rahe)
+    try {
+      const pick = (r) => ({
+        enabled: r?.enabled === true,
+        mode: r?.mode || "percent",
+        shortTripMaxKm: Number(r?.shortTripMaxKm ?? 15),
+        shortRate: Number(r?.shortRate ?? 0),
+        longRate: Number(r?.longRate ?? 0)
+      });
+      await require("../models/CommissionSettingsLog").create({
+        changedBy: req.user._id,
+        changedByName: String(req.user?.name || req.user?.email || "Admin"),
+        before: pick(beforeRow),
+        after: pick(row)
+      });
+    } catch (logError) {
+      console.error("[Commission] history log failed:", logError?.message || logError);
+    }
     return res.json({ success: true, data: getCommissionSettings() });
   } catch (error) {
     return res.status(503).json({ success: false, message: "Commission settings save nahi hui" });
@@ -64,4 +84,19 @@ exports.previewCommission = (req, res) => {
     return res.status(400).json({ success: false, message: "Fare aur km valid daaliye" });
   }
   return res.json({ success: true, data: commissionBreakdown(fare, distanceKm) });
+};
+
+// V93: GET /api/v2/admin/commission/history
+exports.getCommissionHistory = async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ success: false, message: "Admin only" });
+  try {
+    const rows = await require("../models/CommissionSettingsLog")
+      .find({})
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    return res.json({ success: true, data: { history: rows } });
+  } catch (error) {
+    return res.status(503).json({ success: false, message: "History load nahi hui" });
+  }
 };

@@ -19,6 +19,16 @@ export default function AdminCommissionPanel() {
   const [message, setMessage] = useState("");
   const [fare, setFare] = useState(500);
   const [km, setKm] = useState(10);
+  // V93: change history
+  const [history, setHistory] = useState([]);
+  const loadHistory = async () => {
+    try {
+      const { data } = await api.get("/admin/commission/history");
+      setHistory(data?.data?.history || []);
+    } catch {
+      /* optional */
+    }
+  };
 
   const load = async () => {
     const { data } = await api.get("/admin/commission");
@@ -28,6 +38,7 @@ export default function AdminCommissionPanel() {
 
   useEffect(() => {
     load().catch(() => setError("Commission settings load nahi hui. Refresh kariye."));
+    loadHistory();
   }, []);
 
   const end = new Date(settings.promoEndAt || "2027-04-07T00:00:00+05:30");
@@ -42,6 +53,15 @@ export default function AdminCommissionPanel() {
       : (Number(fare) || 0) * rate / 100);
 
   const save = async (enabled) => {
+    // V93: galti se ON na ho — pehle saaf summary dikhakar confirm
+    if (enabled && !settings.active) {
+      const unit = draft.mode === "per_km" ? "₹/km" : "%";
+      const ok = window.confirm(
+        `Commission ON karna hai?\n\n${draft.shortTripMaxKm} km tak: ${draft.shortRate} ${unit}\n${draft.shortTripMaxKm} km se upar: ${draft.longRate} ${unit}\n\nYe sirf NAYI fare-lock hone wali rides par lagega.` +
+        (promo ? "\n\nDhyan dein: drivers ko 7 April 2027 tak 0% offer bataya gaya hai." : "")
+      );
+      if (!ok) return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
@@ -55,6 +75,7 @@ export default function AdminCommissionPanel() {
       });
       setSettings(data.data);
       setDraft(data.data);
+      loadHistory();
       setMessage(enabled ? "Commission activate ho gaya. Nayi rides par lagega." : "Policy save hui; commission OFF hai.");
     } catch (err) {
       setError(err.response?.data?.message || "Save nahi hua. Dobara koshish kariye.");
@@ -123,6 +144,24 @@ export default function AdminCommissionPanel() {
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <button type="button" disabled={busy} onClick={() => save(settings.active)}>Save rates</button>
       </div>
+      {/* V93: kisne kab kya badla */}
+      <h3 style={{ marginTop: 22 }}>Change history</h3>
+      {history.length ? (
+        <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
+          {history.map((row) => {
+            const fmt = (v) => `${v?.enabled ? "ON" : "OFF"} · ${v?.mode === "per_km" ? "₹/km" : "%"} · ${v?.shortTripMaxKm}km tak ${v?.shortRate}, upar ${v?.longRate}`;
+            return (
+              <div key={row._id} style={{ padding: "8px 10px", border: "1px solid #3a3f46", borderRadius: 10 }}>
+                <strong>{new Date(row.createdAt).toLocaleString("en-IN")}</strong> — {row.changedByName || "Admin"}
+                <div style={{ color: "#c9ced6" }}>Pehle: {fmt(row.before)}</div>
+                <div>Ab: {fmt(row.after)}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p style={{ color: "#c9ced6" }}>Abhi koi badlav record nahi hua.</p>
+      )}
     </section>
   );
 }

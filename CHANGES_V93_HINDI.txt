@@ -1,0 +1,22 @@
+HimRideG V93 — Commission rule deep check fixes (ADD-ONLY)
+==========================================================
+Base: GitHub latest (commit 8955266 "Allow admin to switch commission ON or OFF").
+
+1) BUG FIX (backend): socket "fare:accept" raste se fare lock hone par commission
+   hamesha 0 lag raha tha, chahe admin ne ON kiya ho (code fareAcceptedAt pehle set
+   karta tha, isliye purana 0 "locked" maan leta tha). Ab current rate se sahi lagta hai.
+   (Website/app abhi REST raasta use karte hain — REST raasta sahi tha.)
+2) Driver ko poori policy jaati hai (ON/OFF, % ya ₹/km, dono slab) — pehle sirf
+   short-trip % jaata tha, per-km mode me driver ko "0%" dikhta tha jabki paisa katta.
+3) Admin Commission page: ON karne se pehle confirm box (rates ka summary + 0% offer
+   ki yaad), aur "Change history" — kisne, kab, pehle kya tha, ab kya hai.
+4) Apps: driver wallet / platform-fee popup / customer payment screen se purana
+   "8% / 5%, 92% / 95%" text hataya — ab backend policy ke hisaab se dikhta hai.
+
+Files (website/backend):
+  server/src/sockets/rideSocket.js
+  server/src/controllers/platformFeeController.js
+  server/src/controllers/adminCommissionController.js
+  server/src/routes/adminRoutes.js
+  server/src/models/CommissionSettingsLog.js   (nayi)
+  client/src/components/AdminCommissionPanel.jsx

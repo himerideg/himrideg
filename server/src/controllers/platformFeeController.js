@@ -49,7 +49,18 @@ function statusPayload(driver) {
       ? getCommissionSettings().shortRate : 0,
     driverSharePercent: getCommissionSettings().active && getCommissionSettings().mode === "percent"
       ? 100 - getCommissionSettings().shortRate : 100,
-    commissionMode: getCommissionSettings().active ? getCommissionSettings().mode : "percent"
+    commissionMode: getCommissionSettings().active ? getCommissionSettings().mode : "percent",
+    // V93: poori policy (ON/OFF, mode, dono slab rates) — apps/website sahi
+    // text dikha saken. Pehle sirf short-trip % jaata tha, per-km mode me 0% dikhta tha.
+    commissionPolicy: {
+      active: getCommissionSettings().active,
+      mode: getCommissionSettings().mode,
+      shortTripMaxKm: getCommissionSettings().shortTripMaxKm,
+      shortRate: getCommissionSettings().active ? getCommissionSettings().shortRate : 0,
+      longRate: getCommissionSettings().active ? getCommissionSettings().longRate : 0,
+      promoEndAt: getCommissionSettings().promoEndAt,
+      status: getCommissionSettings().status
+    }
   };
 }
 

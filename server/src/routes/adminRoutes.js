@@ -77,6 +77,7 @@ router.use(protect);
 router.get("/commission", commissionAdmin.getCommissionSettings);
 router.put("/commission", commissionAdmin.saveCommissionSettings);
 router.post("/commission/preview", commissionAdmin.previewCommission);
+router.get("/commission/history", commissionAdmin.getCommissionHistory); // V93
 
 /*
 |--------------------------------------------------------------------------

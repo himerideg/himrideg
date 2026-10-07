@@ -2341,7 +2341,12 @@ const handleFareNegotiation =
             "fare_accepted";
 
           const { commissionBreakdown } = require("../utils/commissionPolicy");
-          const commission = commissionBreakdown(finalFare, booking);
+          // V93 FIX: fareAcceptedAt/finalFare upar set ho chuke hain, isliye
+          // booking object dene par commissionBreakdown purana "locked" amount
+          // (default 0) utha leta tha — commission ON hone par bhi 0 lagta tha.
+          // Lock ke waqt hamesha current admin rate se fresh calculate karo.
+          const { distanceKmOf } = require("../utils/commissionPolicy");
+          const commission = commissionBreakdown(finalFare, distanceKmOf(booking));
           booking.platformCommissionPercent = commission.commissionPercent;
           booking.platformCommissionAmount = commission.platformCommission;
           booking.driverPayableAmount = commission.driverPayable;
