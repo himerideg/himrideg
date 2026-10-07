@@ -1529,19 +1529,32 @@ const updateCustomerProfile =
     |--------------------------------------------------------------------------
     */
 
+    /*
+    | Fixed (v4.0.60 app): the mobile app and the website both use this
+    | endpoint but send different fields. A field that is not in the request
+    | keeps its saved value; before, the app cleared the website photo and
+    | alternative phone, and the website cleared gender / date of birth.
+    */
+    const sentProfileField = (field) =>
+      Boolean(req.body) &&
+      Object.prototype.hasOwnProperty.call(req.body, field);
+
     user.name =
       name;
 
+    if (sentProfileField("alternativePhone"))
     user.alternativePhone =
       alternativePhone;
 
+    if (sentProfileField("email"))
     user.email =
       email ||
       undefined;
 
-    user.gender = gender;
-    user.dateOfBirth = dateOfBirth;
+    if (sentProfileField("gender")) user.gender = gender;
+    if (sentProfileField("dateOfBirth")) user.dateOfBirth = dateOfBirth;
 
+    if (sentProfileField("profileImage"))
     user.profileImage =
       profileImage;
 

@@ -1,0 +1,83 @@
+/* V90 — driver map while waiting for a ride request */
+
+.driverIdleMapStage {
+  position: relative;
+  width: 100%;
+  min-height: 300px;
+}
+
+.driverIdleMap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.driverIdleMapCanvas {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+}
+
+.driverIdleGps {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 500;
+  max-width: calc(100% - 20px);
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(8, 8, 8, 0.86);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.driverIdleGps--live {
+  color: #22c55e;
+}
+
+.driverIdleGps--denied,
+.driverIdleGps--unsupported {
+  color: #f59e0b;
+}
+
+/* The original "Waiting for Ride" card is kept and shown on top of the map. */
+.driverIdleMapStage .driverIdleOverlay {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  min-height: 0;
+  width: auto;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(8, 8, 8, 0.86);
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.driverIdleMapStage .driverIdleOverlay span {
+  font-size: 16px;
+}
+
+.driverIdleMapStage .driverIdleOverlay strong {
+  font-size: 13px;
+  color: #f5c518;
+}
+
+/* On phones the map card used to shrink to its content width (about half
+   the screen). Let it use the full row. */
+@media (max-width: 900px) {
+  .driverCustomerGrid > .driverCustomerMapCard {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
+}

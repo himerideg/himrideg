@@ -1,0 +1,69 @@
+HimRideG website + backend — V90 (ADD-ONLY), for customer app v4.0.61
+=====================================================================
+
+Base: github.com/himerideg/himrideg commit d406bd2. Nothing removed:
+automatic check of every .js/.jsx/.cjs file (272 files) = 0 missing
+functions/variables/imports. A few lines were widened in place (listed below).
+
+DEPLOY
+- Backend (server/): normal deploy. No migration needed: the new fields have
+  defaults.
+- Website (client/): normal build. package.json prebuild/predev now also runs
+  scripts/applyV90ThreeLanguageProfileDriverMapPatch.cjs (after V89), like the
+  existing V75–V89 patch scripts. It is safe to run many times.
+
+BACKEND
+1. Customer profile did not save (app + website)
+   - server/src/models/User.js: added top-level gender + dateOfBirth.
+     updateCustomerProfile already set them, but Mongoose strict mode dropped
+     unknown fields, so the server said "saved" and nothing was stored.
+   - server/src/controllers/authController.js: only fields that are in the
+     request are changed. Before, the app (no photo / alternative phone in its
+     request) cleared the website photo + alternative phone, and the website
+     would clear gender + date of birth. Lines widened in place: the
+     alternativePhone, email, gender, dateOfBirth, profileImage assignments
+     now have an "if sent" guard.
+2. "For Someone" booking lost the rider name + mobile
+   - server/src/models/Booking.js: riderName, riderPhone.
+   - rideController.createRide + rideService.createRide: pass and store them
+     (only for riderFor "other"; phone must be a valid 10-digit Indian number).
+
+WEBSITE (client/, applied by the V90 patch script + new files)
+3. Three languages like the app: English / हिन्दी / Hinglish
+   - src/i18n/hinglishWeb.js (new): 1,632 English->Hinglish texts, 748 new
+     entries, 50 text patterns with values, 13 fixes for old entries whose
+     "English" text was Hinglish.
+   - English mode had Hinglish text (login, driver dashboard, documents popup,
+     notices...). Now English everywhere; Hindi mode Hindi everywhere (tested
+     on home, login, driver login, privacy, help, customer + driver
+     dashboard at phone width).
+   - The login consent line was Hindi in every language; now one version per
+     language. Footer refund paragraph now has Hindi.
+4. Language button hid "Sign Up" on phone browsers
+   - The floating 🌐 button (top-right, fixed) sat on top of Sign Up and the
+     customer profile button. It is no longer shown (code kept behind
+     SHOW_FLOATING_LANGUAGE_TOGGLE = false).
+   - Before login: language choice at the very bottom of every page.
+   - After login: in Profile (customer) and Menu/Hub (driver) — same as the
+     app's Settings.
+5. Customer profile on the website: Gender buttons + Date of Birth (browser
+   calendar), saved and shown after saving.
+6. Driver dashboard map
+   - Before: the map appeared only after a ride request was selected;
+     otherwise only "Waiting for Ride".
+   - Now: src/components/DriverIdleMap.jsx shows the map all the time with
+     the driver's live position (same OSM tiles + HimRideG car as the ride
+     map). The original "Waiting for Ride" card stays on top of the map. When
+     a ride is selected the original DriverRideMap is used, unchanged.
+   - On phones the map card now uses the full width (was about half).
+
+APP MAP vs WEBSITE MAP (checked, not changed)
+- Same engine (Leaflet 1.9.4), same backend road route (/maps/route,
+  Geoapify), same search (/maps/autocomplete, /maps/reverse).
+- Tiles: app = OpenStreetMap; website ride/driver maps = OpenStreetMap;
+  website home "Book Ride" map = CARTO Voyager (slightly different colours).
+
+NOT DONE YET (needs a decision)
+- Push notifications sent by the server are fixed Hinglish text. To send them
+  in the rider's language the app must save its language on the server first.
+- Driver screens do not yet display riderName / riderPhone (now stored).

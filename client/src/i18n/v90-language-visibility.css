@@ -1,0 +1,23 @@
+/* V90 — show the right sentence for the active language when a sentence
+   contains links and cannot be translated piece by piece.
+   <html lang>: en | hi | hi-Latn (Hinglish), set by AppLanguageProvider. */
+
+.v90LangOnly-en,
+.v90LangOnly-hi,
+.v90LangOnly-hinglish {
+  display: none;
+}
+
+html:not([lang="hi"]):not([lang="hi-Latn"]) .v90LangOnly-en,
+html[lang="hi"] .v90LangOnly-hi,
+html[lang="hi-Latn"] .v90LangOnly-hinglish {
+  display: inline;
+}
+
+html[lang="hi"] p.v90LangOnly-hi {
+  display: block;
+}
+
+html[lang="hi"] .v90LangHideHi {
+  display: none;
+}

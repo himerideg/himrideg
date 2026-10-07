@@ -818,6 +818,8 @@ async function createRide({
   travelDate = null,
   bookingMode = "now",
   riderFor = "self",
+  riderName = "",
+  riderPhone = "",
   paymentTiming = "pay_later",
   passengers = 1,
   vehicleType = "hatchback",
@@ -907,6 +909,20 @@ async function createRide({
     ["self", "other"].includes(String(riderFor || "").toLowerCase())
       ? String(riderFor).toLowerCase()
       : "self";
+
+  // Added: rider details are kept only for "other" bookings.
+  const normalizedRiderName =
+    normalizedRiderFor === "other"
+      ? String(riderName || "").replace(/\s+/g, " ").trim().slice(0, 100)
+      : "";
+
+  const riderPhoneDigits =
+    String(riderPhone || "").replace(/\D/g, "").slice(-10);
+
+  const normalizedRiderPhone =
+    normalizedRiderFor === "other" && /^[6-9]\d{9}$/.test(riderPhoneDigits)
+      ? riderPhoneDigits
+      : "";
 
   let normalizedPaymentTiming =
     ["pay_now", "pay_later", "scheduled"].includes(String(paymentTiming || "").toLowerCase())
@@ -1123,6 +1139,12 @@ async function createRide({
 
       riderFor:
         normalizedRiderFor,
+
+      riderName:
+        normalizedRiderName,
+
+      riderPhone:
+        normalizedRiderPhone,
 
       paymentTiming:
         normalizedPaymentTiming,

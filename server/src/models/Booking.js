@@ -695,6 +695,24 @@ const bookingSchema = new mongoose.Schema(
       default: "self"
     },
 
+    /*
+    | Added (v4.0.60 app): "For Someone" booking. The app asked for these and
+    | told the rider they go to the driver, but they were never stored.
+    */
+    riderName: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      default: ""
+    },
+
+    riderPhone: {
+      type: String,
+      trim: true,
+      maxlength: 15,
+      default: ""
+    },
+
     passengers: {
       type: Number,
       default: 1,

@@ -916,6 +916,32 @@ const userSchema =
 
       /*
       |------------------------------------------------------------------
+      | Customer Profile Details — added (v4.0.60 app)
+      |------------------------------------------------------------------
+      | updateCustomerProfile already sets user.gender / user.dateOfBirth,
+      | but without these schema paths Mongoose strict mode dropped them
+      | silently, so the profile never saved. Driver copies stay in
+      | driverProfile.
+      */
+
+      gender: {
+        type: String,
+        enum: [
+          "",
+          "male",
+          "female",
+          "other"
+        ],
+        default: ""
+      },
+
+      dateOfBirth: {
+        type: Date,
+        default: null
+      },
+
+      /*
+      |------------------------------------------------------------------
       | Cross-platform App / Website Preferences — additive
       |------------------------------------------------------------------
       | Same account preference is consumed by HimRideG mobile and web.

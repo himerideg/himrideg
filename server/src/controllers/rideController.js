@@ -116,6 +116,9 @@ async function createRide(
       travelDate,
       bookingMode,
       riderFor,
+      // Added: "For Someone" rider details
+      riderName,
+      riderPhone,
       paymentTiming,
       passengers,
       vehicleType,
@@ -146,6 +149,12 @@ async function createRide(
 
         riderFor:
           riderFor || "self",
+
+        riderName:
+          riderName || "",
+
+        riderPhone:
+          riderPhone || "",
 
         paymentTiming:
           paymentTiming || "pay_later",

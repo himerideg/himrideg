@@ -1,0 +1,106 @@
+/* V90 — website language picker (English / हिन्दी / Hinglish) */
+
+.webLanguagePicker {
+  box-sizing: border-box;
+  color: #ffffff;
+  font-family: inherit;
+}
+
+.webLanguagePicker--bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 14px;
+  width: 100%;
+  padding: 18px 16px 22px;
+  background: #070809;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.webLanguagePicker--card {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  margin: 14px 0 4px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(245, 197, 24, 0.06);
+  border: 1px solid rgba(245, 197, 24, 0.22);
+}
+
+.webLanguagePickerHead {
+  display: grid;
+  gap: 3px;
+}
+
+.webLanguagePickerHead strong {
+  font-size: 13px;
+  font-weight: 800;
+  color: #f5c518;
+}
+
+.webLanguagePickerHead small {
+  font-size: 12px;
+  color: #aab1bb;
+}
+
+.webLanguagePickerOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.webLanguagePicker--card .webLanguagePickerOptions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.webLanguagePickerOptions button {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #11151a;
+  color: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.webLanguagePicker--card .webLanguagePickerOptions button {
+  border-radius: 12px;
+  padding: 10px 6px;
+}
+
+.webLanguagePickerOptions button small {
+  font-size: 10px;
+  font-weight: 600;
+  color: #9aa3ae;
+}
+
+.webLanguagePickerOptions button.isSelected {
+  background: #f5c518;
+  border-color: #f5c518;
+  color: #090909;
+}
+
+.webLanguagePickerOptions button.isSelected small {
+  color: #3a3000;
+}
+
+.webLanguagePickerOptions button:focus-visible {
+  outline: 2px solid #f5c518;
+  outline-offset: 2px;
+}
+
+/* After login the choice lives in Profile (customer) / Hub (driver), like
+   the app's Settings, so the bottom strip is hidden on those dashboards. */
+#root:has(> .customerV2) > .webLanguagePicker--bar,
+#root:has(> .driverDashboardPage) > .webLanguagePicker--bar {
+  display: none;
+}
