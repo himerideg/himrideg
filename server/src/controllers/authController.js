@@ -1552,6 +1552,34 @@ const updateCustomerProfile =
       undefined;
 
     if (sentProfileField("gender")) user.gender = gender;
+    /*
+    | ADD-ONLY V91: Official profile — Date of Birth lock.
+    | Banking/ride apps ki tarah DOB ek baar save hone ke baad lock ho jati
+    | hai (identity/age safety). Same date dobara bhejna ya khali bhejna
+    | (purane forms) safe hai — saved DOB nahi badalti. Alag date bhejne par
+    | clear message milta hai; admin support se change kar sakta hai.
+    */
+    const v91ExistingDob = user.dateOfBirth ? new Date(user.dateOfBirth) : null;
+    if (
+      v91ExistingDob &&
+      !Number.isNaN(v91ExistingDob.getTime()) &&
+      sentProfileField("dateOfBirth")
+    ) {
+      const v91SameDob =
+        dateOfBirth &&
+        dateOfBirth.toISOString().slice(0, 10) ===
+          v91ExistingDob.toISOString().slice(0, 10);
+
+      if (dateOfBirth && !v91SameDob) {
+        throw new ApiError(
+          409,
+          "Date of birth ek baar save hone ke baad lock ho jati hai. Badalne ke liye Help & Support se contact karein."
+        );
+      }
+
+      dateOfBirth = v91ExistingDob;
+    }
+
     if (sentProfileField("dateOfBirth")) user.dateOfBirth = dateOfBirth;
 
     if (sentProfileField("profileImage"))

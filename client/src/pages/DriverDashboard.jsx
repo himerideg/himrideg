@@ -31,6 +31,8 @@ import ResponseTimeoutBadge from "../components/ResponseTimeoutBadge";
 
 import "../driver-dashboard.css";
 import "../payment-modal.css";
+// ADD-ONLY V91: visibility + profile styles (loads last)
+import "../v91-visibility.css";
 
 /*
 |--------------------------------------------------------------------------
@@ -573,6 +575,12 @@ function canUseDriverRideActions(ride) {
 
 function isWaitingForPaymentRide(ride) {
   const status = String(ride?.status || "").toLowerCase();
+
+  // ADD-ONLY V91: driver ne ride close kar di / auto-release — ab driver ke
+  // liye waiting state nahi (customer ka payment pending rehta hai).
+  if (ride?.driverReleasedUnpaidAt) {
+    return false;
+  }
 
   return Boolean(
     status === "payment_pending" ||
@@ -3772,6 +3780,38 @@ function DriverDashboard({
       }
     };
 
+  /*
+  | ADD-ONLY V91: Payment nahi mila — driver independent release
+  */
+  const closeRideWithoutPayment =
+    async (ride) => {
+      const bookingId = getId(ride);
+      if (!bookingId) return;
+
+      const confirmed = window.confirm(
+        "Payment nahi mila? Ride close karke aap turant next booking le sakte hain. Customer ka payment pending rahega aur baad me online pay karne par aapke wallet me aa jayega."
+      );
+      if (!confirmed) return;
+
+      setLoadingAction(`${bookingId}:close-unpaid`);
+      try {
+        const { data } = await api.post("/payments/driver-close-ride", {
+          bookingId,
+          reason: "payment not received at drop"
+        });
+        setDriverPaymentModalRide(null);
+        showNotice("success", data?.message || "Ride close ho gayi. Aap next ride ke liye free hain.");
+        await loadBookings?.();
+      } catch (error) {
+        showNotice(
+          "error",
+          error?.response?.data?.message || error?.message || "Ride close nahi ho saki."
+        );
+      } finally {
+        setLoadingAction("");
+      }
+    };
+
   const markArriving =
     async (ride) => {
       await performRideAction({
@@ -6852,6 +6892,18 @@ function DriverDashboard({
                             : `💵 Receive Cash ₹${Number(getFinalFare(latestWaitingPaymentRide) || 0).toFixed(0)}`}
                         </button>
                       ) : null}
+                      {/* ADD-ONLY V91 */}
+                      <button
+                        type="button"
+                        className="driverCloseUnpaidButton"
+                        disabled={Boolean(loadingAction)}
+                        onClick={() => closeRideWithoutPayment(latestWaitingPaymentRide)}
+                      >
+                        {loadingAction === `${getId(latestWaitingPaymentRide)}:close-unpaid`
+                          ? "Closing..."
+                          : "Payment nahi mila • Next ride lein"}
+                      </button>
+                      <small className="driverCloseUnpaidHint">10 minute baad system aapko automatic free kar deta hai.</small>
                     </div>
                   ) : (
                     <div className="driverCustomerEmpty"><span>🗺️</span><strong>Waiting for Ride</strong></div>

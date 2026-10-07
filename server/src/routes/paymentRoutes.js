@@ -10,7 +10,10 @@ const {
   confirmCashPayment,
   confirmOnlinePaymentReceipt,
   rejectLegacyAdvancePayment,
-  getPaymentReceipt
+  getPaymentReceipt,
+  // ADD-ONLY V91
+  driverCloseRide,
+  customerPayLater
 } = require("../controllers/paymentController");
 
 const {
@@ -90,6 +93,18 @@ router.post("/cash-select", selectCashPayment);
 |--------------------------------------------------------------------------
 */
 router.post("/cash-confirm", confirmCashPayment);
+
+/*
+|--------------------------------------------------------------------------
+| ADD-ONLY V91: Driver independent ride close
+| POST /api/v2/payments/driver-close-ride
+|--------------------------------------------------------------------------
+| Driver customer ke payment action par depend nahi karta.
+*/
+router.post("/driver-close-ride", driverCloseRide);
+
+/* ADD-ONLY V91: customer pay later — customer bhi independent */
+router.post("/customer-pay-later", customerPayLater);
 
 /*
 |--------------------------------------------------------------------------

@@ -11,6 +11,8 @@ import socket from "../socket";
 import RideMap from "../RideMap";
 import CustomerBookRide from "../components/CustomerBookRide";
 import PaymentModal from "../components/paymentmodal";
+// ADD-ONLY V91: official personal details (Gender + DOB lock)
+import V91PersonalDetails from "../components/V91PersonalDetails";
 import ResponseTimeoutBadge from "../components/ResponseTimeoutBadge";
 import { playHimRideGEventSound } from "../utils/himridegSounds";
 
@@ -18,6 +20,8 @@ import "../dashboard.css";
 import "../customer-dashboard-v2.css";
 import "../payment-modal.css";
 import "../fare-negotiation.css";
+// ADD-ONLY V91: visibility + profile styles (loads last)
+import "../v91-visibility.css";
 
 const ACTIVE_STATUSES = [
   "pending",
@@ -1371,6 +1375,8 @@ function CustomerDashboard({
 
   // Payment states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  // ADD-ONLY V91: customer "Baad me pay karunga" — popup baar-baar nahi khulega
+  const payLaterIdsRef = useRef(new Set());
   const [paymentBooking, setPaymentBooking] = useState(null);
   const [paidBookingIds, setPaidBookingIds] = useState(new Set());
 
@@ -2157,7 +2163,10 @@ function CustomerDashboard({
     if (!AUTO_PAYMENT_MODAL_ENABLED) return;
 
     const paymentFlowRide = localBookings.find((ride) =>
-      canCustomerPayRide(ride, paidBookingIds)
+      canCustomerPayRide(ride, paidBookingIds) &&
+      // ADD-ONLY V91: pay-later ride auto-popup nahi kholti
+      !ride?.customerPayLaterAt &&
+      !payLaterIdsRef.current.has(idOf(ride))
     );
 
     if (!paymentFlowRide) {
@@ -3316,6 +3325,13 @@ function CustomerDashboard({
               <small>Change Photo</small>
             </div>
 
+            {/* ADD-ONLY V91 */}
+            <V91PersonalDetails
+              user={user}
+              name={profile.name}
+              onUserUpdate={onUserUpdate}
+            />
+
             <form onSubmit={saveProfile}>
               <h2>Edit Profile</h2>
 
@@ -3504,7 +3520,31 @@ function CustomerDashboard({
           booking={paymentBooking}
           onSuccess={handlePaymentSuccess}
           onBookingUpdate={handlePaymentBookingUpdate}
+          onPayLater={async () => {
+            // ADD-ONLY V91: customer independent — driver par depend nahi
+            const bid = idOf(paymentBooking);
+            if (!bid) return;
+            payLaterIdsRef.current.add(bid);
+            setLocalBookings((previous) =>
+              previous.map((ride) =>
+                idOf(ride) === bid
+                  ? { ...ride, customerPayLaterAt: new Date().toISOString() }
+                  : ride
+              )
+            );
+            setShowPaymentModal(false);
+            setPaymentBooking(null);
+            try {
+              await api.post("/payments/customer-pay-later", { bookingId: bid });
+            } catch {}
+          }}
           onClose={() => {
+            // ADD-ONLY V91: pay-later chuni ride ka popup band ho sakta hai
+            if (payLaterIdsRef.current.has(idOf(paymentBooking))) {
+              setShowPaymentModal(false);
+              setPaymentBooking(null);
+              return;
+            }
             if (canCustomerPayRide(paymentBooking, paidBookingIds)) return;
             setShowPaymentModal(false);
             setPaymentBooking(null);

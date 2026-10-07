@@ -1685,6 +1685,83 @@ async function submitForApproval(
 
 /*
 |--------------------------------------------------------------------------
+| ADD-ONLY V91: Driver personal details (official profile)
+| PATCH /api/v2/driver/profile/personal  body: { email?, gender?, dateOfBirth? }
+|--------------------------------------------------------------------------
+| Sirf bheje gaye fields update hote hain (vehicle/address safe rehte hain).
+| Date of birth ek baar save hone ke baad lock — admin support change karega.
+*/
+async function updatePersonalDetails(
+  req,
+  res,
+  next
+) {
+  try {
+    ensureDriver(req);
+
+    const driver =
+      await getDriver(req);
+
+    const body = req.body || {};
+    const has = (field) =>
+      Object.prototype.hasOwnProperty.call(body, field);
+
+    if (has("email")) {
+      driver.email = cleanEmail(body.email);
+    }
+
+    if (has("gender")) {
+      const gender = String(body.gender || "").trim().toLowerCase();
+      if (gender && !["male", "female", "other"].includes(gender)) {
+        return res.status(400).json({ success: false, message: "Gender male, female ya other hona chahiye" });
+      }
+      driver.driverProfile.gender = gender;
+      driver.gender = gender;
+    }
+
+    if (has("dateOfBirth") && body.dateOfBirth) {
+      const parsed = new Date(body.dateOfBirth);
+      if (Number.isNaN(parsed.getTime()) || parsed > new Date()) {
+        return res.status(400).json({ success: false, message: "Valid date of birth chahiye" });
+      }
+
+      const existing =
+        driver.driverProfile?.dateOfBirth || driver.dateOfBirth || null;
+
+      if (existing) {
+        const same =
+          new Date(existing).toISOString().slice(0, 10) ===
+          parsed.toISOString().slice(0, 10);
+        if (!same) {
+          return res.status(409).json({
+            success: false,
+            code: "DOB_LOCKED",
+            message:
+              "Date of birth ek baar save hone ke baad lock ho jati hai. Badalne ke liye Help & Support se contact karein."
+          });
+        }
+      } else {
+        driver.driverProfile.dateOfBirth = parsed;
+        driver.dateOfBirth = parsed;
+      }
+    }
+
+    await driver.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile update ho gayi",
+      data: {
+        driver: driver.toSafeObject()
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
 | Exports
 |--------------------------------------------------------------------------
 */
@@ -1696,6 +1773,8 @@ module.exports = {
   getDashboard,
   getProfile,
   updateProfile,
+  // ADD-ONLY V91
+  updatePersonalDetails,
   uploadProfilePhoto,
   uploadDocument,
   downloadDocument,
@@ -1709,4 +1788,4 @@ module.exports = {
   replyToWarning,
   getCurrentRide,
   requestWithdrawal
-};
+};

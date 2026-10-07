@@ -157,6 +157,40 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
   | untouched preserve hai.
   |------------------------------------------------------------------------
   */
+  /*
+  | ADD-ONLY V91: Payment nahi mila — driver turant free (customer independent)
+  */
+  const v91RideCompleted =
+    String(ride?.status || "").toLowerCase() === "completed";
+
+  const v91CloseWithoutPayment = async () => {
+    if (!bookingId) return;
+    const confirmed = window.confirm(
+      "Payment nahi mila? Ride close karke aap turant next booking le sakte hain. Customer ka payment pending rahega."
+    );
+    if (!confirmed) return;
+    setBusy("close-unpaid");
+    setError("");
+    try {
+      const { data } = await api.post("/payments/driver-close-ride", {
+        bookingId,
+        reason: "payment not received at drop"
+      });
+      if (!data?.success) throw new Error(data?.message || "Ride close nahi hui");
+      onUpdate?.({
+        ...(ride || {}),
+        _id: bookingId,
+        status: "completed",
+        driverReleasedUnpaidAt: new Date().toISOString()
+      });
+      onClose?.();
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || "Ride close nahi hui");
+    } finally {
+      setBusy("");
+    }
+  };
+
   const v62IndependentCashAwaitingConfirm =
     locked &&
     paymentStatus !== "paid" &&
@@ -192,6 +226,18 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
           <small style={{ display: "block", marginTop: 10, textAlign: "center", opacity: 0.78 }}>
             Cash physically milne ke baad hi confirm karein. Customer response required nahi hai.
           </small>
+
+          {/* ADD-ONLY V91 */}
+          {v91RideCompleted ? (
+            <button
+              type="button"
+              className="v60PaymentAction driverCloseUnpaidButton"
+              disabled={Boolean(busy)}
+              onClick={v91CloseWithoutPayment}
+            >
+              {busy === "close-unpaid" ? "Closing…" : "Payment nahi mila • Next ride lein"}
+            </button>
+          ) : null}
 
           {error && <div className="paymentErrorBox v60PaymentError">{error}</div>}
         </div>

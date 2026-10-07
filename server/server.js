@@ -40,6 +40,12 @@ const {
   stopRideResponseTimeoutScheduler
 } = require("./src/services/rideResponseTimeoutScheduler");
 
+// ADD-ONLY V91: completed-unpaid ride driver ko block na kare.
+const {
+  startDriverIndependentReleaseScheduler,
+  stopDriverIndependentReleaseScheduler
+} = require("./src/services/driverIndependentReleaseService");
+
 /*
 |--------------------------------------------------------------------------
 | Phase 2 Scalability Runtime — Redis / Queue
@@ -198,6 +204,9 @@ const startServer = async () => {
     // V62 ADD-ONLY: driver/customer response timeout is backend authoritative.
     startRideResponseTimeoutScheduler();
 
+    // V91 ADD-ONLY: driver unpaid-ride auto release safety net.
+    startDriverIndependentReleaseScheduler();
+
     httpServer.listen(
       PORT,
       HOST,
@@ -277,6 +286,7 @@ const startServer = async () => {
 
     stopPayoutScheduler();
     stopRideResponseTimeoutScheduler();
+    stopDriverIndependentReleaseScheduler();
 
     try {
       await stopBackgroundJobWorker();
@@ -349,6 +359,7 @@ const shutdown = async (signal) => {
 
   stopPayoutScheduler();
   stopRideResponseTimeoutScheduler();
+  stopDriverIndependentReleaseScheduler();
 
   try {
     await stopBackgroundJobWorker();
@@ -467,4 +478,4 @@ process.on(
 |--------------------------------------------------------------------------
 */
 
-startServer();
+startServer();

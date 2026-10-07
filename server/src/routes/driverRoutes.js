@@ -76,6 +76,13 @@ router.patch(
     .updateProfile
 );
 
+/* ADD-ONLY V91: personal details (email/gender/DOB-lock) */
+router.patch(
+  "/profile/personal",
+  driverController
+    .updatePersonalDetails
+);
+
 router.post(
   "/profile/photo",
   upload.single(
@@ -327,4 +334,4 @@ router.post(
 */
 
 module.exports =
-  router;
+  router;

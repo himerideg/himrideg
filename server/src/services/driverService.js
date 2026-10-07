@@ -171,7 +171,10 @@ async function getAvailabilityBlockingRide(driverId) {
         status: "completed",
         paymentStatus: {
           $ne: "paid"
-        }
+        },
+        // ADD-ONLY V91: driver ne khud release kiya / auto-release hua to
+        // unpaid completed ride ab driver ko block nahi karti.
+        driverReleasedUnpaidAt: null
       }
     ]
   })
@@ -671,4 +674,4 @@ module.exports = {
   setDriverAvailable,
   setDriverBusy,
   updateDriverLocation
-};
+};

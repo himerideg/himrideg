@@ -94,6 +94,8 @@ export default function PaymentModal({
   onSuccess,
   onBookingUpdate,
   onClose,
+  // ADD-ONLY V91: customer "Baad me pay karunga"
+  onPayLater,
 }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -531,6 +533,18 @@ export default function PaymentModal({
               </button>
             </div>
           )}
+
+          {/* ADD-ONLY V91: customer driver par depend nahi karta */}
+          {paymentStatus !== "paid" && typeof onPayLater === "function" ? (
+            <button
+              type="button"
+              className="v60PaymentAction secondary v91PayLaterButton"
+              disabled={Boolean(busy)}
+              onClick={onPayLater}
+            >
+              Baad me pay karunga
+            </button>
+          ) : null}
 
           {error && <div className="paymentErrorBox v60PaymentError">{error}</div>}
         </div>

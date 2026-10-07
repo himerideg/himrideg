@@ -788,6 +788,43 @@ const bookingSchema = new mongoose.Schema(
     },
 
     /*
+    | ADD-ONLY V91: Independent driver release.
+    | Ride complete hone ke baad driver customer ke payment action par depend
+    | nahi karta. Driver "Payment nahi mila / baad me" bolkar khud release ho
+    | sakta hai, ya safety timer auto-release kar deta hai. Booking ka payment
+    | phir bhi pending rehta hai aur customer baad me pay kar sakta hai.
+    */
+    driverReleasedUnpaidAt: {
+      type: Date,
+      default: null,
+      index: true
+    },
+
+    driverReleaseUnpaidReason: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
+    driverReleaseUnpaidBy: {
+      type: String,
+      enum: ["", "driver", "auto", "admin"],
+      default: ""
+    },
+
+    cashConfirmedWithoutCustomerSelection: {
+      type: Boolean,
+      default: false
+    },
+
+    // ADD-ONLY V91: customer ne "Baad me pay karunga" chuna — customer bhi
+    // driver par depend nahi karta; payment due banner me dikhta rehta hai.
+    customerPayLaterAt: {
+      type: Date,
+      default: null
+    },
+
+    /*
     | ADD-ONLY: these fields were already used throughout controllers as
     | booking.<field>, while old compatibility copies also exist under payment.
     | Defining them here makes those existing writes persist in MongoDB.
@@ -1353,4 +1390,4 @@ bookingSchema.methods.addRejectedDriver =
 module.exports = mongoose.model(
   "Booking",
   bookingSchema
-);
+);

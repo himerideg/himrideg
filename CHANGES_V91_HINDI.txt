@@ -1,0 +1,42 @@
+HimRideG V91 — Website + Backend (ADD-ONLY, koi line delete nahi)
+=================================================================
+
+1) Driver / Customer ek dusre par depend nahi (Payment release fix)
+   - Pehle: ride complete hone ke baad driver tab tak "busy" rehta tha jab tak
+     customer payment par kuch na kare. Customer app band kar de to driver ko
+     agli booking nahi aati thi. Customer ne "Cash" select nahi kiya to driver
+     ka "Cash Received" bhi reject hota tha (CASH_NOT_SELECTED).
+   - Ab:
+     a) Driver "Cash Received" seedha confirm kar sakta hai (customer select ki
+        zaroorat nahi).
+     b) Naya button: "Payment nahi mila • Next ride lein"
+        POST /api/v2/payments/driver-close-ride { bookingId }
+        Driver turant free, customer ka payment pending rehta hai.
+     c) Safety net: completed + unpaid ride 10 minute baad driver ko automatic
+        free kar deti hai (env DRIVER_UNPAID_AUTO_RELEASE_MINUTES se badal sakte ho).
+     d) Customer: "Baad me pay karunga"
+        POST /api/v2/payments/customer-pay-later { bookingId }
+        Popup band, nayi ride book kar sakta hai, "Payment due" dikhta rehta hai.
+     e) Customer baad me online pay kare to driver wallet normal settle hota hai.
+        Agar driver ne cash confirm kar diya aur customer ne phir online pay kiya,
+        server log me [DUPLICATE_PAYMENT_REFUND_NEEDED] aata hai (admin refund).
+
+2) Official profile
+   - Date of birth ek baar save hone ke baad LOCK (customer + driver backend).
+   - Driver: PATCH /api/v2/driver/profile/personal { email?, gender?, dateOfBirth? }
+     (sirf bheje gaye fields — vehicle/address safe).
+   - Website customer profile panel me "PERSONAL DETAILS" box (Gender + DOB, Edit/Locked).
+
+3) Visibility (website)
+   - Driver dashboard Wallet button: dark text dark background par chhup raha tha — fix.
+   - 7–10px chhote labels ab kam se kam 11px.
+   - Nayi file client/src/v91-visibility.css (sabse last load).
+
+Files badli: server.js, Booking.js, paymentController.js, paymentRoutes.js,
+driverService.js, driverRideFeedController.js, authController.js,
+driverController.js, driverRoutes.js, DriverDashboard.jsx, CustomerDashboard.jsx,
+DriverPaymentModal.jsx, paymentmodal.jsx, main.jsx
+Nayi files: services/driverIndependentReleaseService.js,
+client/src/v91-visibility.css, client/src/components/V91PersonalDetails.jsx
+
+Deploy: GitHub par push → Render (backend) + Vercel (website) auto deploy.

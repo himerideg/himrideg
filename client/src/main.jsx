@@ -7,6 +7,8 @@ import PublicInfoPage, {
 } from "./pages/PublicInfoPage";
 import "./styles.css";
 import "./pages/PublicInfoPageLanguage.css";
+// ADD-ONLY V91: visibility + profile styles (loads last)
+import "./v91-visibility.css";
 
 /*
 |--------------------------------------------------------------------------

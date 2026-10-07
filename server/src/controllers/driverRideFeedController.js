@@ -141,13 +141,15 @@ async function repairDriverRideState(
     await Booking.findOne({
       _id: driver.currentRide,
       driver: driver._id
-    }).select("_id status paymentStatus");
+    }).select("_id status paymentStatus driverReleasedUnpaidAt");
 
   if (
     activeRide &&
     (
       ACTIVE_DRIVER_RIDE_STATUSES.includes(activeRide.status) ||
-      (activeRide.status === "completed" && activeRide.paymentStatus !== "paid")
+      (activeRide.status === "completed" && activeRide.paymentStatus !== "paid"
+        // ADD-ONLY V91: independently released unpaid ride does not block.
+        && !activeRide.driverReleasedUnpaidAt)
     )
   ) {
     /* Completed + unpaid is intentionally still busy until payment confirmation. */
@@ -1082,4 +1084,4 @@ module.exports = {
   acceptAvailableRide,
   rejectAvailableRide,
   releaseAcceptedRide
-};
+};

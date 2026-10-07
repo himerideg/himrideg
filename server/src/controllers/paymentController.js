@@ -219,6 +219,13 @@ async function applyCapturedPayment(booking, paymentEntity, { signature = "" } =
   }
 
   if (booking.paymentStatus === "paid") {
+    // ADD-ONLY V91: driver ne cash confirm kar diya tha aur customer ne phir
+    // bhi online pay kar diya — admin refund ke liye clear log.
+    if (!booking.razorpayPaymentId && String(booking.paymentMethod || "").toLowerCase() === "cash") {
+      console.warn(
+        `[DUPLICATE_PAYMENT_REFUND_NEEDED] booking=${booking._id} razorpayPayment=${paymentId} — cash already confirmed by driver`
+      );
+    }
     if (booking.razorpayPaymentId && booking.razorpayPaymentId !== paymentId) {
       const error = new Error("Booking kisi doosri payment se already paid hai");
       error.statusCode = 409;
@@ -666,6 +673,19 @@ exports.confirmCashPayment = async (req, res) => {
       });
     }
 
+    /*
+    | ADD-ONLY V91: Driver independent cash confirm.
+    | Driver ke haath me physical cash aa gaya to customer ka "Cash select"
+    | button dabana zaroori nahi. Assigned driver (ya admin) khud confirm kar
+    | sakta hai — isse customer ke app band karne par driver atakta nahi.
+    */
+    if ((assignedDriver || adminActor) && !booking.cashSelectedAt &&
+        String(booking.paymentChoiceAfterRide || "").toLowerCase() !== "cash") {
+      booking.cashSelectedAt = new Date();
+      booking.paymentChoiceAfterRide = "cash";
+      booking.cashConfirmedWithoutCustomerSelection = true;
+    }
+
     const cashWasSelected = Boolean(
       booking.cashSelectedAt ||
       String(booking.paymentChoiceAfterRide || "").toLowerCase() === "cash"
@@ -924,3 +944,102 @@ exports.getPaymentReceipt = async (req, res) => {
 };
 
 exports.applyCapturedPayment = applyCapturedPayment;
+
+/*
+|--------------------------------------------------------------------------
+| ADD-ONLY V91: Driver independent ride close
+| POST /api/v2/payments/driver-close-ride
+| body: { bookingId, reason? }
+|--------------------------------------------------------------------------
+| Driver ko customer ke payment action ka wait nahi karna. "Payment nahi mila /
+| customer baad me dega" bolkar driver turant next ride ke liye free ho jata
+| hai. Booking ka payment pending rehta hai; customer kabhi bhi pay kar sakta
+| hai aur tab wallet settlement normal hota hai.
+*/
+exports.driverCloseRide = async (req, res) => {
+  try {
+    const { bookingId, reason } = req.body || {};
+    const actorRole = String(req.user?.role || "").toLowerCase();
+
+    if (actorRole !== "driver" && actorRole !== "admin") {
+      return res.status(403).json({
+        success: false,
+        code: "DRIVER_ONLY",
+        message: "Ride close sirf driver ya admin kar sakta hai"
+      });
+    }
+
+    const independentRelease = require("../services/driverIndependentReleaseService");
+    const result = await independentRelease.releaseDriverFromUnpaidRide({
+      bookingId,
+      actor: actorRole === "admin" ? "admin" : "driver",
+      actorId: String(req.user?._id || ""),
+      reason: reason || "driver closed ride"
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: result.alreadyPaid
+        ? "Payment already complete hai. Aap next ride ke liye free hain ✅"
+        : "Ride close ho gayi. Aap next ride ke liye free hain ✅ (customer payment pending)",
+      data: {
+        bookingId: String(result.booking._id),
+        paymentStatus: result.alreadyPaid ? "paid" : (result.booking.paymentStatus || "pending"),
+        driverReleased: true
+      }
+    });
+  } catch (error) {
+    return paymentError(res, error, "Ride close nahi ho saki");
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| ADD-ONLY V91: Customer "Baad me pay karunga"
+| POST /api/v2/payments/customer-pay-later  body: { bookingId }
+|--------------------------------------------------------------------------
+| Customer payment screen se nikal sakta hai aur nayi ride book kar sakta
+| hai. Payment pending hi rehta hai; app me "Payment due" banner dikhta hai.
+| Driver isse affected nahi hota (driver ka release alag/independent hai).
+*/
+exports.customerPayLater = async (req, res) => {
+  try {
+    const { bookingId } = req.body || {};
+    if (!bookingId) {
+      return res.status(400).json({ success: false, message: "Booking ID required hai" });
+    }
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking nahi mili" });
+    }
+
+    if (
+      String(req.user?.role || "").toLowerCase() !== "customer" ||
+      getCustomerId(booking) !== String(req.user?._id || "")
+    ) {
+      return res.status(403).json({ success: false, message: "Ye aapki ride nahi hai" });
+    }
+
+    if (String(booking.status || "").toLowerCase() !== "completed") {
+      return res.status(409).json({ success: false, message: "Ride complete hone ke baad hi pay later chun sakte hain" });
+    }
+
+    if (String(booking.paymentStatus || "").toLowerCase() !== "paid" && !booking.customerPayLaterAt) {
+      booking.customerPayLaterAt = new Date();
+      await booking.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Theek hai — payment baad me 'My Rides' ya Home banner se kar sakte hain.",
+      data: {
+        bookingId: String(booking._id),
+        paymentStatus: booking.paymentStatus,
+        customerPayLaterAt: booking.customerPayLaterAt
+      }
+    });
+  } catch (error) {
+    return paymentError(res, error, "Pay later set nahi ho saka");
+  }
+};

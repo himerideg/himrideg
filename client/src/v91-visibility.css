@@ -1,0 +1,296 @@
+/*
+|--------------------------------------------------------------------------
+| HimRideG V91 — Visibility fixes (ADD-ONLY NEW FILE)
+|--------------------------------------------------------------------------
+| Audit (Oct 2026): driver dashboard wallet button par dark text (#111827)
+| transparent/dark gradient ke upar dikh nahi raha tha, aur 7–10px labels
+| phone par padhne layak nahi the. Ye file sabse last load hoti hai aur sirf
+| override karti hai — koi purani rule delete nahi hui.
+|--------------------------------------------------------------------------
+*/
+
+/* 1) Driver dashboard — Wallet summary button (main reported issue) */
+.driverDashboardPage .driverSummaryWalletButton,
+.driverSummaryWalletButton {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.16), #0d1712) !important;
+  border-color: rgba(34, 197, 94, 0.55) !important;
+  color: #f3f6f8 !important;
+}
+.driverSummaryWalletButton strong {
+  color: #ffffff !important;
+}
+.driverSummaryWalletButton small {
+  color: #65e391 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+}
+.driverSummaryWalletButton > b {
+  color: #65e391 !important;
+}
+.driverSummaryWalletButton > span {
+  background: rgba(34, 197, 94, 0.18) !important;
+  color: #ffffff !important;
+}
+
+/* 2) Readable minimum text size (was 7–10px) */
+.driverWarningsPanel span,
+.driverWarningsHeader span,
+.driverWarningsCount small,
+.driverWarningLevel span,
+.driverWarningCardTop time,
+.driverWarningReason small,
+.driverWarningExistingReply small,
+.driverWarningExistingReply span,
+.cvMobileProfileHeader small,
+.cvMobileProfileMenu small,
+.notificationButton > span,
+.dashboardCardHeader span,
+.dashboardSectionHeader span,
+.dashboardStatus,
+.googleMapHeader > div:first-child > span,
+.googleMapSummary span,
+.osmMapHeader > div:first-child > span,
+.osmMapSummary span,
+.driverBrandTag,
+.driverSocketStatus,
+.driverHeaderUser span,
+.driverEyebrow,
+.driverPanelHeader small,
+.driverHeaderCallButton,
+.driverRequestCustomer small,
+.driverCompactRoute small,
+.driverCompactRoute strong,
+.driverRequestFacts,
+.driverRequestActions button,
+.driverMapLocationError,
+.driverSelectedActions button,
+.driverSelectedActions a,
+.locationMessage,
+.driverRideTabs button,
+.driverWorkflow span small,
+.driverCompactEmpty p,
+.driverProfilePanel header small,
+.driverPhotoEditor span,
+.driverUploadPhoto,
+.driverDocumentsGrid article > label,
+.driverProfileGrid label > span,
+.driverProfileGrid label > small,
+.driverDocumentHelp,
+.driverDocumentsGrid article strong,
+.driverDocumentsGrid article > small,
+.documentStatus,
+.driverOnlineButton,
+.driverCustomerFacts small,
+.driverCustomerFareFinal small,
+.hgSectionLabel,
+.hgFieldNote,
+.driverRequestCompactRoute small,
+.driverRequestCompactMeta em,
+.driverRequestCompactMeta i,
+.savedPayoutSummary small,
+.walletActivityList article small,
+.walletAvailableBalance small,
+.driverSummaryWalletButton small,
+.hgDriverHubIntro small,
+.hgDriverWalletHistory header small,
+.hgDriverWalletHero small,
+.hgDriverWalletFilters button,
+.hgDriverWalletTransactionList small,
+.hgDriverWalletTxAmount em,
+.hgDriverProfileSummaryGrid small,
+.driverPaymentReceiptCard > small,
+.driverPrimaryReceivingCard > small,
+.driverPrimaryPayoutSummary small,
+.driverPrimaryReceivingBox b,
+.driverPayoutMethodRow b,
+.driverPayoutMethodRow em,
+.onbModalHead small,
+.driverMapHeader small,
+.driverRouteSummary small,
+.driverMapLocations small,
+.v75Kicker,
+.v75FeeAmountRow small,
+.v75RulePill,
+.v75BlockNote,
+.v75Total small,
+.v75Status,
+.v75RecordDetail small,
+.v75CleanStat small,
+.v75PayoutAccount small,
+.v75PayoutAccount span,
+.hrHeroTag,
+.webLanguagePickerOptions button small,
+.paymentRouteLine small,
+.paymentFareBox > div small,
+.paymentSecurityNote,
+.paymentPlanSelectedBanner small,
+.driverPaymentOptionPreview small,
+.driverPaymentStatusBox small,
+.heroTag,
+.taxiTopSign,
+.mobileMoreChevron,
+.loginButton,
+.signupButton,
+.mobileDriverNavItem > span:last-child::after {
+  font-size: 11px !important;
+}
+
+/* 3) V91 independent release / pay later buttons */
+.driverCloseUnpaidButton {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 1px solid #4b5563;
+  border-radius: 11px;
+  background: #10161c;
+  color: #f3f6f8;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+}
+.driverCloseUnpaidButton:hover:not(:disabled) {
+  border-color: #ffc400;
+  color: #ffc400;
+}
+.driverCloseUnpaidButton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.driverCloseUnpaidHint {
+  display: block;
+  margin-top: 8px;
+  color: #aab4bf;
+  font-size: 12px;
+  text-align: center;
+}
+.v91PayLaterButton {
+  margin-top: 10px !important;
+  width: 100%;
+  background: transparent !important;
+  border: 1px dashed #6b7280 !important;
+  color: #d1d5db !important;
+}
+
+/* 4) Official profile — view/edit rows (website) */
+.v91ProfileCard {
+  margin-top: 14px;
+  border: 1px solid #2a2a2a;
+  border-radius: 14px;
+  background: #141414;
+  overflow: hidden;
+}
+.v91ProfileSectionTitle {
+  margin: 18px 4px 0;
+  color: #f5c518;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.v91ProfileRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border-bottom: 1px solid #262626;
+}
+.v91ProfileRow:last-child {
+  border-bottom: 0;
+}
+.v91ProfileIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(245, 197, 24, 0.12);
+  color: #f5c518;
+  font-size: 16px;
+}
+.v91ProfileText {
+  min-width: 0;
+  flex: 1;
+}
+.v91ProfileLabel {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 12px;
+}
+.v91ProfileValue {
+  margin: 2px 0 0;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.v91ProfileValue.empty {
+  color: #9ca3af;
+  font-weight: 600;
+}
+.v91ProfileEdit {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border: 1px solid #f5c518;
+  border-radius: 999px;
+  background: transparent;
+  color: #f5c518;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.v91ProfileLock {
+  flex: 0 0 auto;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 700;
+}
+.v91ProfileEditor {
+  padding: 0 14px 14px;
+  border-bottom: 1px solid #262626;
+}
+.v91ProfileEditor input,
+.v91ProfileEditor select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #f5c518;
+  border-radius: 10px;
+  background: #0a0a0a;
+  color: #ffffff;
+  font-size: 15px;
+  color-scheme: dark;
+}
+.v91ProfileEditorActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.v91ProfileEditorActions button {
+  flex: 1;
+  min-height: 42px;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.v91ProfileCancel {
+  border: 1px solid #444;
+  background: transparent;
+  color: #ffffff;
+}
+.v91ProfileSave {
+  border: 0;
+  background: #f5c518;
+  color: #0a0a0a;
+}
+.v91ProfileError {
+  margin: 6px 0 0;
+  color: #f87171;
+  font-size: 12px;
+}
+.v91ProfileNote {
+  margin: 8px 0 0;
+  color: #9ca3af;
+  font-size: 12px;
+}
