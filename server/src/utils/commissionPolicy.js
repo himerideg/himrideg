@@ -5,6 +5,7 @@ const SHORT_TRIP_COMMISSION_PERCENT = 0;
 const LONG_TRIP_COMMISSION_PERCENT = 0;
 
 // Default and database failure behavior: never charge an unapproved rate.
+// The owner can explicitly switch commission ON during the offer.
 let settings = {
   enabled: false,
   mode: "percent",
@@ -46,7 +47,7 @@ function setCommissionSettings(row) {
 }
 
 function active() {
-  return Date.now() >= Date.parse(PROMO_END_AT) && settings.enabled;
+  return settings.enabled;
 }
 
 function getCommissionSettings() {
@@ -54,9 +55,11 @@ function getCommissionSettings() {
     ...settings,
     promoEndAt: PROMO_END_AT,
     active: active(),
-    status: Date.now() < Date.parse(PROMO_END_AT)
-      ? "six_month_zero_commission"
-      : active() ? "active" : "awaiting_admin_activation"
+    status: active()
+      ? "active_by_admin"
+      : Date.now() < Date.parse(PROMO_END_AT)
+        ? "six_month_zero_commission"
+        : "awaiting_admin_activation"
   };
 }
 

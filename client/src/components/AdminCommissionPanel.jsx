@@ -35,7 +35,7 @@ export default function AdminCommissionPanel() {
   const rate = Number(km) > Number(draft.shortTripMaxKm)
     ? Number(draft.longRate)
     : Number(draft.shortRate);
-  const previewFee = promo || !draft.enabled
+  const previewFee = !draft.enabled
     ? 0
     : Math.min(Number(fare) || 0, draft.mode === "per_km"
       ? (Number(km) || 0) * rate
@@ -74,7 +74,7 @@ export default function AdminCommissionPanel() {
   return (
     <section style={{ maxWidth: 860, background: "#171a20", color: "#f7f3e9", border: "1px solid #555", borderRadius: 16, padding: 24 }}>
       <h2>Commission</h2>
-      <p><strong>Current: {promo ? "6-month offer · 0%" : settings.active ? "Active" : "0% · activation pending"}</strong></p>
+      <p><strong>Current: {settings.active ? "ON · Admin rate active" : promo ? "OFF · 0% offer" : "OFF · 0% commission"}</strong></p>
       <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", margin: "18px 0" }}>
         <span id="commission-switch-label" style={{ fontWeight: 700 }}>Commission ON/OFF</span>
         <button
@@ -82,20 +82,20 @@ export default function AdminCommissionPanel() {
           role="switch"
           aria-labelledby="commission-switch-label"
           aria-checked={Boolean(settings.active)}
-          disabled={busy || promo}
+          disabled={busy}
           onClick={() => save(!settings.active)}
           style={{
             minWidth: 94, padding: "10px 20px", borderRadius: 24,
             border: "1px solid " + (settings.active ? "#39c981" : "#888"),
             background: settings.active ? "#146b45" : "#333940",
-            color: "#fff", fontWeight: 800, cursor: promo ? "not-allowed" : "pointer"
+            color: "#fff", fontWeight: 800, cursor: busy ? "wait" : "pointer"
           }}
         >
           {settings.active ? "ON" : "OFF"}
         </button>
-        {promo && <span>6-month offer ke dauran ON button 7 April 2027 tak band rahega.</span>}
+        <span>{settings.active ? "Nayi rides par set kiya rate lagega." : "Nayi rides par 0% commission."}</span>
       </div>
-      <p>7 October 2026 se 7 April 2027 tak nayi rides par 0% commission. Uske baad bhi aap ON karenge tabhi charge shuru hoga.</p>
+      <p>6 mahine ke offer mein commission default OFF hai. Aap Admin panel se kabhi bhi ON/OFF kar sakte hain; automatic ON nahi hoga.</p>
       <p>Purani rides ka locked commission nahi badlega.</p>
       <hr />
       <h3>New rate set karein</h3>
@@ -117,11 +117,11 @@ export default function AdminCommissionPanel() {
         <label>Distance (km) <input type="number" min="0" value={km} onChange={(e) => setKm(e.target.value)} /></label>
       </div>
       <p>Customer: {money(fare)} · HimRideG: {money(previewFee)} · Driver: {money((Number(fare) || 0) - previewFee)}</p>
-      {promo && <p>Offer ke dauran preview mein effective commission hamesha ₹0 hoga.</p>}
+      {promo && !settings.active && <p>Abhi commission OFF hai. ON karenge to set kiya rate nayi rides par lagega.</p>}
       {error && <p role="alert" style={{ color: "#ff8989" }}>{error}</p>}
       {message && <p role="status" style={{ color: "#95ecb4" }}>{message}</p>}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <button type="button" disabled={busy} onClick={() => save(settings.active && !promo)}>Save rates</button>
+        <button type="button" disabled={busy} onClick={() => save(settings.active)}>Save rates</button>
       </div>
     </section>
   );

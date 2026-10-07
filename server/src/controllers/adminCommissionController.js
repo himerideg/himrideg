@@ -1,6 +1,5 @@
 const CommissionSettings = require("../models/CommissionSettings");
 const {
-  PROMO_END_AT,
   getCommissionSettings,
   setCommissionSettings,
   commissionBreakdown
@@ -35,12 +34,6 @@ exports.saveCommissionSettings = async (req, res) => {
     !validNumber(longRate, mode === "percent" ? 100 : 10000)
   ) {
     return res.status(400).json({ success: false, message: "Mode aur rates valid daaliye" });
-  }
-  if (enabled && Date.now() < Date.parse(PROMO_END_AT)) {
-    return res.status(409).json({
-      success: false,
-      message: "6 mahine ke 0% offer ke baad hi commission activate kar sakte hain"
-    });
   }
   try {
     const update = {

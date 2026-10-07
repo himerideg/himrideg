@@ -35,5 +35,5 @@ if (commissionPercentForDistance(15.01) !== 0) {
 }
 
 console.log(
-  "[HimRideG Commission] 0% until offer ends; paid policy requires admin activation"
+  "[HimRideG Commission] Default 0%; paid policy requires explicit admin ON"
 );
