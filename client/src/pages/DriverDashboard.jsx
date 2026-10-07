@@ -25,6 +25,8 @@ import { playHimRideGEventSound, playHimRideGSound } from "../utils/himridegSoun
 
 import DriverLocationTracker from "../DriverLocationTracker";
 import DriverRideMap from "../DriverRideMap";
+// V91 fix: driver ko bina ride ke bhi apna live map dikhe
+import DriverIdleMap from "../components/DriverIdleMap";
 import DriverWarnings from "../components/DriverWarnings";
 import DriverPaymentModal from "../components/DriverPaymentModal";
 import ResponseTimeoutBadge from "../components/ResponseTimeoutBadge";
@@ -6906,7 +6908,11 @@ function DriverDashboard({
                       <small className="driverCloseUnpaidHint">10 minute baad system aapko automatic free kar deta hai.</small>
                     </div>
                   ) : (
-                    <div className="driverCustomerEmpty"><span>🗺️</span><strong>Waiting for Ride</strong></div>
+                    /* V91 fix: V90 DriverIdleMap ban gaya tha par dashboard me lagaya hi nahi gaya tha — ab ride na hone par bhi map dikhta hai */
+                    <div className="driverIdleMapStage">
+                      <DriverIdleMap />
+                    <div className="driverCustomerEmpty driverIdleOverlay"><span>🗺️</span><strong>Waiting for Ride</strong></div>
+                    </div>
                   )}
                 </div>
                 {selectedRide && (

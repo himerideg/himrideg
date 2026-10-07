@@ -294,3 +294,57 @@
   color: #9ca3af;
   font-size: 12px;
 }
+
+/*
+|--------------------------------------------------------------------------
+| 5) V91 Driver dashboard map fix
+|--------------------------------------------------------------------------
+| (a) Ride na hone par map hi nahi tha — DriverIdleMap ab lagaya gaya.
+| (b) Map stage fixed 480px tha aur andar ka map 520px + buttons — map ka
+|     neeche wala hissa aur Navigate buttons kat jaate the; aur "100%"
+|     heights ki wajah se kuch screens par map ki height 0 ho jaati thi.
+|     Ab sab heights fixed pixel me hain.
+*/
+.driverDashboardPage .driverCustomerMapStage {
+  height: auto !important;
+  min-height: 480px;
+}
+.driverDashboardPage .driverCustomerMapStage .driverIdleMapStage {
+  height: 456px;
+  min-height: 456px;
+}
+.driverDashboardPage .driverCustomerMapStage .driverIdleMap,
+.driverDashboardPage .driverCustomerMapStage .driverIdleMapCanvas,
+.driverDashboardPage .driverCustomerMapStage .driverIdleMap .leaflet-container {
+  height: 456px !important;
+  min-height: 456px !important;
+}
+.driverDashboardPage .driverCustomerMapStage .driverRideMapWrapper {
+  height: auto !important;
+  min-height: 0 !important;
+}
+.driverDashboardPage .driverCustomerMapStage .driverCompactMap {
+  height: 456px !important;
+  min-height: 456px !important;
+  aspect-ratio: auto !important;
+}
+.driverDashboardPage .driverCustomerMapStage .driverRideMap,
+.driverDashboardPage .driverCustomerMapStage .driverRideMap.leaflet-container {
+  height: 456px !important;
+  min-height: 456px !important;
+}
+@media (max-width: 900px) {
+  .driverDashboardPage .driverCustomerMapStage {
+    min-height: 360px;
+  }
+  .driverDashboardPage .driverCustomerMapStage .driverIdleMapStage,
+  .driverDashboardPage .driverCustomerMapStage .driverIdleMap,
+  .driverDashboardPage .driverCustomerMapStage .driverIdleMapCanvas,
+  .driverDashboardPage .driverCustomerMapStage .driverIdleMap .leaflet-container,
+  .driverDashboardPage .driverCustomerMapStage .driverCompactMap,
+  .driverDashboardPage .driverCustomerMapStage .driverRideMap,
+  .driverDashboardPage .driverCustomerMapStage .driverRideMap.leaflet-container {
+    height: 340px !important;
+    min-height: 340px !important;
+  }
+}
