@@ -45,7 +45,7 @@ for (const job of jobs) {
       process.exit(1);
     }
 
-    const check = spawnSync("git", ["apply", "--check", patchFile], {
+    const check = spawnSync("git", ["apply", "-C0", "--check", patchFile], {
       cwd: root,
       stdio: "inherit",
       shell: false
@@ -56,7 +56,7 @@ for (const job of jobs) {
       process.exit(check.status || 1);
     }
 
-    const apply = spawnSync("git", ["apply", patchFile], {
+    const apply = spawnSync("git", ["apply", "-C0", patchFile], {
       cwd: root,
       stdio: "inherit",
       shell: false

@@ -17,7 +17,10 @@ if (source.includes(marker)) {
   process.exit(0);
 }
 
-const anchor = `            </form>\n          </aside>`;
+const v92Section = `            </form>\n\n            {/* ADD-ONLY V92: account delete request */}\n            <AccountDeletionSection />\n          </aside>`;
+const anchor = source.includes(v92Section)
+  ? v92Section
+  : `            </form>\n          </aside>`;
 
 if (!source.includes(anchor)) {
   console.error("HimRideG V89 anchor missing: customer profile panel");
@@ -90,6 +93,14 @@ const legalSection = `            </form>
             </section>
           </aside>`;
 
-source = source.replace(anchor, legalSection);
+source = source.replace(
+  anchor,
+  anchor === v92Section
+    ? legalSection.replace(
+        `          </aside>`,
+        `\n            {/* ADD-ONLY V92: account delete request */}\n            <AccountDeletionSection />\n          </aside>`
+      )
+    : legalSection
+);
 fs.writeFileSync(target, source, "utf8");
 console.log("HimRideG V89 applied: live legal/support website pages wired into customer mobile profile");

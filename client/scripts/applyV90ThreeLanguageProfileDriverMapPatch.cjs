@@ -42,12 +42,26 @@ function patchFile(relativeFile, steps) {
       continue;
     }
 
+    // V91 placed the idle map directly in the dashboard. Keep that map and
+    // avoid importing the same component twice when V90 language wiring runs.
+    if (relativeFile === "pages/DriverDashboard.jsx" &&
+        step.marker === "V90_DRIVER_IDLE_MAP" &&
+        source.includes("<DriverIdleMap />")) {
+      skipped += 1;
+      continue;
+    }
+
     if (!source.includes(step.find)) {
       missing.push(`${relativeFile}: ${step.marker}`);
       continue;
     }
 
-    source = source.replace(step.find, step.replace);
+    const replacement = relativeFile === "pages/DriverDashboard.jsx" &&
+      step.marker === "V90_DRIVER_IMPORTS" &&
+      source.includes('import DriverIdleMap from "../components/DriverIdleMap";')
+        ? step.replace.replace('import DriverIdleMap from "../components/DriverIdleMap";\n', "")
+        : step.replace;
+    source = source.replace(step.find, replacement);
     applied += 1;
   }
 
