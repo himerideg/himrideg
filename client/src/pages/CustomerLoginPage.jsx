@@ -521,7 +521,10 @@ function CustomerLoginPage({
 
           <label className="customerTermsText customerTermsCheck">
             <input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} />
-            <span>मैं HimRideG <a href="#terms">Terms</a>, <a href="#privacy">Privacy</a> और <a href="#cancellation-refund">Cancellation/Refund rules</a> पढ़कर accept करता/करती हूँ.</span>
+            {/* V90_LOGIN_CONSENT — the original Hindi line is kept for हिन्दी */}
+            <span className="v90LangOnly-hi">मैंने HimRideG के <a href="#terms">Terms</a>, <a href="#privacy">Privacy</a> और <a href="#cancellation-refund">Cancellation/Refund rules</a> पढ़ लिए हैं और उन्हें स्वीकार करता/करती हूँ।</span>
+            <span className="v90LangOnly-en">I have read and accept the HimRideG <a href="#terms">Terms</a>, <a href="#privacy">Privacy</a> and <a href="#cancellation-refund">Cancellation/Refund rules</a>.</span>
+            <span className="v90LangOnly-hinglish">Maine HimRideG ke <a href="#terms">Terms</a>, <a href="#privacy">Privacy</a> aur <a href="#cancellation-refund">Cancellation/Refund rules</a> padhkar accept kiye hain.</span>
           </label>
 
           {/*
@@ -532,11 +535,9 @@ function CustomerLoginPage({
 
           <div className="customerLoginHowItWorks">
             <strong>How it works</strong>
-            <p>
-              Mobile number → Google verification → first time Basic Info
-              confirmation → Dashboard. Returning registered {roleLabel.toLowerCase()} Google
-              verification ke baad direct Dashboard par jayega.
-            </p>
+            <p>{isDriver
+              ? "Mobile number → Google verification → first-time Basic Info confirmation → Dashboard. Returning registered drivers go directly to the Dashboard after Google verification."
+              : "Mobile number → Google verification → first-time Basic Info confirmation → Dashboard. Returning registered customers go directly to the Dashboard after Google verification."}</p>
           </div>
 
           {/* ADD-ONLY V92 */}
