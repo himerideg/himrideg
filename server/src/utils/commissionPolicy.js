@@ -11,9 +11,22 @@ let settings = {
   mode: "percent",
   shortTripMaxKm: SHORT_TRIP_MAX_KM,
   shortRate: 0,
-  longRate: 0
+  longRate: 0,
+  // V94
+  midTripMaxKm: null,
+  midRate: 0,
+  offUntil: null
 };
 let lastRefresh = 0;
+
+// V94: 3-range rate. midTripMaxKm na ho to purana 2-range behaviour.
+function rateForDistance(distanceKm) {
+  const d = Number(distanceKm) || 0;
+  if (d <= settings.shortTripMaxKm) return settings.shortRate;
+  const mid = Number(settings.midTripMaxKm);
+  if (Number.isFinite(mid) && mid > settings.shortTripMaxKm && d <= mid) return settings.midRate;
+  return settings.longRate;
+}
 
 function roundMoney(value) {
   const n = Number(value);
@@ -41,7 +54,11 @@ function setCommissionSettings(row) {
     mode: row?.mode === "per_km" ? "per_km" : "percent",
     shortTripMaxKm: Number(row?.shortTripMaxKm ?? SHORT_TRIP_MAX_KM),
     shortRate: Number(row?.shortRate ?? 0),
-    longRate: Number(row?.longRate ?? 0)
+    longRate: Number(row?.longRate ?? 0),
+    // V94
+    midTripMaxKm: row?.midTripMaxKm == null || row?.midTripMaxKm === "" ? null : Number(row.midTripMaxKm),
+    midRate: Number(row?.midRate ?? 0),
+    offUntil: row?.offUntil ? new Date(row.offUntil).toISOString() : null
   };
   lastRefresh = Date.now();
 }
@@ -53,11 +70,11 @@ function active() {
 function getCommissionSettings() {
   return {
     ...settings,
-    promoEndAt: PROMO_END_AT,
+    promoEndAt: settings.offUntil || PROMO_END_AT,
     active: active(),
     status: active()
       ? "active_by_admin"
-      : Date.now() < Date.parse(PROMO_END_AT)
+      : Date.now() < Date.parse(settings.offUntil || PROMO_END_AT)
         ? "six_month_zero_commission"
         : "awaiting_admin_activation"
   };
@@ -78,7 +95,7 @@ async function refreshCommissionSettings(force = false) {
 
 function commissionPercentForDistance(distanceKm) {
   if (!active() || settings.mode !== "percent") return 0;
-  return Number(distanceKm) > settings.shortTripMaxKm ? settings.longRate : settings.shortRate;
+  return rateForDistance(distanceKm);
 }
 
 function commissionPolicyForBooking(booking) {
@@ -104,7 +121,7 @@ function commissionBreakdown(fare, bookingOrDistance) {
     Number(booking?.finalFare ?? booking?.fare?.finalFare) === grossFare &&
     Number.isFinite(Number(booking?.platformCommissionAmount));
   const rate = active()
-    ? (distanceKm > settings.shortTripMaxKm ? settings.longRate : settings.shortRate)
+    ? rateForDistance(distanceKm)
     : 0;
   const calculated = settings.mode === "per_km"
     ? distanceKm * rate
@@ -138,5 +155,6 @@ module.exports = {
   commissionBreakdown,
   getCommissionSettings,
   setCommissionSettings,
-  refreshCommissionSettings
+  refreshCommissionSettings,
+  rateForDistance
 };

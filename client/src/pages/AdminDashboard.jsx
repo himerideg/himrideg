@@ -4,6 +4,8 @@ import"../admin-dashboard.css";
 // ADD-ONLY V92: complaints, user lists, warnings, account deletion
 import AdminControlCenter from"../components/AdminControlCenter";
 import AdminCommissionPanel from"../components/AdminCommissionPanel";
+// V94: Commission ka naya naam "Platform Fee" + 3 km range
+import AdminPlatformFeePanel from"../components/AdminPlatformFeePanel";
 
 const bookingTabs=["all","pending","accepted","started","completed","cancelled"];
 
@@ -589,7 +591,7 @@ function AdminDashboard({
     {
       id:"commission",
       icon:"%",
-      label:"Commission"
+      label:"Platform Fee"
     },
     {
       id:"warnings",
@@ -1018,7 +1020,7 @@ function AdminDashboard({
               {activeSection==="drivers"&&"Driver Management"}
               {activeSection==="bookings"&&"Ride Management"}
               {activeSection==="withdrawals"&&"Wallet Withdrawals"}
-              {activeSection==="commission"&&"Commission"}
+              {activeSection==="commission"&&"Platform Fee"}
               {activeSection==="control"&&"Control Center"}
               {activeSection==="complaints"&&"Customer Complaints"}
               {activeSection==="customers"&&"All Customers"}
@@ -1055,7 +1057,8 @@ function AdminDashboard({
         </header>
 
         <main className="adminContent">
-          {activeSection==="commission"&&<AdminCommissionPanel />}
+          {activeSection==="commission"&&false&&<AdminCommissionPanel />}
+          {activeSection==="commission"&&<AdminPlatformFeePanel />}
           {/* ADD-ONLY V92 */}
           {["control","complaints","customers","allDrivers","deletion"].includes(activeSection)&&(
             <AdminControlCenter

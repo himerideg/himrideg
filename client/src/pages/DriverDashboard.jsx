@@ -5589,12 +5589,12 @@ function DriverDashboard({
                 <strong>{completedRides}</strong>
               </article>
               <article>
-                <span>HimRideG Commission</span>
+                <span>HimRideG Platform Fee</span>
                 <strong>{walletData?.commissionPolicy?.active ? "Admin rate" : "0%"}</strong>
               </article>
               <article>
                 <span>Driver Online Share</span>
-                <strong>{walletData?.commissionPolicy?.active ? "Fare minus commission" : "100%"}</strong>
+                <strong>{walletData?.commissionPolicy?.active ? "Fare minus platform fee" : "100%"}</strong>
               </article>
             </div>
 

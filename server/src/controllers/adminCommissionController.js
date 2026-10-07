@@ -23,6 +23,9 @@ exports.getCommissionSettings = async (req, res) => {
 exports.saveCommissionSettings = async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ success: false, message: "Admin only" });
   const { enabled, mode, shortTripMaxKm, shortRate, longRate } = req.body || {};
+  // V94: 3rd range + free period date (optional — purane clients bina iske bhi chalein)
+  const { midTripMaxKm, midRate, offUntil } = req.body || {};
+  const hasMid = midTripMaxKm !== undefined && midTripMaxKm !== null && midTripMaxKm !== "";
   const validNumber = (value, max) =>
     value !== null && value !== "" && Number.isFinite(Number(value)) &&
     Number(value) >= 0 && Number(value) <= max;
@@ -35,6 +38,16 @@ exports.saveCommissionSettings = async (req, res) => {
   ) {
     return res.status(400).json({ success: false, message: "Mode aur rates valid daaliye" });
   }
+  if (hasMid && (
+    !validNumber(midTripMaxKm, 10000) ||
+    Number(midTripMaxKm) <= Number(shortTripMaxKm) ||
+    !validNumber(midRate ?? 0, mode === "percent" ? 100 : 10000)
+  )) {
+    return res.status(400).json({ success: false, message: "Range 2 ki km seema Range 1 se zyada honi chahiye" });
+  }
+  if (offUntil && Number.isNaN(Date.parse(offUntil))) {
+    return res.status(400).json({ success: false, message: "Free period ki date sahi nahi hai" });
+  }
   try {
     const update = {
       enabled,
@@ -42,6 +55,9 @@ exports.saveCommissionSettings = async (req, res) => {
       shortTripMaxKm: Number(shortTripMaxKm),
       shortRate: Number(shortRate),
       longRate: Number(longRate),
+      // V94
+      ...(hasMid ? { midTripMaxKm: Number(midTripMaxKm), midRate: Number(midRate ?? 0) } : {}),
+      ...(offUntil !== undefined ? { offUntil: offUntil ? new Date(offUntil) : null } : {}),
       updatedBy: req.user._id
     };
     // V93: change history ke liye purani settings
@@ -59,7 +75,9 @@ exports.saveCommissionSettings = async (req, res) => {
         mode: r?.mode || "percent",
         shortTripMaxKm: Number(r?.shortTripMaxKm ?? 15),
         shortRate: Number(r?.shortRate ?? 0),
-        longRate: Number(r?.longRate ?? 0)
+        longRate: Number(r?.longRate ?? 0),
+        midTripMaxKm: r?.midTripMaxKm ?? null,
+        midRate: Number(r?.midRate ?? 0)
       });
       await require("../models/CommissionSettingsLog").create({
         changedBy: req.user._id,

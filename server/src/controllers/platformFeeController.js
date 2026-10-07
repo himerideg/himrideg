@@ -58,6 +58,9 @@ function statusPayload(driver) {
       shortTripMaxKm: getCommissionSettings().shortTripMaxKm,
       shortRate: getCommissionSettings().active ? getCommissionSettings().shortRate : 0,
       longRate: getCommissionSettings().active ? getCommissionSettings().longRate : 0,
+      // V94: 3rd range
+      midTripMaxKm: getCommissionSettings().midTripMaxKm,
+      midRate: getCommissionSettings().active ? getCommissionSettings().midRate : 0,
       promoEndAt: getCommissionSettings().promoEndAt,
       status: getCommissionSettings().status
     }

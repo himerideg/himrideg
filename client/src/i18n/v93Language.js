@@ -100,7 +100,39 @@ const rows = [
   ["Admin rate", "Admin rate", "एडमिन दर", "Admin rate"],
   ["Fare minus commission", "Fare minus commission", "किराया घटा कमीशन", "Fare minus commission"],
   ["poora fare driver earnings", "the full fare as driver earnings", "पूरा किराया चालक की कमाई", "poora fare driver earnings"],
-  ["6 mahine ke offer mein 0% HimRideG commission", "0% HimRideG commission during the six-month offer", "छह महीने के ऑफ़र में 0% HimRideG कमीशन", "6 mahine ke offer mein 0% HimRideG commission"]
+  ["6 mahine ke offer mein 0% HimRideG commission", "0% HimRideG commission during the six-month offer", "छह महीने के ऑफ़र में 0% HimRideG कमीशन", "6 mahine ke offer mein 0% HimRideG commission"],
+  // --- V94: Platform Fee (pehle "Commission") — 3 km range
+  ["Platform Fee", "Platform Fee", "प्लेटफ़ॉर्म शुल्क", "Platform Fee"],
+  ["PLATFORM FEE · OFF", "PLATFORM FEE · OFF", "प्लेटफ़ॉर्म शुल्क · बंद", "PLATFORM FEE · OFF"],
+  ["PLATFORM FEE · ON", "PLATFORM FEE · ON", "प्लेटफ़ॉर्म शुल्क · चालू", "PLATFORM FEE · ON"],
+  ["Drivers keep 100% of the fare", "Drivers keep 100% of the fare", "चालक पूरा 100% किराया रखते हैं", "Drivers poora 100% fare rakhte hain"],
+  ["Set fee & turn ON", "Set fee & turn ON", "शुल्क तय करें और चालू करें", "Fee set karke ON karo"],
+  ["Applies to new rides only", "Applies to new rides only", "सिर्फ़ नई यात्राओं पर लागू", "Sirf nayi rides par lagega"],
+  ["Turn OFF (0%)", "Turn OFF (0%)", "बंद करें (0%)", "OFF karo (0%)"],
+  ["% of fare", "% of fare", "किराये का %", "Fare ka %"],
+  ["₹ per km", "₹ per km", "₹ प्रति किमी", "₹ per km"],
+  ["Range 1", "Range 1", "सीमा 1", "Range 1"],
+  ["Range 2", "Range 2", "सीमा 2", "Range 2"],
+  ["Range 3", "Range 3", "सीमा 3", "Range 3"],
+  ["km", "km", "किमी", "km"],
+  ["Range 2 must end after Range 1", "Range 2 must end after Range 1", "सीमा 2, सीमा 1 के बाद खत्म होनी चाहिए", "Range 2, Range 1 ke baad khatam honi chahiye"],
+  ["EXAMPLE", "EXAMPLE", "उदाहरण", "EXAMPLE"],
+  ["Fare ₹", "Fare ₹", "किराया ₹", "Fare ₹"],
+  ["Distance km", "Distance km", "दूरी किमी", "Distance km"],
+  ["Driver gets", "Driver gets", "चालक को मिलेगा", "Driver ko milega"],
+  ["Free period until (shown to admin; fee never turns ON by itself)", "Free period until (shown to admin; fee never turns ON by itself)", "मुफ़्त अवधि कब तक (सिर्फ़ जानकारी; शुल्क अपने-आप चालू नहीं होगा)", "Free period kab tak (sirf jaankari; fee apne-aap ON nahi hogi)"],
+  ["Save, keep OFF", "Save, keep OFF", "सेव करें, बंद रखें", "Save karo, OFF rakho"],
+  ["Save & turn ON", "Save & turn ON", "सेव करें और चालू करें", "Save karke ON karo"],
+  ["Platform fee is ON for new rides.", "Platform fee is ON for new rides.", "नई यात्राओं के लिए प्लेटफ़ॉर्म शुल्क चालू है।", "Nayi rides ke liye platform fee ON hai."],
+  ["Platform fee is OFF. New rides: 0%.", "Platform fee is OFF. New rides: 0%.", "प्लेटफ़ॉर्म शुल्क बंद है। नई यात्राएँ: 0%।", "Platform fee OFF hai. Nayi rides: 0%."],
+  ["Platform fee settings did not load. Please refresh.", "Platform fee settings did not load. Please refresh.", "प्लेटफ़ॉर्म शुल्क सेटिंग लोड नहीं हुई। रीफ़्रेश करें।", "Platform fee settings load nahi hui. Refresh karo."],
+  ["Not saved. Please try again.", "Not saved. Please try again.", "सेव नहीं हुआ। फिर कोशिश करें।", "Save nahi hua. Dobara try karo."],
+  ["No changes recorded yet.", "No changes recorded yet.", "अभी कोई बदलाव दर्ज नहीं हुआ।", "Abhi koi badlav record nahi hua."],
+  ["Cancel", "Cancel", "रद्द करें", "Cancel"],
+  ["Save", "Save", "सेव करें", "Save"],
+  ["Free until", "Free until", "मुफ़्त अवधि", "Free period"],
+  ["HimRideG Platform Fee", "HimRideG Platform Fee", "HimRideG प्लेटफ़ॉर्म शुल्क", "HimRideG Platform Fee"],
+  ["Fare minus platform fee", "Fare minus platform fee", "किराया घटा प्लेटफ़ॉर्म शुल्क", "Fare minus platform fee"]
 ];
 
 // Text with a changing value: {0}
@@ -112,7 +144,12 @@ const patterns = [
   ["Warning: {0}", "Warning: {0}", "चेतावनी: {0}", "Warning: {0}"],
   ["{0} ki complaint", "Report {0}", "{0} की शिकायत", "{0} ki complaint"],
   ["Limit tak rate {0}", "Rate up to limit {0}", "सीमा तक दर {0}", "Limit tak rate {0}"],
-  ["Limit se upar rate {0}", "Rate above limit {0}", "सीमा से ऊपर दर {0}", "Limit se upar rate {0}"]
+  ["Limit se upar rate {0}", "Rate above limit {0}", "सीमा से ऊपर दर {0}", "Limit se upar rate {0}"],
+  // V94
+  ["Free until {0}", "Free until {0}", "{0} तक मुफ़्त", "{0} tak free"],
+  ["{0} days left", "{0} days left", "{0} दिन बाकी", "{0} din baaki"],
+  ["{0} to", "{0} to", "{0} से", "{0} se"],
+  ["Above {0} km", "Above {0} km", "{0} किमी से ऊपर", "{0} km se upar"]
 ];
 
 const rowMap = new Map(rows.map((row) => [row[0].replace(/\s+/g, " ").trim().toLowerCase(), row]));
@@ -195,6 +232,12 @@ const DIALOGS = {
     "\n\nNote: drivers were told about the 0% offer until 7 April 2027.",
     "\n\nध्यान दें: चालकों को 7 अप्रैल 2027 तक 0% ऑफ़र बताया गया है।",
     "\n\nDhyan dein: drivers ko 7 April 2027 tak 0% offer bataya gaya hai."
+  ],
+  // V94: Platform fee — 3 ranges
+  feeOn3: [
+    "Turn platform fee ON?\n\n0–{0} km: {2} {5}\n{0}–{1} km: {3} {5}\nAbove {1} km: {4} {5}\n\nApplies only to NEW rides whose fare gets locked.",
+    "प्लेटफ़ॉर्म शुल्क चालू करें?\n\n0–{0} किमी: {2} {5}\n{0}–{1} किमी: {3} {5}\n{1} किमी से ऊपर: {4} {5}\n\nयह केवल नई यात्राओं पर लगेगा।",
+    "Platform fee ON karna hai?\n\n0–{0} km: {2} {5}\n{0}–{1} km: {3} {5}\n{1} km se upar: {4} {5}\n\nSirf NAYI rides par lagegi."
   ],
   closeUnpaid: [
     "Payment not received? Close the ride to take the next booking right away. The customer's payment stays pending and reaches your wallet if they pay online later.",

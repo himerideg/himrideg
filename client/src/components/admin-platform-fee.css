@@ -1,0 +1,44 @@
+/* HimRideG V94 — Platform Fee panel (ADD-ONLY NEW FILE) */
+.pfPanel { max-width: 640px; padding: 22px; border: 1px solid #2f343b; border-radius: 16px; background: #15181d; color: #f3f4f6; }
+.pfHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.pfHead h2 { margin: 0; font-size: 22px; color: #ffffff; }
+.pfSwitch { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 1px solid #4b5563; border-radius: 999px; background: #262b32; color: #e5e7eb; font-weight: 800; cursor: pointer; }
+.pfSwitch i { width: 26px; height: 26px; border-radius: 50%; background: #9ca3af; transition: transform .2s; }
+.pfSwitch.on { background: #14532d; border-color: #22c55e; color: #ffffff; }
+.pfSwitch.on i { background: #4ade80; }
+.pfSwitch:disabled { opacity: .6; cursor: wait; }
+.pfKicker { margin: 0 0 6px; color: #9ca3af; font-size: 12px; font-weight: 800; letter-spacing: .05em; }
+.pfBig { margin: 0 0 8px; color: #4ade80; font-size: 22px; font-weight: 800; }
+.pfPeriod { margin: 0; font-size: 16px; }
+.pfMuted { margin: 6px 0 0; color: #aab2bd; font-size: 13px; }
+.pfOff, .pfOn, .pfEdit { display: grid; gap: 6px; }
+.pfRow { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid #2a2f36; font-size: 15px; }
+.pfRow b { color: #f5c518; }
+.pfActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.pfPrimary, .pfGhost, .pfDanger { min-height: 42px; padding: 0 16px; border-radius: 10px; font-size: 14px; font-weight: 800; cursor: pointer; }
+.pfPrimary { border: 0; background: #f5c518; color: #111111; }
+.pfGhost { border: 1px solid #4b5563; background: transparent; color: #f3f4f6; }
+.pfDanger { border: 1px solid #b91c1c; background: transparent; color: #fca5a5; }
+.pfPrimary:disabled, .pfGhost:disabled, .pfDanger:disabled { opacity: .55; cursor: not-allowed; }
+.pfOff .pfPrimary { justify-self: start; margin-top: 12px; }
+.pfSeg { display: inline-flex; justify-self: start; padding: 3px; border-radius: 999px; background: #262b32; margin-bottom: 6px; }
+.pfSeg button { border: 0; background: transparent; color: #cbd5e1; padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.pfSeg button.on { background: #f5c518; color: #111111; }
+.pfRange { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid #2f343b; border-radius: 12px; }
+.pfRangeKm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; }
+.pfRangeKm label, .pfRate, .pfExampleInputs label, .pfDate { display: inline-flex; align-items: center; gap: 6px; color: #d1d5db; font-size: 13px; }
+.pfPanel input { min-height: 38px; padding: 0 10px; border: 1px solid #4b5563; border-radius: 8px; background: #0b0d10; color: #ffffff; font-size: 15px; color-scheme: dark; }
+.pfRangeKm input { width: 72px; }
+.pfRate input { width: 84px; }
+.pfExample { margin-top: 6px; padding: 12px; border-radius: 12px; background: #1d2127; }
+.pfExampleInputs { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 4px; }
+.pfExampleInputs input { width: 96px; }
+.pfGold { color: #f5c518 !important; }
+.pfGreen { color: #4ade80 !important; }
+.pfDate { display: grid; gap: 6px; margin-top: 8px; }
+.pfError { margin: 8px 0 0; color: #fca5a5; font-size: 13px; font-weight: 700; }
+.pfNotice { margin: 8px 0 0; color: #86efac; font-size: 13px; font-weight: 700; }
+.pfHistory { margin-top: 18px; color: #d1d5db; font-size: 13px; }
+.pfHistory summary { cursor: pointer; color: #f5c518; font-weight: 800; }
+.pfHistoryRow { margin-top: 8px; padding: 8px 10px; border: 1px solid #2f343b; border-radius: 10px; }
+@media (max-width: 600px) { .pfPanel { padding: 16px; } .pfRange { align-items: flex-start; } }
