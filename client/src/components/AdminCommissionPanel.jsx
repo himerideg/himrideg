@@ -75,7 +75,27 @@ export default function AdminCommissionPanel() {
     <section style={{ maxWidth: 860, background: "#171a20", color: "#f7f3e9", border: "1px solid #555", borderRadius: 16, padding: 24 }}>
       <h2>Commission</h2>
       <p><strong>Current: {promo ? "6-month offer · 0%" : settings.active ? "Active" : "0% · activation pending"}</strong></p>
-      <p>7 October 2026 se 7 April 2027 tak nayi rides par 0% commission. Uske baad bhi aap Activate dabayenge tabhi charge shuru hoga.</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", margin: "18px 0" }}>
+        <span id="commission-switch-label" style={{ fontWeight: 700 }}>Commission ON/OFF</span>
+        <button
+          type="button"
+          role="switch"
+          aria-labelledby="commission-switch-label"
+          aria-checked={Boolean(settings.active)}
+          disabled={busy || promo}
+          onClick={() => save(!settings.active)}
+          style={{
+            minWidth: 94, padding: "10px 20px", borderRadius: 24,
+            border: "1px solid " + (settings.active ? "#39c981" : "#888"),
+            background: settings.active ? "#146b45" : "#333940",
+            color: "#fff", fontWeight: 800, cursor: promo ? "not-allowed" : "pointer"
+          }}
+        >
+          {settings.active ? "ON" : "OFF"}
+        </button>
+        {promo && <span>6-month offer ke dauran ON button 7 April 2027 tak band rahega.</span>}
+      </div>
+      <p>7 October 2026 se 7 April 2027 tak nayi rides par 0% commission. Uske baad bhi aap ON karenge tabhi charge shuru hoga.</p>
       <p>Purani rides ka locked commission nahi badlega.</p>
       <hr />
       <h3>New rate set karein</h3>
@@ -101,9 +121,7 @@ export default function AdminCommissionPanel() {
       {error && <p role="alert" style={{ color: "#ff8989" }}>{error}</p>}
       {message && <p role="status" style={{ color: "#95ecb4" }}>{message}</p>}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <button type="button" disabled={busy} onClick={() => save(false)}>Save with commission OFF</button>
-        {!promo && <button type="button" disabled={busy} onClick={() => save(true)}>Activate commission</button>}
-        {settings.active && <button type="button" disabled={busy} onClick={() => save(false)}>Turn commission OFF</button>}
+        <button type="button" disabled={busy} onClick={() => save(settings.active && !promo)}>Save rates</button>
       </div>
     </section>
   );
