@@ -185,6 +185,14 @@ const protect = async (
       );
     }
 
+    // ADD-ONLY V92 FIX: admin ne customer block kiya ho to access band.
+    if (user.isBlocked === true) {
+      throw new ApiError(
+        403,
+        "Your account is blocked. Please contact HimRideG support"
+      );
+    }
+
     if (
       user.accountStatus ===
         "suspended"
@@ -253,4 +261,4 @@ const allowRoles = (
 module.exports = {
   protect,
   allowRoles
-};
+};

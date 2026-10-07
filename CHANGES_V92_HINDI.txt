@@ -1,0 +1,55 @@
+HimRideG V92 — Admin Control Center (ADD-ONLY, koi line delete nahi)
+====================================================================
+
+ADMIN PANEL me naye menu (Control Center, Complaints, All Customers,
+All Drivers List, Delete Requests):
+
+1) Customer complaints → driver profile ke saath
+   - Customer website/app se kisi ride ke driver ki complaint karta hai
+     (category + detail). Ek ride ki ek hi complaint.
+   - Admin > Complaints: har complaint ke saath driver ka naam, phone,
+     gaadi number, kul complaints, kul warnings, rating.
+   - Wahin se: "Driver ko warning bhejo" (low/medium/high/final), Reviewing,
+     Resolved, Dismiss. Warning driver ko realtime + push notification se jaati
+     hai aur driver ke Warnings page me dikhti hai. Customer ko update milta hai.
+   - Driver par click → poori profile: complaints, warnings (driver ne padhi ya
+     nahi, uska jawab), recent rides, wallet, block/unblock, account delete.
+
+2) Account delete
+   - Login ke baad: customer app Settings > Delete Account, driver app
+     Settings > Delete Account, website profile panel.
+   - Login/email bhool gaye: login page par link "Login / email bhool gaye?
+     Account delete karwana hai" — mobile number se request.
+   - Admin > Delete Requests: verify karke "Delete karo" ya "Reject".
+     Active ride / unpaid ride / driver wallet balance / fee due ho to pehle
+     warning (phir bhi force delete ka option).
+   - Delete = naam, phone, email, photo, Google link hat jaate hain, login band.
+     Ride/payment records hisaab ke liye bina naam ke rehte hain.
+     Isi number se naya account ban sakta hai.
+
+3) Poori list
+   - All Customers / All Drivers: search (naam, phone, email, gaadi number),
+     filter (active, online, approved, pending, blocked, deleted), 50 per page,
+     Excel/CSV download.
+   - Control Center: customers, drivers, online drivers, aaj ki rides, live
+     rides, paid fares aaj, platform fee aaj, open complaints, delete requests.
+
+4) BUG FIX: Admin "Block customer" kabhi save hi nahi hota tha (User schema me
+   isBlocked field nahi tha, Mongoose chupchap drop karta tha) aur login
+   middleware check bhi nahi karta tha. Ab block save hota hai aur blocked
+   customer app/website use nahi kar sakta.
+
+Naye API:
+  POST /api/v2/support/complaints                 (customer)
+  GET  /api/v2/support/complaints/mine            (customer)
+  GET|POST /api/v2/support/account-deletion       (logged in)
+  POST /api/v2/support/account-deletion/cancel    (logged in)
+  POST /api/v2/support/account-deletion/public    (bina login, rate limited)
+  /api/v2/admin/control/*                         (admin only)
+
+Nayi files: server/src/models/Complaint.js, models/AccountDeletionRequest.js,
+controllers/supportController.js, controllers/adminControlCenterController.js,
+routes/supportRoutes.js, client/src/components/AdminControlCenter.jsx,
+admin-control-center.css, V92Support.jsx, v92-support.css
+Badli files: app.js, adminRoutes.js, models/User.js, middlewares/auth.js,
+AdminDashboard.jsx, CustomerDashboard.jsx, CustomerLoginPage.jsx, DriverDashboard.jsx

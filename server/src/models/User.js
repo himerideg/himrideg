@@ -1004,6 +1004,32 @@ const userSchema =
         default: null
       },
 
+      /*
+      | ADD-ONLY V92 FIX: admin "Block customer" (adminController.updateCustomer)
+      | customer.isBlocked / blockedReason set karta tha, par ye paths schema me
+      | nahi the — Mongoose strict mode unhe chupchap drop kar deta tha, isliye
+      | customer block kabhi save hi nahi hota tha. Ab save hote hain aur
+      | auth middleware isBlocked check karta hai.
+      */
+      isBlocked: {
+        type: Boolean,
+        default: false,
+        index: true
+      },
+
+      blockedReason: {
+        type: String,
+        trim: true,
+        maxlength: 1000,
+        default: ""
+      },
+
+      // ADD-ONLY V92: account delete hone ka time (anonymized account)
+      deletedAt: {
+        type: Date,
+        default: null
+      },
+
       unblockRequest: {
         type:
           unblockRequestSchema,
@@ -1625,4 +1651,4 @@ module.exports =
   mongoose.model(
     "User",
     userSchema
-  );
+  );

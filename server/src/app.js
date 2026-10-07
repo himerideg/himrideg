@@ -29,6 +29,8 @@ const walletRoutes = require("./routes/walletRoutes");
 const mapRoutes = require("./routes/mapRoutes");
 const readinessRoutes = require("./routes/readinessRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+// ADD-ONLY V92: complaints + account deletion
+const supportRoutes = require("./routes/supportRoutes");
 const razorpayWebhookController = require("./controllers/razorpayWebhookController");
 
 const notFound = require("./middlewares/notFound");
@@ -433,8 +435,14 @@ app.use(
   notificationRoutes
 );
 
+// ADD-ONLY V92: customer complaints + account deletion requests
+app.use(
+  "/api/v2/support",
+  supportRoutes
+);
+
 app.use(notFound);
 
 app.use(errorHandler);
 
-module.exports = app;
+module.exports = app;

@@ -13,6 +13,8 @@ import CustomerBookRide from "../components/CustomerBookRide";
 import PaymentModal from "../components/paymentmodal";
 // ADD-ONLY V91: official personal details (Gender + DOB lock)
 import V91PersonalDetails from "../components/V91PersonalDetails";
+// ADD-ONLY V92: driver complaint + account delete request
+import { ReportDriverButton, AccountDeletionSection } from "../components/V92Support";
 import ResponseTimeoutBadge from "../components/ResponseTimeoutBadge";
 import { playHimRideGEventSound } from "../utils/himridegSounds";
 
@@ -1224,6 +1226,8 @@ function CustomerWalletPage({
                 <strong style={{ color: "#16a34a", whiteSpace: "nowrap" }}>
                   ✅ Paid ₹{money(lockedFareOf(ride))}
                 </strong>
+                {/* ADD-ONLY V92 */}
+                <ReportDriverButton ride={ride} compact />
               </div>
             ))}
           </div>
@@ -3271,6 +3275,8 @@ function CustomerDashboard({
                       ✅ Paid
                     </span>
                   )}
+                  {/* ADD-ONLY V92 */}
+                  <ReportDriverButton ride={ride} />
                 </article>
               ))
             )}
@@ -3398,6 +3404,9 @@ function CustomerDashboard({
                 Logout
               </button>
             </form>
+
+            {/* ADD-ONLY V92: account delete request */}
+            <AccountDeletionSection />
           </aside>
         </div>
       )}

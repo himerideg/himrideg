@@ -6,6 +6,8 @@ import React, {
 
 import api from "../api";
 import "../customer-login.css";
+// ADD-ONLY V92: login/email bhool gaye — account delete request
+import { PublicAccountDeletionLink } from "../components/V92Support";
 
 /*
 |--------------------------------------------------------------------------
@@ -536,6 +538,9 @@ function CustomerLoginPage({
               verification ke baad direct Dashboard par jayega.
             </p>
           </div>
+
+          {/* ADD-ONLY V92 */}
+          <PublicAccountDeletionLink role={accountType === "driver" ? "driver" : "customer"} />
         </div>
       </section>
     </main>

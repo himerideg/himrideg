@@ -1,6 +1,8 @@
 import React,{useEffect,useMemo,useState}from"react";
 import api from"../api";
 import"../admin-dashboard.css";
+// ADD-ONLY V92: complaints, user lists, warnings, account deletion
+import AdminControlCenter from"../components/AdminControlCenter";
 
 const bookingTabs=["all","pending","accepted","started","completed","cancelled"];
 
@@ -594,6 +596,32 @@ function AdminDashboard({
       icon:"⊘",
       label:"Blocked Drivers",
       onClick:()=>openDriverSection("blocked")
+    },
+    // ADD-ONLY V92
+    {
+      id:"control",
+      icon:"◎",
+      label:"Control Center"
+    },
+    {
+      id:"complaints",
+      icon:"✉",
+      label:"Complaints"
+    },
+    {
+      id:"customers",
+      icon:"👥",
+      label:"All Customers"
+    },
+    {
+      id:"allDrivers",
+      icon:"🪪",
+      label:"All Drivers List"
+    },
+    {
+      id:"deletion",
+      icon:"🗑",
+      label:"Delete Requests"
     }
   ];
 
@@ -984,6 +1012,11 @@ function AdminDashboard({
               {activeSection==="drivers"&&"Driver Management"}
               {activeSection==="bookings"&&"Ride Management"}
               {activeSection==="withdrawals"&&"Wallet Withdrawals"}
+              {activeSection==="control"&&"Control Center"}
+              {activeSection==="complaints"&&"Customer Complaints"}
+              {activeSection==="customers"&&"All Customers"}
+              {activeSection==="allDrivers"&&"All Drivers"}
+              {activeSection==="deletion"&&"Account Delete Requests"}
             </h1>
           </div>
 
@@ -1015,6 +1048,13 @@ function AdminDashboard({
         </header>
 
         <main className="adminContent">
+          {/* ADD-ONLY V92 */}
+          {["control","complaints","customers","allDrivers","deletion"].includes(activeSection)&&(
+            <AdminControlCenter
+              section={activeSection}
+              onNavigate={setActiveSection}
+            />
+          )}
           {activeSection==="dashboard"&&(
             <>
               <section className="adminHero">
@@ -1900,4 +1940,4 @@ function StatCard({
   );
 }
 
-export default AdminDashboard;
+export default AdminDashboard;

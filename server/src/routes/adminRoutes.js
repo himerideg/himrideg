@@ -301,5 +301,30 @@ router.patch(
   updateCustomer
 );
 
+/*
+|--------------------------------------------------------------------------
+| ADD-ONLY V92: Admin Control Center
+| Complaints (driver profile ke saath), warnings, account deletion requests,
+| poori customer/driver list + CSV export, block/unblock, admin delete.
+|--------------------------------------------------------------------------
+*/
+const adminControlCenter =
+  require("../controllers/adminControlCenterController");
+
+router.get("/control/summary", adminControlCenter.getSummary);
+router.get("/control/users/export", adminControlCenter.exportUsers);
+router.get("/control/users", adminControlCenter.listUsers);
+router.get("/control/users/:id/overview", adminControlCenter.getUserOverview);
+router.patch("/control/users/:id/block", adminControlCenter.blockUser);
+router.patch("/control/users/:id/unblock", adminControlCenter.unblockUser);
+router.post("/control/users/:id/warn", adminControlCenter.warnUser);
+router.post("/control/users/:id/delete", adminControlCenter.adminDeleteUser);
+router.get("/control/complaints", adminControlCenter.listComplaints);
+router.patch("/control/complaints/:id", adminControlCenter.updateComplaint);
+router.post("/control/complaints/:id/warn", adminControlCenter.warnFromComplaint);
+router.get("/control/deletion-requests", adminControlCenter.listDeletionRequests);
+router.patch("/control/deletion-requests/:id/approve", adminControlCenter.approveDeletion);
+router.patch("/control/deletion-requests/:id/reject", adminControlCenter.rejectDeletion);
+
 module.exports =
-  router;
+  router;

@@ -27,6 +27,8 @@ import DriverLocationTracker from "../DriverLocationTracker";
 import DriverRideMap from "../DriverRideMap";
 // V91 fix: driver ko bina ride ke bhi apna live map dikhe
 import DriverIdleMap from "../components/DriverIdleMap";
+// ADD-ONLY V92: account delete request
+import { AccountDeletionSection } from "../components/V92Support";
 import DriverWarnings from "../components/DriverWarnings";
 import DriverPaymentModal from "../components/DriverPaymentModal";
 import ResponseTimeoutBadge from "../components/ResponseTimeoutBadge";
@@ -6426,6 +6428,11 @@ function DriverDashboard({
                     >
                       🚕 View My Rides
                     </button>
+                  </div>
+
+                  {/* ADD-ONLY V92: account delete request */}
+                  <div style={{ color: "#e5e7eb" }}>
+                    <AccountDeletionSection />
                   </div>
                 </div>
               )}
