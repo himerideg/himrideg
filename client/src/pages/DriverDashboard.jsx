@@ -29,6 +29,8 @@ import DriverRideMap from "../DriverRideMap";
 import DriverIdleMap from "../components/DriverIdleMap";
 // ADD-ONLY V92: account delete request
 import { AccountDeletionSection } from "../components/V92Support";
+// V93: popup text language ke hisaab se
+import { dialogText } from "../i18n/v93Language";
 import DriverWarnings from "../components/DriverWarnings";
 import DriverPaymentModal from "../components/DriverPaymentModal";
 import ResponseTimeoutBadge from "../components/ResponseTimeoutBadge";
@@ -3793,7 +3795,7 @@ function DriverDashboard({
       if (!bookingId) return;
 
       const confirmed = window.confirm(
-        "Payment nahi mila? Ride close karke aap turant next booking le sakte hain. Customer ka payment pending rahega aur baad me online pay karne par aapke wallet me aa jayega."
+        dialogText("closeUnpaid")
       );
       if (!confirmed) return;
 

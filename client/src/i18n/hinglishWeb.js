@@ -10,6 +10,8 @@
 | Nothing here replaces the existing ENTRIES; they still win on conflicts.
 */
 import { V92_ENTRIES, V92_HINGLISH } from "./v92Language";
+// V93: language audit (V91/V92/V93 ka bacha text)
+import { V93_ENTRIES, V93_HINGLISH, V93_PATTERNS } from "./v93Language";
 
 export const HINGLISH = {
  "Home": "Home",
@@ -8037,9 +8039,12 @@ const normalizeKey = (value) =>
 
 // V92 introduced support and admin copy after the V90 translation audit.
 EXTRA_ENTRIES.push(...V92_ENTRIES);
+EXTRA_ENTRIES.push(...V93_ENTRIES);
+EXTRA_PATTERNS.push(...V93_PATTERNS);
 const HINGLISH_INDEX = new Map([
   ...Object.keys(HINGLISH).map((key) => [normalizeKey(key), HINGLISH[key]]),
-  ...[...V92_HINGLISH].map(([key, value]) => [normalizeKey(key), value])
+  ...[...V92_HINGLISH].map(([key, value]) => [normalizeKey(key), value]),
+  ...[...V93_HINGLISH].map(([key, value]) => [normalizeKey(key), value])
 ]);
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

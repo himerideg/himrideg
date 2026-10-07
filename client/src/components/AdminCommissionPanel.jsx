@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
+// V93: popup text language ke hisaab se
+import { dialogText } from "../i18n/v93Language";
 
 const initial = {
   enabled: false,
@@ -57,8 +59,8 @@ export default function AdminCommissionPanel() {
     if (enabled && !settings.active) {
       const unit = draft.mode === "per_km" ? "₹/km" : "%";
       const ok = window.confirm(
-        `Commission ON karna hai?\n\n${draft.shortTripMaxKm} km tak: ${draft.shortRate} ${unit}\n${draft.shortTripMaxKm} km se upar: ${draft.longRate} ${unit}\n\nYe sirf NAYI fare-lock hone wali rides par lagega.` +
-        (promo ? "\n\nDhyan dein: drivers ko 7 April 2027 tak 0% offer bataya gaya hai." : "")
+        dialogText("commissionOn", draft.shortTripMaxKm, draft.shortRate, draft.longRate, unit) +
+        (promo ? dialogText("commissionPromo") : "")
       );
       if (!ok) return;
     }

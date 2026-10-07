@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../api";
 import "./admin-control-center.css";
+// V93: popup text language ke hisaab se
+import { dialogText } from "../i18n/v93Language";
 
 /*
 |--------------------------------------------------------------------------
@@ -285,7 +287,7 @@ function Complaints({ onOpen, onChanged }) {
   }, [load]);
 
   const setComplaintStatus = async (complaint, nextStatus) => {
-    const note = nextStatus === "dismissed" ? window.prompt("Dismiss karne ka reason (optional):", "") : "";
+    const note = nextStatus === "dismissed" ? window.prompt(dialogText("dismissReason"), "") : "";
     if (note === null) return;
     try {
       await api.patch(`/admin/control/complaints/${complaint._id}`, { status: nextStatus, ...(note ? { adminNote: note } : {}) });
@@ -472,10 +474,10 @@ function DeletionRequests({ onOpen, onChanged }) {
 
   const approve = async (request, force = false) => {
     const verify = request.source === "public"
-      ? "\n\nYe request LOGIN KE BINA aayi hai. Pehle us number par call karke confirm kar lein ki asli owner hai."
+      ? dialogText("publicVerify")
       : "";
-    if (!force && !window.confirm(`${request.name || request.phone} ka account delete karein?${verify}\n\nNaam, phone, email, photo hat jayenge. Ye wapas nahi hoga.`)) return;
-    const adminNote = force ? window.prompt("Force delete ka reason likhein:", "") : "";
+    if (!force && !window.confirm(dialogText("deleteAccountConfirm", request.name || request.phone, verify))) return;
+    const adminNote = force ? window.prompt(dialogText("forceReason"), "") : "";
     if (force && !adminNote) return;
     setBusyId(request._id);
     try {
@@ -485,7 +487,7 @@ function DeletionRequests({ onOpen, onChanged }) {
     } catch (requestError) {
       const blockers = requestError?.response?.data?.data?.blockers;
       if (blockers?.length && !force) {
-        if (window.confirm(`Delete abhi rukna chahiye:\n• ${blockers.join("\n• ")}\n\nPhir bhi FORCE delete karna hai?`)) {
+        if (window.confirm(dialogText("blockedDelete", blockers.join("\n• ")))) {
           setBusyId("");
           await approve(request, true);
           return;
@@ -499,7 +501,7 @@ function DeletionRequests({ onOpen, onChanged }) {
   };
 
   const reject = async (request) => {
-    const adminNote = window.prompt("Reject karne ka reason (user ko dikhega):", "Verification nahi ho payi");
+    const adminNote = window.prompt(dialogText("rejectReason"), dialogText("rejectDefault"));
     if (adminNote === null) return;
     setBusyId(request._id);
     try {
@@ -606,7 +608,7 @@ function UserDrawer({ userId, onClose, onChanged }) {
   const blockToggle = async () => {
     if (!user) return;
     const blocked = user.status === "blocked";
-    const reason = blocked ? "" : window.prompt("Block karne ka reason:", "");
+    const reason = blocked ? "" : window.prompt(dialogText("blockReason"), "");
     if (!blocked && !reason) return;
     setBusy("block");
     try {
@@ -622,7 +624,7 @@ function UserDrawer({ userId, onClose, onChanged }) {
 
   const deleteAccount = async (force = false) => {
     if (!user) return;
-    const reason = window.prompt(`${user.name} ka account DELETE karne ka reason (ye wapas nahi hoga):`, "");
+    const reason = window.prompt(dialogText("adminDeleteReason", user.name), "");
     if (!reason) return;
     setBusy("delete");
     try {
@@ -631,7 +633,7 @@ function UserDrawer({ userId, onClose, onChanged }) {
       onChanged?.();
     } catch (requestError) {
       const blockers = requestError?.response?.data?.data?.blockers;
-      if (blockers?.length && !force && window.confirm(`Rukawat:\n• ${blockers.join("\n• ")}\n\nPhir bhi FORCE delete?`)) {
+      if (blockers?.length && !force && window.confirm(dialogText("blockers", blockers.join("\n• ")))) {
         setBusy("");
         await deleteAccount(true);
         return;

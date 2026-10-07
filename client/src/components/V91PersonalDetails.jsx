@@ -1,5 +1,7 @@
 import { useState } from "react";
 import api from "../api";
+// V93: popup text language ke hisaab se
+import { dialogText } from "../i18n/v93Language";
 
 /*
 |--------------------------------------------------------------------------
@@ -67,7 +69,8 @@ export default function V91PersonalDetails({ user, name, onUserUpdate }) {
         return;
       }
       const ok = window.confirm(
-        `${dobLabel(clean)}\n\nSave hone ke baad date of birth lock ho jayegi. Badalne ke liye Help & Support se contact karna hoga. Confirm?`
+        // V93: popup bhi user ki language me
+        dialogText("dobConfirm", dobLabel(clean))
       );
       if (!ok) return;
     }

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api";
+// V93: popup text language ke hisaab se
+import { dialogText } from "../i18n/v93Language";
 import { playHimRideGEventSound } from "../utils/himridegSounds";
 
 /*
@@ -166,7 +168,7 @@ export default function DriverPaymentModal({ ride, onClose, onUpdate }) {
   const v91CloseWithoutPayment = async () => {
     if (!bookingId) return;
     const confirmed = window.confirm(
-      "Payment nahi mila? Ride close karke aap turant next booking le sakte hain. Customer ka payment pending rahega."
+      dialogText("closeUnpaid")
     );
     if (!confirmed) return;
     setBusy("close-unpaid");
