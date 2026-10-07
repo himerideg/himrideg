@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api";
+import DirectDriverUpiPayment from "./DirectDriverUpiPayment";
 import { playHimRideGEventSound } from "../utils/himridegSounds";
 
 /*
@@ -121,6 +122,11 @@ export default function PaymentModal({
   const paymentStatus = paymentStatusOf(ride);
   const paymentMethod = paymentMethodOf(ride);
   const cashSelected = cashSelectedOf(ride);
+  /* V75_DIRECT_DRIVER_UPI_WEB */
+  const directDriverUpiPending = Boolean(
+    String(ride?.payment?.gateway || "").toLowerCase() === "driver_upi" ||
+    String(ride?.payment?.transactionId || "").startsWith("DIRECT_UPI")
+  );
   const remaining = remainingDueOf(ride);
 
   // FULL CODE RULE PRESERVATION
@@ -454,6 +460,10 @@ export default function PaymentModal({
   |------------------------------------------------------------------------
   */
   const v60UltraCompactPaymentUI = true;
+  // The server accepts cash confirmation from the assigned driver only.
+  // Keep the legacy handler for older clients, but do not offer this action
+  // to customers because it would always fail with 403.
+  const driverAuthoritativeCash = true;
 
   useEffect(() => {
     if (!v60UltraCompactPaymentUI || paymentStatus !== "paid" || !bookingId) {
@@ -491,25 +501,36 @@ export default function PaymentModal({
             <div className="v60PaymentState success">
               ✅ Payment Successful
             </div>
+          ) : directDriverUpiPending ? (
+            <div className="v60CashSelectedFlow">
+              <div className="v60PaymentState waiting">
+                UPI payment sent · Driver verification pending
+              </div>
+              <small className="v60PaymentIndependentNote">
+                Driver apne UPI/bank account me amount check karke Payment Received confirm karega. Uske baad hi ride payment final hogi.
+              </small>
+            </div>
           ) : cashSelected ? (
             <div className="v60CashSelectedFlow">
               <div className="v60PaymentState waiting">
                 Cash selected
               </div>
 
-              <button
-                type="button"
-                className="v60PaymentAction primary v60CashDoneButton"
-                disabled={Boolean(busy)}
-                onClick={confirmCustomerCashDone}
-              >
-                {busy === "cash_done"
-                  ? "Confirming…"
-                  : "Payment Done"}
-              </button>
+              {!driverAuthoritativeCash ? (
+                <button
+                  type="button"
+                  className="v60PaymentAction primary v60CashDoneButton"
+                  disabled={Boolean(busy)}
+                  onClick={confirmCustomerCashDone}
+                >
+                  {busy === "cash_done"
+                    ? "Confirming…"
+                    : "Payment Done"}
+                </button>
+              ) : null}
 
               <small className="v60PaymentIndependentNote">
-                Cash de diya hai to Payment Done dabayein. Driver bhi Cash Received independently confirm kar sakta hai.
+                Cash dene ke baad driver Cash Received confirm karega. Tab tak payment pending dikhega; baad mein pay karne ke liye neeche wala option chunein.
               </small>
             </div>
           ) : (
@@ -522,6 +543,19 @@ export default function PaymentModal({
               >
                 {busy === "online" ? "Opening…" : "Pay Online"}
               </button>
+
+              <DirectDriverUpiPayment
+                booking={ride}
+                onClaim={(patch) => {
+                  const merged = mergeBooking(patch);
+                  onSuccess?.({
+                    booking: merged,
+                    paymentContext: "post_ride",
+                    method: "driver-upi-claimed",
+                    requiresDriverConfirmation: true
+                  });
+                }}
+              />
 
               <button
                 type="button"
