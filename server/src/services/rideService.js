@@ -2706,6 +2706,25 @@ async function verifyRideStartOtp({
     }
   );
 
+  /*
+  | V95: OTP sahi = ride turant start (Ola/Uber jaisa). Customer ko
+  | ride:started + "Ride Started" push turant milta hai, OTP popup band.
+  | Start fail ho to purana flow (driver Start dabaye) waise hi chalega.
+  */
+  try {
+    const startedBooking =
+      await startRide({
+        bookingId: safeBooking._id,
+        driverId: driverObjectId
+      });
+
+    if (startedBooking) {
+      return startedBooking;
+    }
+  } catch (autoStartError) {
+    console.warn("[V95] auto start after OTP failed:", autoStartError?.message || autoStartError);
+  }
+
   return safeBooking;
 }
 
@@ -2998,6 +3017,21 @@ async function startRide({
     );
 
   if (!booking) {
+    /*
+    | V95: OTP verify par ride auto-start ho chuki ho to (website/app ka
+    | baad wala /start call) error nahi, wahi started ride wapas do.
+    */
+    const alreadyStarted =
+      await Booking.findOne({
+        _id: objectId(bookingId, "Booking ID"),
+        driver: objectId(driverId, "Driver ID"),
+        status: "started"
+      });
+
+    if (alreadyStarted) {
+      return getBookingOrThrow(alreadyStarted._id, { populate: true });
+    }
+
     throw new RideServiceError(
       "Ride cannot be started",
       409,

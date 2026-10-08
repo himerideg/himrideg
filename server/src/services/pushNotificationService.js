@@ -410,6 +410,19 @@ async function sendPushToUsers({
     soundVariant
   });
 
+  /*
+  | V95: sab push phone ki DEFAULT ringtone pe; sirf payment pe HimRideG
+  | ki apni payment sound. (Apps me naye channels hrg-default-v95 /
+  | hrg-payment-v95 bane hain.)
+  */
+  if (soundSelection.group === "payment") {
+    soundSelection.sound = "payment_success.wav";
+    soundSelection.channelId = "hrg-payment-v95";
+  } else {
+    soundSelection.sound = "default";
+    soundSelection.channelId = "hrg-default-v95";
+  }
+
   const payloadData = {
     ...(data || {}),
     soundEvent: soundSelection.soundEvent,
