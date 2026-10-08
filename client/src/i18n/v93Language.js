@@ -102,6 +102,10 @@ const rows = [
   ["poora fare driver earnings", "the full fare as driver earnings", "पूरा किराया चालक की कमाई", "poora fare driver earnings"],
   ["6 mahine ke offer mein 0% HimRideG commission", "0% HimRideG commission during the six-month offer", "छह महीने के ऑफ़र में 0% HimRideG कमीशन", "6 mahine ke offer mein 0% HimRideG commission"],
   // --- V96: website se APK download
+  ["Get the HimRideG App", "Get the HimRideG App", "HimRideG ऐप डाउनलोड करें", "HimRideG App download karo"],
+  ["Customer App", "Customer App", "ग्राहक ऐप", "Customer App"],
+  ["Driver App", "Driver App", "ड्राइवर ऐप", "Driver App"],
+  ["Free · Android APK", "Free · Android APK", "मुफ़्त · Android APK", "Free · Android APK"],
   ["Download the HimRideG apps", "Download the HimRideG apps", "HimRideG ऐप डाउनलोड करें", "HimRideG apps download karo"],
   ["Book rides or drive with HimRideG on your Android phone. Same account works on the website and the app.", "Book rides or drive with HimRideG on your Android phone. Same account works on the website and the app.", "अपने Android फ़ोन पर HimRideG से राइड बुक करें या ड्राइवर बनें। वेबसाइट और ऐप पर एक ही खाता चलता है।", "Apne Android phone par HimRideG se ride book karo ya driver bano. Website aur app par ek hi account chalta hai."],
   ["After downloading, open the file and allow \"Install unknown apps\" if your phone asks.", "After downloading, open the file and allow \"Install unknown apps\" if your phone asks.", "डाउनलोड के बाद फ़ाइल खोलें और फ़ोन पूछे तो \"अज्ञात ऐप इंस्टॉल करें\" की अनुमति दें।", "Download ke baad file kholo aur phone puche to \"Install unknown apps\" allow karo."],

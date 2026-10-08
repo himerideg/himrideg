@@ -1383,3 +1383,18 @@ html{
     white-space: normal;
   }
 }
+
+/* V96b: hero me App download highlight */
+.hrAppDownload{margin-top:18px;max-width:520px;padding:14px;border-radius:18px;border:2px solid #f5c518;background:linear-gradient(135deg,rgba(245,197,24,.18),rgba(10,12,16,.85));box-shadow:0 0 0 4px rgba(245,197,24,.12),0 14px 40px rgba(0,0,0,.45);animation:hrAppGlow 2.4s ease-in-out infinite}
+.hrAppDownloadHead{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.hrAppDownloadIcon{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:#f5c518;font-size:24px}
+.hrAppDownloadHead strong{display:block;color:#fff;font-size:18px;font-weight:900}
+.hrAppDownloadHead small{display:block;color:#f5c518;font-size:12px;font-weight:800;margin-top:2px}
+.hrAppDownloadButtons{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hrAppBtn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 12px;border-radius:12px;background:#f5c518;color:#080808;font-weight:900;font-size:15px;text-decoration:none;white-space:nowrap}
+.hrAppBtn b{font-size:16px}
+.hrAppBtnDriver{background:#fff}
+.hrAppBtn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+@keyframes hrAppGlow{0%,100%{box-shadow:0 0 0 4px rgba(245,197,24,.12),0 14px 40px rgba(0,0,0,.45)}50%{box-shadow:0 0 0 7px rgba(245,197,24,.28),0 14px 40px rgba(0,0,0,.45)}}
+@media(max-width:480px){.hrAppDownloadButtons{grid-template-columns:1fr}.hrAppBtn{font-size:16px;padding:14px}}
+@media(prefers-reduced-motion:reduce){.hrAppDownload{animation:none}}

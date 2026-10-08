@@ -23,7 +23,12 @@ const COPY = {
     full: "Open Book Ride",
     riders: "Happy Riders",
     drivers: "Verified Drivers",
-    support: "Customer Support"
+    support: "Customer Support",
+    // V96b: app download (hero me highlight)
+    appTitle: "Get the HimRideG App",
+    appCustomer: "Customer App",
+    appDriver: "Driver App",
+    appNote: "Free · Android APK"
   },
   hi: {
     tag: "आपकी अपनी यात्रा",
@@ -39,7 +44,12 @@ const COPY = {
     full: "बुकिंग खोलें",
     riders: "संतुष्ट यात्री",
     drivers: "सत्यापित चालक",
-    support: "ग्राहक सहायता"
+    support: "ग्राहक सहायता",
+    // V96b
+    appTitle: "HimRideG ऐप डाउनलोड करें",
+    appCustomer: "ग्राहक ऐप",
+    appDriver: "ड्राइवर ऐप",
+    appNote: "मुफ़्त · Android APK"
   }
 };
 
@@ -91,6 +101,25 @@ function Hero({ onBookRide, language = "en" }) {
               {t.book}
               <strong>→</strong>
             </button>
+          </div>
+
+          {/* V96b: app download — hero me saaf highlight */}
+          <div className="hrAppDownload" id="hero-app-download">
+            <div className="hrAppDownloadHead">
+              <span className="hrAppDownloadIcon" aria-hidden="true">📲</span>
+              <div>
+                <strong>{t.appTitle}</strong>
+                <small>{t.appNote}</small>
+              </div>
+            </div>
+            <div className="hrAppDownloadButtons">
+              <a className="hrAppBtn" href="/downloads/HimRideG-Customer.apk" download>
+                <span aria-hidden="true">🚕</span> {t.appCustomer} <b aria-hidden="true">⬇</b>
+              </a>
+              <a className="hrAppBtn hrAppBtnDriver" href="/downloads/HimRideG-Driver.apk" download>
+                <span aria-hidden="true">🧑‍✈️</span> {t.appDriver} <b aria-hidden="true">⬇</b>
+              </a>
+            </div>
           </div>
         </div>
 
