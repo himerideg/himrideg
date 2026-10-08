@@ -49,7 +49,12 @@ const COPY = {
     android: "Android App",
     ios: "iPhone App",
     available: "Open download",
-    soon: "Public download coming soon"
+    soon: "Public download coming soon",
+    // V96: seedha APK download
+    customerApk: "HimRideG Customer App",
+    driverApk: "HimRideG Driver App",
+    customerApkHint: "Android APK · Book rides",
+    driverApkHint: "Android APK · For drivers"
   },
   hi: {
     recentEyebrow: "आपकी यात्राएँ",
@@ -98,7 +103,12 @@ const COPY = {
     android: "Android ऐप",
     ios: "iPhone ऐप",
     available: "डाउनलोड खोलें",
-    soon: "सार्वजनिक डाउनलोड जल्द उपलब्ध होगा"
+    soon: "सार्वजनिक डाउनलोड जल्द उपलब्ध होगा",
+    // V96
+    customerApk: "HimRideG ग्राहक ऐप",
+    driverApk: "HimRideG ड्राइवर ऐप",
+    customerApkHint: "Android APK · राइड बुक करें",
+    driverApkHint: "Android APK · ड्राइवरों के लिए"
   }
 };
 
@@ -124,6 +134,23 @@ function StoreCard({ icon, title, url, t }) {
   }
 
   return <div className="homeStoreCard isSoon">{content}</div>;
+}
+
+/*
+| V96: dono Android app (APK) seedha website se download.
+| Files: client/public/downloads/*.apk
+*/
+function ApkCard({ icon, title, hint, file }) {
+  return (
+    <a className="homeStoreCard homeApkCard" href={file} download>
+      <div className="homeStoreIcon" aria-hidden="true">{icon}</div>
+      <div>
+        <strong>{title}</strong>
+        <span>{hint}</span>
+      </div>
+      <b aria-hidden="true">⬇</b>
+    </a>
+  );
 }
 
 function HomeGrowthSections({
@@ -247,6 +274,8 @@ function HomeGrowthSections({
           </div>
         </div>
         <div className="homeStoreGrid">
+          <ApkCard icon="🚕" title={t.customerApk} hint={t.customerApkHint} file="/downloads/HimRideG-Customer.apk" />
+          <ApkCard icon="🧑‍✈️" title={t.driverApk} hint={t.driverApkHint} file="/downloads/HimRideG-Driver.apk" />
           <StoreCard icon="▶" title={t.android} url={androidUrl} t={t} />
           <StoreCard icon="●" title={t.ios} url={iosUrl} t={t} />
         </div>

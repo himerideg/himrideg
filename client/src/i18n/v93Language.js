@@ -101,6 +101,11 @@ const rows = [
   ["Fare minus commission", "Fare minus commission", "किराया घटा कमीशन", "Fare minus commission"],
   ["poora fare driver earnings", "the full fare as driver earnings", "पूरा किराया चालक की कमाई", "poora fare driver earnings"],
   ["6 mahine ke offer mein 0% HimRideG commission", "0% HimRideG commission during the six-month offer", "छह महीने के ऑफ़र में 0% HimRideG कमीशन", "6 mahine ke offer mein 0% HimRideG commission"],
+  // --- V96: website se APK download
+  ["HimRideG Customer App", "HimRideG Customer App", "HimRideG ग्राहक ऐप", "HimRideG Customer App"],
+  ["HimRideG Driver App", "HimRideG Driver App", "HimRideG ड्राइवर ऐप", "HimRideG Driver App"],
+  ["Android APK · Book rides", "Android APK · Book rides", "Android APK · राइड बुक करें", "Android APK · Ride book karo"],
+  ["Android APK · For drivers", "Android APK · For drivers", "Android APK · ड्राइवरों के लिए", "Android APK · Drivers ke liye"],
   // --- V94: Platform Fee (pehle "Commission") — 3 km range
   ["Platform Fee", "Platform Fee", "प्लेटफ़ॉर्म शुल्क", "Platform Fee"],
   ["PLATFORM FEE · OFF", "PLATFORM FEE · OFF", "प्लेटफ़ॉर्म शुल्क · बंद", "PLATFORM FEE · OFF"],
