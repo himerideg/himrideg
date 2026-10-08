@@ -3,6 +3,8 @@ import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import Features from "../components/Features";
 import Footer from "../components/Footer";
+// V96: Customer + Driver APK download section
+import V96AppDownloads from "../components/V96AppDownloads";
 // Phase 4: HomeBookRide is lazy-loaded below so Leaflet is not in first paint.
 
 /*
@@ -161,6 +163,9 @@ function Home({
         />
 
         <Features language={language} />
+
+        {/* V96: app download */}
+        <V96AppDownloads language={language} />
       </main>
 
       <Footer language={language} />
