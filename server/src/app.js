@@ -408,6 +408,12 @@ app.use(
   adminRoutes
 );
 
+// V97 ADD-ONLY: browser-hosted Razorpay checkout (UPI apps decline WebView intents).
+app.use(
+  "/api/v2/payments",
+  require("./routes/v97HostedPaymentRoutes")
+);
+
 app.use(
   "/api/v2/payments",
   paymentRoutes
