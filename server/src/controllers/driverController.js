@@ -258,6 +258,24 @@ async function updateProfile(
     const driver =
       await getDriver(req);
 
+    /*
+    | V100 ADD-ONLY: remember current values. Fields the request did not send
+    | are restored below, so "Save Name" (or any partial save) never wipes
+    | the saved address / vehicle details.
+    */
+    const v100Body = req.body || {};
+    const v100Has = (key) =>
+      Object.prototype.hasOwnProperty.call(v100Body, key);
+    const v100PrevAddress =
+      driver.driverProfile?.address || "";
+    const v100PrevVehicle = {
+      brand: driver.driverProfile?.vehicle?.brand || "",
+      model: driver.driverProfile?.vehicle?.model || "",
+      color: driver.driverProfile?.vehicle?.color || "",
+      registrationNumber:
+        driver.driverProfile?.vehicle?.registrationNumber || ""
+    };
+
     if (
       Object.prototype.hasOwnProperty.call(
         req.body,
@@ -385,6 +403,56 @@ async function updateProfile(
         .vehicle
         .seatingCapacity =
         seatingCapacity;
+    }
+
+    /* V100 ADD-ONLY: restore fields this request did not send. */
+    if (!v100Has("address")) {
+      driver.driverProfile.address = v100PrevAddress;
+    }
+    {
+      const v100Vehicle =
+        v100Body.vehicle && typeof v100Body.vehicle === "object"
+          ? v100Body.vehicle
+          : null;
+      for (const key of ["brand", "model", "color", "registrationNumber"]) {
+        if (
+          !v100Vehicle ||
+          !Object.prototype.hasOwnProperty.call(v100Vehicle, key)
+        ) {
+          driver.driverProfile.vehicle[key] = v100PrevVehicle[key];
+        }
+      }
+    }
+
+    /* V100 ADD-ONLY: legal name (as per Aadhaar) is actually saved now. */
+    {
+      const v100Name = cleanText(
+        v100Body.legalName || v100Body.aadhaarName || "",
+        100
+      );
+      if (
+        v100Name.length >= 2 &&
+        !driver.driverProfile.legalNameVerified
+      ) {
+        driver.driverProfile.legalName = v100Name;
+      }
+    }
+
+    /* V100 ADD-ONLY: date of birth (DD/MM/YYYY or ISO), only if not saved yet. */
+    if (v100Has("dateOfBirth") && v100Body.dateOfBirth) {
+      const raw = String(v100Body.dateOfBirth).trim();
+      const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      const parsed = m
+        ? new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])))
+        : new Date(raw);
+      const alreadySaved =
+        driver.driverProfile?.dateOfBirth || driver.dateOfBirth || null;
+      if (!alreadySaved && !Number.isNaN(parsed.getTime())) {
+        driver.driverProfile.dateOfBirth = parsed;
+        try {
+          driver.dateOfBirth = parsed;
+        } catch (_) {}
+      }
     }
 
     await driver.save();
@@ -1363,6 +1431,14 @@ async function getOnboardingStatus(
 
         data: {
           onboarding: status,
+
+          // V100 ADD-ONLY: saved personal values so forms can show "saved + Edit".
+          driverProfileV100: {
+            legalName: driver.driverProfile?.legalName || "",
+            legalNameVerified: Boolean(driver.driverProfile?.legalNameVerified),
+            address: driver.driverProfile?.address || "",
+            dateOfBirth: driver.driverProfile?.dateOfBirth || null
+          },
 
           vehicle:
             driver

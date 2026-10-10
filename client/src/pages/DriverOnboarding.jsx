@@ -133,6 +133,13 @@ function DriverOnboarding({
   const onApprovedRef = useRef(onApproved);
   const vehicleDirtyRef = useRef(false);
 
+  // V100 ADD-ONLY: after Save a section shows the saved values + "Edit".
+  const [v100NameLocked, setV100NameLocked] = useState(false);
+  const [v100VehicleLocked, setV100VehicleLocked] = useState(false);
+  const [v100SavedName, setV100SavedName] = useState("");
+  const [v100NameVerified, setV100NameVerified] = useState(false);
+  const v100InitRef = useRef(false);
+
   useEffect(() => {
     onApprovedRef.current = onApproved;
   }, [onApproved]);
@@ -159,6 +166,25 @@ function DriverOnboarding({
 
         const vehicleData =
           data?.data?.vehicle || {};
+
+        // V100: first load decides which sections open as "saved + Edit".
+        {
+          const v100Profile = data?.data?.driverProfileV100 || {};
+          const v100Name = String(v100Profile.legalName || "").trim();
+          if (v100Name) setV100SavedName(v100Name);
+          setV100NameVerified(Boolean(v100Profile.legalNameVerified));
+          if (!v100InitRef.current) {
+            v100InitRef.current = true;
+            if (v100Name) setV100NameLocked(true);
+            if (
+              vehicleData.brand &&
+              vehicleData.model &&
+              vehicleData.registrationNumber
+            ) {
+              setV100VehicleLocked(true);
+            }
+          }
+        }
 
         setOnboarding(status || null);
 
@@ -295,6 +321,7 @@ function DriverOnboarding({
       );
 
       vehicleDirtyRef.current = false;
+      setV100VehicleLocked(true);
 
       setNotice({
         text:
@@ -658,6 +685,22 @@ function DriverOnboarding({
               </div>
             ) : (
               <div>
+                {v100NameLocked ? (
+                  <div style={{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px",background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"10px"}}>
+                    <span style={{fontSize:"18px"}}>✅</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{color:"#fff",fontWeight:"700",fontSize:"15px",wordBreak:"break-word"}}>{v100SavedName || legalName || "—"}</div>
+                      <div style={{color:"#888",fontSize:"12px",marginTop:"2px"}}>{v100NameVerified ? "Admin ne verify kar diya — naam lock hai" : "Naam save hai — admin verify karega"}</div>
+                    </div>
+{v100NameVerified ? (<span style={{color:"#4ade80",fontSize:"12px",fontWeight:"800",flex:"none"}}>🔒 Verified</span>) : (
+                    <button type="button"
+                      style={{padding:"8px 16px",background:"transparent",border:"1px solid #f5c518",borderRadius:"999px",color:"#f5c518",fontWeight:"800",cursor:"pointer",fontSize:"13px",flex:"none"}}
+                      onClick={()=>{ if(!legalName.trim()) setLegalName(v100SavedName); setV100NameLocked(false); }}
+                    >✎ Edit</button>
+                    )}
+                  </div>
+                ) : (
+                <>
                 <input
                   type="text"
                   placeholder="Jaise: Nishan Kumar / Rajesh Sharma"
@@ -674,11 +717,15 @@ function DriverOnboarding({
                       try{
                         await api.patch("/driver/profile",{aadhaarName:legalName.trim()});
                         setNotice({text:"Naam save ho gaya ✓",type:"success"});
+                        setV100SavedName(legalName.trim());
+                        setV100NameLocked(true);
                       }catch{
                         setNotice({text:"Naam save nahi hua",type:"error"});
                       }
                     }}
                   >💾 Save Name</button>
+                )}
+                </>
                 )}
               </div>
             )}
@@ -802,6 +849,32 @@ function DriverOnboarding({
               </p>
             </div>
 
+            {v100VehicleLocked ? (
+              <div style={{padding:"14px",background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"12px"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"10px",marginBottom:"8px"}}>
+                  <strong style={{color:"#fff",fontSize:"14px"}}>✅ Vehicle details saved</strong>
+                  <button type="button"
+                    style={{padding:"8px 16px",background:"transparent",border:"1px solid #f5c518",borderRadius:"999px",color:"#f5c518",fontWeight:"800",cursor:"pointer",fontSize:"13px"}}
+                    onClick={()=>setV100VehicleLocked(false)}
+                  >✎ Edit</button>
+                </div>
+                {[
+                  ["Vehicle Number", vehicle.registrationNumber],
+                  ["Vehicle", `${vehicle.brand || ""} ${vehicle.model || ""}`.trim()],
+                  ["Type", vehicle.vehicleType],
+                  ["Class", vehicle.vehicleClass],
+                  ["Color", vehicle.color],
+                  ["Fuel", vehicle.fuelType],
+                  ["Seats", vehicle.seatingCapacity]
+                ].map(([label, value]) => (
+                  <div key={label} style={{display:"flex",justifyContent:"space-between",gap:"12px",padding:"7px 0",borderTop:"1px solid rgba(255,255,255,0.08)",fontSize:"13px"}}>
+                    <span style={{color:"#9aa3ad"}}>{label}</span>
+                    <span style={{color:"#fff",fontWeight:"700",textAlign:"right"}}>{String(value ?? "").trim() || "—"}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+            <>
             <div className="onbFieldGrid">
               <label>
                 <span>
@@ -978,6 +1051,8 @@ function DriverOnboarding({
                 ? "Save ho raha hai..."
                 : "Vehicle Details Save Karo"}
             </button>
+            </>
+            )}
           </section>
 
           <section className="onbSection">
