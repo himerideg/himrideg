@@ -9,6 +9,8 @@ import "./styles.css";
 import "./pages/PublicInfoPageLanguage.css";
 // ADD-ONLY V91: visibility + profile styles (loads last)
 import "./v91-visibility.css";
+// V98 ADD-ONLY: driver app -> website documents upload (one-time login + back-to-app)
+import "./v98AppHandoff";
 
 /*
 |--------------------------------------------------------------------------

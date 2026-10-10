@@ -2004,3 +2004,10 @@ module.exports = {
   getAccountPreferences,
   updateAccountPreferences
 };
+
+// V98 ADD-ONLY: helpers reused by the app -> website handoff login.
+module.exports.v98 = {
+  setRefreshTokenCookie,
+  buildRefreshSessionHashes,
+  toSafeUserObject
+};

@@ -378,6 +378,12 @@ app.get(
 
 app.use("/api/v2/readiness", readinessRoutes);
 
+// V98 ADD-ONLY: app -> website one-time login (driver documents upload in browser).
+app.use(
+  "/api/v2/auth",
+  require("./routes/v98WebHandoffRoutes")
+);
+
 app.use(
   "/api/v2/auth",
   authRoutes
