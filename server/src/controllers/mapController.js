@@ -766,6 +766,22 @@ exports.autocomplete = async (req, res, next) => {
 */
 const V105_NEAR_RADIUS_M = 200;
 const V105_NEAR_MAX_USE_M = 150;
+/* V106c: Ola/Uber style landmarks only (no private homes), up to 300 m */
+const V106_LANDMARK_RADIUS_M = 300;
+const V106_NEAR_PREFIX_M = 60;
+const V106_GENERIC_TYPES = new Set([
+  "point_of_interest",
+  "establishment",
+  "premise",
+  "subpremise",
+  "street_address",
+  "route",
+  "political",
+  "plus_code",
+  "geocode",
+  "intersection"
+]);
+const V106_PRIVATE_NAME = /\b(residence|niwas|nivas|house of|home of|villa of)\b/i;
 const V105_REVERSE_TTL_MS = 24 * 60 * 60 * 1000;
 const V105_ROUTE_TTL_MS = 10 * 60 * 1000;
 
@@ -833,11 +849,11 @@ async function v105GoogleNearestPlace(latitude, longitude) {
         locationRestriction: {
           circle: {
             center: { latitude, longitude },
-            radius: V105_NEAR_RADIUS_M
+            radius: Math.max(V105_NEAR_RADIUS_M, V106_LANDMARK_RADIUS_M)
           }
         },
         rankPreference: "DISTANCE",
-        maxResultCount: 5,
+        maxResultCount: 15,
         languageCode: "en",
         regionCode: "IN"
       }
@@ -865,7 +881,10 @@ async function v105GoogleNearestPlace(latitude, longitude) {
         place.name &&
         !looksLikePlusCode(place.name) &&
         Number.isFinite(place.distanceM) &&
-        place.distanceM <= V105_NEAR_MAX_USE_M &&
+        place.distanceM <= Math.max(V105_NEAR_MAX_USE_M, V106_LANDMARK_RADIUS_M) &&
+        /* V106c: real landmark types only, never a private home */
+        place.types.some((type) => !V106_GENERIC_TYPES.has(type)) &&
+        !V106_PRIVATE_NAME.test(place.name) &&
         !place.types.includes("route") &&
         !place.types.includes("political")
     )
@@ -877,7 +896,7 @@ async function v105GoogleNearestPlace(latitude, longitude) {
 async function v105GoogleReverse(latitude, longitude) {
   if (!v103GoogleEnabled()) return null;
 
-  const cacheKey = `rvg2:${latitude.toFixed(4)}:${longitude.toFixed(4)}`;
+  const cacheKey = `rvg3:${latitude.toFixed(4)}:${longitude.toFixed(4)}`;
   const hit = await cachedAcrossInstances(cacheKey, V105_REVERSE_TTL_MS);
   if (hit) return { ...hit, latitude, longitude };
 
@@ -934,14 +953,17 @@ async function v105GoogleReverse(latitude, longitude) {
       ? `${near.name}, ${v106Place}`
       : near.name
     : areaName || "My Location";
+  /* V106c: landmark a little away -> "Near ..." like Ola/Uber */
+  const v106Near = near && near.distanceM > V106_NEAR_PREFIX_M;
+  const v106ShortName = v106Near ? `Near ${shortName}` : shortName;
   const address = near
-    ? [near.name, areaLine || near.address].filter(Boolean).join(", ")
+    ? [v106Near ? `Near ${near.name}` : near.name, areaLine || near.address].filter(Boolean).join(", ")
     : v106Area?.formatted || areaLine || shortName;
 
   const location = {
     id: `google-rv:${latitude.toFixed(5)},${longitude.toFixed(5)}`,
     address,
-    shortName,
+    shortName: v106ShortName,
     nearbyPlace: near?.name || "",
     nearbyDistanceM: near ? Math.round(near.distanceM) : null,
     village: v106Area?.village || "",

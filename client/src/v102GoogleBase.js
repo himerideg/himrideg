@@ -139,6 +139,19 @@ export function hrgInstallGoogleBase(L, map, opts) {
       map.on("move zoom viewreset", sync);
       map.on("zoomanim", onZoomAnim);
       map.on("resize", onResize);
+      /* V106c ADD-ONLY: map shown later (panel opens / tab switch) */
+      try {
+        if (typeof w.ResizeObserver === "function") {
+          var v106Ro = new w.ResizeObserver(function () {
+            if (dead || removed) {
+              try { v106Ro.disconnect(); } catch (e2) {}
+              return;
+            }
+            onResize();
+          });
+          v106Ro.observe(container);
+        }
+      } catch (e3) {}
     } catch (e) {
       fail("init");
     }
@@ -168,6 +181,12 @@ export function hrgInstallGoogleBase(L, map, opts) {
 
   /* Never wait forever: keep OSM if Google is slow / blocked. */
   timer = setTimeout(function () {
+    /* V106c ADD-ONLY: slow / hidden map is not an error. Keep OSM visible
+       and let Google take over as soon as its tiles really load. */
+    if (!ready && !dead && !removed) {
+      showOsm(true);
+      return;
+    }
     if (!ready) fail("timeout");
   }, opts.timeoutMs || 15000);
 
