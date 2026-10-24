@@ -569,6 +569,39 @@ async function v103GooglePlaceDetails(placeId) {
   return saveCacheAcrossInstances(cacheKey, details, V103_GOOGLE_DETAILS_TTL_MS);
 }
 
+/* V111 ADD-ONLY: friendly suggestion labels instead of raw Google types */
+const V111_TYPE_LABELS = [
+  [["bus_station", "bus_stop", "transit_station"], "Bus stand"],
+  [["train_station", "railway_station"], "Railway station"],
+  [["airport"], "Airport"],
+  [["taxi_stand"], "Taxi stand"],
+  [["hospital", "doctor", "medical_lab", "dental_clinic"], "Hospital"],
+  [["pharmacy", "drugstore"], "Pharmacy"],
+  [["secondary_school", "primary_school", "school", "educational_institution"], "School"],
+  [["university", "college"], "College"],
+  [["hindu_temple", "church", "mosque", "gurudwara", "place_of_worship"], "Temple"],
+  [["bank"], "Bank"],
+  [["atm"], "ATM"],
+  [["gas_station"], "Petrol pump"],
+  [["police"], "Police station"],
+  [["post_office"], "Post office"],
+  [["local_government_office", "city_hall", "courthouse", "government_office"], "Office"],
+  [["lodging", "hotel", "guest_house", "resort_hotel"], "Hotel"],
+  [["restaurant", "cafe", "food", "meal_takeaway", "bakery"], "Restaurant"],
+  [["shopping_mall", "market", "supermarket", "grocery_store", "store", "clothing_store", "electronics_store", "hardware_store"], "Shop"],
+  [["park", "tourist_attraction", "stadium", "playground", "sports_complex"], "Landmark"],
+  [["route", "street_address", "intersection"], "Road"],
+  [["locality", "sublocality", "sublocality_level_1", "neighborhood", "administrative_area_level_3", "administrative_area_level_2", "postal_code", "geocode", "political"], "Area"]
+];
+
+function v111TypeLabel(types) {
+  const list = Array.isArray(types) ? types : [];
+  for (const [keys, label] of V111_TYPE_LABELS) {
+    if (list.some((type) => keys.includes(type))) return label;
+  }
+  return "Place";
+}
+
 async function v103GoogleSearch(query, bias, limit) {
   if (!v103GoogleEnabled()) return [];
 
@@ -635,6 +668,8 @@ async function v103GoogleSearch(query, bias, limit) {
           country: "India",
           countryCode: "IN",
           type: (prediction.types || details.types || [])[0] || "place",
+          /* V111: "School", "Bus stand", "Area" ... (never "Geocode") */
+          type: v111TypeLabel([...(prediction.types || []), ...(details.types || [])]),
           provider: "google",
           googleRank: index,
           confidence: 1

@@ -399,9 +399,10 @@ function HomeBookRide({
       setLocationText(
         (current) => ({
           ...current,
+          /* V111: Google-style short address instead of "Your location" */
           pickup:
             pickup.isCurrentLocation
-              ? "Your location"
+              ? String(pickup.address || "").replace(/^Near\s+/i, "")
               : pickup.landmark ||
                 pickup.shortName ||
                 pickup.address,
@@ -722,8 +723,9 @@ function HomeBookRide({
         setLocationText(
           (current) => ({
             ...current,
+            /* V111: Google-style short address */
             pickup:
-              "Your location",
+              String(pickup.address || "").replace(/^Near\s+/i, ""),
           })
         );
 

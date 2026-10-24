@@ -1316,8 +1316,9 @@ function CustomerRideMap({
   }, [effectivePickup?.[0], effectivePickup?.[1], pickupAddress]);
 
   const v106OnPinPick = (picked) => {
+    /* V111: Google-style short address instead of "Your location" */
     const riderText = picked?.isCurrentLocation
-      ? "Your location"
+      ? String(picked?.address || "").replace(/^Near\s+/i, "")
       : picked?.landmark || picked?.shortName || picked?.address || "";
     if (typeof onAddressChange === "function") {
       onAddressChange({ pickup: riderText });

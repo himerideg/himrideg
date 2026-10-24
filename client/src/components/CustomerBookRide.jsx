@@ -488,15 +488,16 @@ function CustomerBookRide({
         );
 
         /* V107 ADD-ONLY: rider sees "Your location", driver gets the place name */
+        /* V111: Google-style short address instead of "Your location" */
         changeBooking({
           pickup:
-            "Your location",
+            String(address || "").replace(/^Near\s+/i, ""),
         });
         setMapData(
           (current) => ({
             ...current,
             v106PickupRiderText:
-              "Your location",
+              String(address || "").replace(/^Near\s+/i, ""),
             v106PickupDriverAddress:
               address,
           })
