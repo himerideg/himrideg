@@ -110,6 +110,26 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
     };
   }, [map, active]);
 
+  /* V108: Google-like smooth fly + zoom to the exact spot */
+  const v108Fly = (lat, lng, zoom = 17) => {
+    try {
+      const target = [Number(lat), Number(lng)];
+      const z = Math.max(Number(map.getZoom()) || 0, zoom);
+      const dist = map.getCenter().distanceTo(target);
+      if (dist > 200000) {
+        map.setView(target, z, { animate: false });
+      } else {
+        map.flyTo(target, z, { duration: 0.9, easeLinearity: 0.25 });
+      }
+    } catch {
+      try {
+        map.setView([Number(lat), Number(lng)], zoom);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
   const metersBetween = (a, b) => {
     const r = (v) => (v * Math.PI) / 180;
     const dy = (b.lat - a.lat) * 111320;
@@ -224,9 +244,7 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
     setLabel(v106Text);
     setSubLabel(value?.address || "");
     try {
-      map.setView([Number(value.latitude), Number(value.longitude)], Math.max(map.getZoom(), 16), {
-        animate: true
-      });
+      v108Fly(value.latitude, value.longitude, 17);
     } catch {
       /* ignore */
     }
@@ -244,8 +262,9 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
         const point = await getHighAccuracyBrowserLocation({ targetAccuracy: 40, maxWaitMs: 9000 });
         if (cancelled) return;
         setGps(point);
-        map.setView([point.latitude, point.longitude], 17, { animate: true });
-        setTimeout(resolveCenter, 350);
+        v108Fly(point.latitude, point.longitude, 17);
+        map.once("moveend", () => setTimeout(resolveCenter, 150));
+        setTimeout(resolveCenter, 1800);
       } catch {
         /* keep default map */
       }
@@ -261,8 +280,9 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
     try {
       const point = await getHighAccuracyBrowserLocation({ targetAccuracy: 30, maxWaitMs: 9000 });
       setGps(point);
-      map.setView([point.latitude, point.longitude], 17, { animate: true });
-      setTimeout(resolveCenter, 350);
+      v108Fly(point.latitude, point.longitude, 18);
+      map.once("moveend", () => setTimeout(resolveCenter, 150));
+      setTimeout(resolveCenter, 1800);
     } catch {
       setLabel("Location permission allow karein");
     } finally {
