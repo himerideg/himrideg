@@ -781,6 +781,17 @@ const V106_GENERIC_TYPES = new Set([
   "geocode",
   "intersection"
 ]);
+/* V106d: well-known landmarks win over a slightly closer small shop */
+const V106_MAJOR_TYPES = new Set([
+  "bus_station", "bus_stop", "transit_station", "train_station", "taxi_stand",
+  "school", "primary_school", "secondary_school", "university", "college",
+  "hospital", "doctor", "pharmacy",
+  "hindu_temple", "place_of_worship", "church", "mosque", "gurudwara",
+  "bank", "atm", "post_office", "police", "local_government_office", "city_hall", "courthouse",
+  "shopping_mall", "market", "supermarket", "park", "stadium", "tourist_attraction",
+  "gas_station", "hotel", "restaurant"
+]);
+const V106_MAJOR_BONUS_M = 80;
 const V106_PRIVATE_NAME = /\b(residence|niwas|nivas|house of|home of|villa of)\b/i;
 const V105_REVERSE_TTL_MS = 24 * 60 * 60 * 1000;
 const V105_ROUTE_TTL_MS = 10 * 60 * 1000;
@@ -890,13 +901,18 @@ async function v105GoogleNearestPlace(latitude, longitude) {
     )
     .sort((a, b) => a.distanceM - b.distanceM);
 
+  /* V106d: prefer bus stand / school / hospital / temple etc. close by */
+  const v106Score = (place) =>
+    place.distanceM - (place.types.some((type) => V106_MAJOR_TYPES.has(type)) ? V106_MAJOR_BONUS_M : 0);
+  places.sort((a, b) => v106Score(a) - v106Score(b));
+
   return places[0] || null;
 }
 
 async function v105GoogleReverse(latitude, longitude) {
   if (!v103GoogleEnabled()) return null;
 
-  const cacheKey = `rvg3:${latitude.toFixed(4)}:${longitude.toFixed(4)}`;
+  const cacheKey = `rvg4:${latitude.toFixed(4)}:${longitude.toFixed(4)}`;
   const hit = await cachedAcrossInstances(cacheKey, V105_REVERSE_TTL_MS);
   if (hit) return { ...hit, latitude, longitude };
 
