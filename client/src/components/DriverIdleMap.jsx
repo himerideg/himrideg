@@ -7,6 +7,8 @@ import "./driver-idle-map.css";
 import V102GoogleBaseLayer from "./V102GoogleBaseLayer";
 // V104 ADD-ONLY: Google-style live car
 import V104LiveCar from "./V104LiveCar";
+// V109 ADD-ONLY: Uber-style close zoom + place name for the driver
+import { reverseLocation } from "../locationService";
 
 /*
 |--------------------------------------------------------------------------
@@ -40,9 +42,46 @@ function FollowDriver({ position }) {
   return null;
 }
 
+/* V109: first GPS fix -> fly close to the car like the Uber driver app */
+function V109DriverZoom({ position }) {
+  const map = useMap();
+  const done = React.useRef(false);
+  useEffect(() => {
+    if (!position || done.current) return;
+    done.current = true;
+    try {
+      map.flyTo(position, 17, { duration: 0.9 });
+    } catch {
+      /* ignore */
+    }
+  }, [map, position]);
+  return null;
+}
+
 export default function DriverIdleMap() {
   const [position, setPosition] = useState(null);
   const [gpsState, setGpsState] = useState("waiting");
+  /* V109: area name under the car (e.g. "Kandbari Saperu Road") */
+  const [v109Place, setV109Place] = useState("");
+  const v109Last = React.useRef(null);
+  useEffect(() => {
+    if (!position) return undefined;
+    const last = v109Last.current;
+    const moved = last
+      ? Math.hypot((position[0] - last[0]) * 111320, (position[1] - last[1]) * 111320 * Math.cos((position[0] * Math.PI) / 180))
+      : Infinity;
+    if (moved < 120) return undefined;
+    v109Last.current = position;
+    let cancelled = false;
+    reverseLocation(position[0], position[1])
+      .then((place) => {
+        if (!cancelled && place) setV109Place(place.shortName || place.address || "");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [position]);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -90,9 +129,17 @@ export default function DriverIdleMap() {
         {/* V104: Google-style live car */}
         {position ? <V104LiveCar position={position} label="Aapki location" /> : null}
         <FollowDriver position={position} />
+        {/* V109: close zoom on first fix */}
+        <V109DriverZoom position={position} />
       </MapContainer>
 
       <div className={`driverIdleGps driverIdleGps--${gpsState}`}>{gpsText}</div>
+      {/* V109: where the driver is right now */}
+      {gpsState === "live" && v109Place ? (
+        <div className="driverIdleGps driverIdleGps--live" style={{ bottom: 46, color: "#ffffff" }}>
+          📍 {v109Place}
+        </div>
+      ) : null}
     </div>
   );
 }

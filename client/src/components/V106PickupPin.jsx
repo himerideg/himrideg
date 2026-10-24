@@ -191,8 +191,14 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
       const gps = gpsRef.current;
       picked.isCurrentLocation = Boolean(gps && metersBetween(gps, { lat: c.lat, lng: c.lng }) <= 40);
       lastPinned.current = keyOf(picked);
-      setLabel(picked.isCurrentLocation ? "Your location" : picked.landmark || picked.shortName);
-      setSubLabel(picked.address || "");
+      /* V109: pin shows the Google area name (e.g. "Rachhiyara",
+         "Dramman-Kandbari-Saperu Road"), like Uber */
+      setLabel(picked.shortName || picked.landmark || picked.address || "Pin location");
+      setSubLabel(
+        picked.isCurrentLocation
+          ? `📍 Aapki location${picked.landmark ? ` • ${picked.landmark}` : ""}`
+          : picked.landmark || ""
+      );
       try {
         pickRef.current?.(picked);
       } catch {
@@ -233,16 +239,13 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
     const k = keyOf(value);
     if (value?.isCurrentLocation) setGps(value);
     const v106Text = value?.isCurrentLocation ? "Your location" : value?.landmark || value?.shortName || "";
+    /* V109: our own pin pick already set the area label; keep it */
     if (!k || k === lastPinned.current) {
-      if (v106Text && k === lastPinned.current) {
-        setLabel(v106Text);
-        setSubLabel(value?.address || "");
-      }
       return;
     }
     lastPinned.current = k;
-    setLabel(v106Text);
-    setSubLabel(value?.address || "");
+    setLabel(value?.isCurrentLocation ? value?.shortName || v106Text : v106Text);
+    setSubLabel(value?.landmark || "");
     try {
       v108Fly(value.latitude, value.longitude, 17);
     } catch {
@@ -262,7 +265,7 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
         const point = await getHighAccuracyBrowserLocation({ targetAccuracy: 40, maxWaitMs: 9000 });
         if (cancelled) return;
         setGps(point);
-        v108Fly(point.latitude, point.longitude, 17);
+        v108Fly(point.latitude, point.longitude, 18);
         map.once("moveend", () => setTimeout(resolveCenter, 150));
         setTimeout(resolveCenter, 1800);
       } catch {
@@ -321,7 +324,7 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
           </span>
           <span className="hrg-v106-name">
             {text}
-            {!moving && !busy && subLabel && label ? <small>Driver: {subLabel}</small> : null}
+            {!moving && !busy && subLabel && label ? <small>{subLabel}</small> : null}
           </span>
         </div>
         <div className="hrg-v106-head" />
