@@ -368,6 +368,8 @@ function rankLocation(place, query, bias) {
   }
 
   if (place?.provider === "geoapify") score += 12;
+  /* V103: Google Places results first, in Google's own order */
+  if (place?.provider === "google") score += 1000 - Number(place.googleRank || 0) * 10;
   if (normalizeSearchText(place?.state).includes("himachal")) score += 16;
 
   const distanceKm = haversineKm(bias, place);
@@ -404,6 +406,13 @@ function mergeSearchResults(groups, query, bias, limit) {
       if (!existing) {
         byKey.set(key, place);
       } else {
+        /* V103: Google record wins when the same point comes twice */
+        if (place.provider === "google" || existing.provider === "google") {
+          const gPrimary = place.provider === "google" ? place : existing;
+          const gSecondary = gPrimary === place ? existing : place;
+          byKey.set(key, { ...gSecondary, ...gPrimary });
+          continue;
+        }
         const primary = place.provider === "geoapify" ? place : existing;
         const secondary = primary === place ? existing : place;
         byKey.set(key, {
@@ -464,6 +473,181 @@ function flattenRouteCoordinates(geometry) {
   return [];
 }
 
+/*
+|--------------------------------------------------------------------------
+| V103 ADD-ONLY: Google Places search (same places as Google Maps)
+|--------------------------------------------------------------------------
+| Google Places API (New) Autocomplete + Place Details (location only).
+| Results go FIRST; Geoapify/Photon stay as fallback. If Google fails
+| (API off, quota, network) search silently keeps working as before.
+| Key: GOOGLE_MAPS_SERVER_KEY env (recommended) or the website browser key
+| sent with the himrideg.com referrer.
+*/
+const V103_GOOGLE_BROWSER_KEY = "AIzaSyDCnPOtLmYzg4yeIjrE4sOLQy-DhVSG8_M";
+const V103_GOOGLE_DETAILS_TTL_MS = 25 * 24 * 60 * 60 * 1000;
+const V103_GOOGLE_TIMEOUT_MS = 4500;
+const V103_GOOGLE_MAX_DETAILS = 6;
+
+function v103GoogleKey() {
+  return String(
+    process.env.GOOGLE_MAPS_SERVER_KEY ||
+      process.env.GOOGLE_MAPS_API_KEY ||
+      V103_GOOGLE_BROWSER_KEY
+  ).trim();
+}
+
+function v103GoogleEnabled() {
+  return (
+    String(process.env.GOOGLE_PLACES_ENABLED || "true").toLowerCase() !== "false" &&
+    Boolean(v103GoogleKey())
+  );
+}
+
+async function v103GoogleRequest(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), V103_GOOGLE_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      method: options.method || "GET",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": v103GoogleKey(),
+        "X-Goog-FieldMask": options.fieldMask || "*",
+        Referer: "https://www.himrideg.com/",
+        ...(options.headers || {})
+      },
+      ...(options.body ? { body: JSON.stringify(options.body) } : {})
+    });
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Google Places ${response.status}: ${body.slice(0, 160)}`);
+    }
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function v103Component(components, type) {
+  const found = (components || []).find((item) =>
+    Array.isArray(item?.types) && item.types.includes(type)
+  );
+  return String(found?.longText || found?.shortText || "").trim();
+}
+
+async function v103GooglePlaceDetails(placeId) {
+  const cacheKey = `gpd:${placeId}`;
+  const hit = await cachedAcrossInstances(cacheKey, V103_GOOGLE_DETAILS_TTL_MS);
+  if (hit) return hit;
+
+  const data = await v103GoogleRequest(
+    `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?languageCode=en&regionCode=IN`,
+    { fieldMask: "location,formattedAddress,addressComponents,types" }
+  );
+
+  const latitude = Number(data?.location?.latitude);
+  const longitude = Number(data?.location?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+  const components = data?.addressComponents || [];
+  const details = {
+    latitude,
+    longitude,
+    formattedAddress: String(data?.formattedAddress || "").trim(),
+    village: v103Component(components, "sublocality") || v103Component(components, "neighborhood"),
+    city:
+      v103Component(components, "locality") ||
+      v103Component(components, "administrative_area_level_3"),
+    district: v103Component(components, "administrative_area_level_2"),
+    state: v103Component(components, "administrative_area_level_1"),
+    postcode: v103Component(components, "postal_code"),
+    countryCode: v103Component(components, "country") ? "IN" : "IN",
+    types: Array.isArray(data?.types) ? data.types : []
+  };
+
+  return saveCacheAcrossInstances(cacheKey, details, V103_GOOGLE_DETAILS_TTL_MS);
+}
+
+async function v103GoogleSearch(query, bias, limit) {
+  if (!v103GoogleEnabled()) return [];
+
+  const body = {
+    input: query,
+    includedRegionCodes: ["in"],
+    languageCode: "en",
+    regionCode: "IN"
+  };
+
+  if (bias && Number.isFinite(bias.latitude) && Number.isFinite(bias.longitude)) {
+    body.locationBias = {
+      circle: {
+        center: { latitude: bias.latitude, longitude: bias.longitude },
+        radius: 50000
+      }
+    };
+    body.origin = { latitude: bias.latitude, longitude: bias.longitude };
+  }
+
+  const data = await v103GoogleRequest(
+    "https://places.googleapis.com/v1/places:autocomplete",
+    {
+      method: "POST",
+      body,
+      fieldMask:
+        "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text,suggestions.placePrediction.structuredFormat,suggestions.placePrediction.types,suggestions.placePrediction.distanceMeters"
+    }
+  );
+
+  const predictions = (data?.suggestions || [])
+    .map((item) => item?.placePrediction)
+    .filter((item) => item?.placeId)
+    .slice(0, Math.min(limit, V103_GOOGLE_MAX_DETAILS));
+
+  const rows = await Promise.all(
+    predictions.map(async (prediction, index) => {
+      try {
+        const details = await v103GooglePlaceDetails(prediction.placeId);
+        if (!details) return null;
+        const mainText = String(prediction?.structuredFormat?.mainText?.text || "").trim();
+        const secondaryText = String(prediction?.structuredFormat?.secondaryText?.text || "").trim();
+        const fullText = String(prediction?.text?.text || "").trim();
+        const shortName = mainText || fullText.split(",")[0] || "Location";
+        return {
+          id: `google:${prediction.placeId}`,
+          placeId: prediction.placeId,
+          address:
+            fullText ||
+            [mainText, secondaryText].filter(Boolean).join(", ") ||
+            details.formattedAddress ||
+            shortName,
+          shortName,
+          secondaryText,
+          village: details.village,
+          suburb: "",
+          district: details.district,
+          town: details.city,
+          latitude: details.latitude,
+          longitude: details.longitude,
+          city: details.city,
+          state: details.state,
+          postcode: details.postcode,
+          country: "India",
+          countryCode: "IN",
+          type: (prediction.types || details.types || [])[0] || "place",
+          provider: "google",
+          googleRank: index,
+          confidence: 1
+        };
+      } catch (error) {
+        return null;
+      }
+    })
+  );
+
+  return rows.filter(Boolean);
+}
+
 exports.autocomplete = async (req, res, next) => {
   try {
     const query = String(req.query.q || "").trim();
@@ -492,6 +676,14 @@ exports.autocomplete = async (req, res, next) => {
     if (hit) return res.status(200).json(hit);
 
     const tasks = [];
+
+    /* V103: Google Places (same results as Google Maps) */
+    tasks.push(
+      v103GoogleSearch(query, bias, limit).catch((error) => {
+        console.warn("[V103] Google Places search failed:", error?.message || error);
+        return [];
+      })
+    );
 
     if (keyAvailable()) {
       const geoUrl = new URL("https://api.geoapify.com/v1/geocode/autocomplete");
@@ -711,7 +903,9 @@ exports.health = (req, res) => {
   return res.status(200).json({
     success: true,
     data: {
-      geoapifyConfigured: keyAvailable()
+      geoapifyConfigured: keyAvailable(),
+      /* V103 */
+      googlePlacesEnabled: v103GoogleEnabled()
     }
   });
 };
