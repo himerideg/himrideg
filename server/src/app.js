@@ -463,6 +463,8 @@ app.use(
   supportRoutes
 );
 
+app.use("/api/v2/app-releases", require("./routes/appReleaseRoutes"));
+
 app.use(notFound);
 
 app.use(errorHandler);
