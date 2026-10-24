@@ -1,3 +1,4 @@
+import { locationSuggestionAddress } from "../locationService";
 import React, {
   useEffect,
   useMemo,
@@ -1249,7 +1250,7 @@ function HomeBookRide({
                                 </strong>
 
                                 <small>
-                                  {item.address || item.display_name}
+                                  {locationSuggestionAddress(item)}
                                 </small>
 
                                 <small className="hbrSuggestionMeta">
