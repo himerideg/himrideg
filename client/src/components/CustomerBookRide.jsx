@@ -442,6 +442,10 @@ function CustomerBookRide({
       setLocationMessage(
         "High-accuracy GPS location li ja rahi hai…"
       );
+      /* V110: professional status text */
+      setLocationMessage(
+        "Getting your current location…"
+      );
 
       try {
         const point =
@@ -497,8 +501,9 @@ function CustomerBookRide({
               address,
           })
         );
+        /* V110: clean status text */
         setLocationMessage(
-          `📍 Your location • Driver ko dikhega: ${address}`
+          "Pickup set to your current location"
         );
       } catch (error) {
         setLocationMessage(

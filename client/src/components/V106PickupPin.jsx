@@ -81,6 +81,42 @@ function keyOf(p) {
   return Number.isFinite(lat) && Number.isFinite(lng) ? `${lat.toFixed(5)},${lng.toFixed(5)}` : "";
 }
 
+/* V110: clean, professional labels (English, Hindi when site is in Hindi) */
+const V110_TEXT = {
+  en: {
+    moving: "Set pickup here",
+    busy: "Finding address…",
+    idle: "Move the map to set pickup",
+    notFound: "Address not available",
+    permission: "Allow location access",
+    current: "Current location",
+    noCar: "NO CARS",
+    min: "MIN",
+    locate: "My location"
+  },
+  hi: {
+    moving: "यहाँ पिकअप सेट करें",
+    busy: "पता ढूँढ रहे हैं…",
+    idle: "पिकअप के लिए मैप खिसकाएँ",
+    notFound: "पता उपलब्ध नहीं",
+    permission: "लोकेशन की अनुमति दें",
+    current: "आपकी वर्तमान लोकेशन",
+    noCar: "कार नहीं",
+    min: "मिनट",
+    locate: "मेरी लोकेशन"
+  }
+};
+
+function v110T() {
+  try {
+    const lang = String(document.documentElement.lang || "").toLowerCase();
+    if (lang.startsWith("hi")) return V110_TEXT.hi;
+  } catch {
+    /* ignore */
+  }
+  return V110_TEXT.en;
+}
+
 export default function V106PickupPin({ active = true, value = null, onPick, etaMinutes = null, carCount = null }) {
   const map = useMap();
   const [moving, setMoving] = useState(false);
@@ -92,6 +128,7 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
   const gpsRef = useRef(null);
   const gpsDot = useRef(null);
   const [subLabel, setSubLabel] = useState("");
+  const v110AutoDone = useRef(false);
   const timer = useRef(null);
   const seq = useRef(0);
   const pickRef = useRef(onPick);
@@ -196,7 +233,7 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
       setLabel(picked.shortName || picked.landmark || picked.address || "Pin location");
       setSubLabel(
         picked.isCurrentLocation
-          ? `📍 Aapki location${picked.landmark ? ` • ${picked.landmark}` : ""}`
+          ? v110T().current
           : picked.landmark || ""
       );
       try {
@@ -205,7 +242,7 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
         /* ignore */
       }
     } catch {
-      if (mySeq === seq.current) setLabel("Jagah ka naam nahi mila");
+      if (mySeq === seq.current) setLabel(v110T().notFound);
     } finally {
       if (mySeq === seq.current) setBusy(false);
     }
@@ -255,7 +292,9 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
 
   /* first open: if GPS already allowed, start at the rider like Ola/Uber */
   useEffect(() => {
-    if (!map || !active || keyOf(value)) return;
+    /* V110: like Uber, always start from the rider's current location (once per open) */
+    if (!map || !active || v110AutoDone.current) return;
+    v110AutoDone.current = true;
     let cancelled = false;
     (async () => {
       try {
@@ -287,7 +326,7 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
       map.once("moveend", () => setTimeout(resolveCenter, 150));
       setTimeout(resolveCenter, 1800);
     } catch {
-      setLabel("Location permission allow karein");
+      setLabel(v110T().permission);
     } finally {
       setLocating(false);
     }
@@ -300,10 +339,10 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
     Number.isFinite(Number(etaMinutes)) && Number(carCount) > 0 ? Math.max(1, Math.round(Number(etaMinutes))) : null;
 
   const text = moving
-    ? "Pickup yahan set karein"
+    ? v110T().moving
     : busy
-    ? "Jagah dhoondh rahe hain…"
-    : label || "Map khiskaayein ya 📍 dabayein";
+    ? v110T().busy
+    : label || v110T().idle;
 
   return createPortal(
     <>
@@ -314,10 +353,10 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
             {etaText ? (
               <>
                 {etaText}
-                <small>MIN</small>
+                <small>{v110T().min}</small>
               </>
             ) : carCount === 0 ? (
-              <small>NO CAR</small>
+              <small>{v110T().noCar}</small>
             ) : (
               "•"
             )}
@@ -341,8 +380,8 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
         }}
         onClick={locate}
         disabled={locating}
-        title="Meri location"
-        aria-label="Meri location"
+        title={v110T().locate}
+        aria-label={v110T().locate}
       >
         {locating ? "…" : "📍"}
       </button>

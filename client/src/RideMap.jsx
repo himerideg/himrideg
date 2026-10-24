@@ -1330,7 +1330,8 @@ function CustomerRideMap({
         v106PickupDriverAddress: picked?.address || riderText
       }));
     }
-    setPinMessage(`📍 ${riderText} • Driver ko dikhega: ${picked?.address || riderText}`);
+    /* V110: no extra helper text, the pin already shows the place */
+    setPinMessage("");
   };
 
   const pushMapData = (

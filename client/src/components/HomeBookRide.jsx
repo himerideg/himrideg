@@ -407,11 +407,8 @@ function HomeBookRide({
                 pickup.address,
         })
       );
-      setLocationMessage(
-        pickup.isCurrentLocation
-          ? `📍 Your location • Driver ko dikhega: ${pickup.address}`
-          : `📍 Pickup: ${pickup.landmark || pickup.shortName} • Driver ko dikhega: ${pickup.address}`
-      );
+      /* V110: no extra helper text, the pin already shows the place */
+      setLocationMessage("");
     };
 
   const searchAbortRef =
@@ -660,6 +657,10 @@ function HomeBookRide({
 
       setLocationMessage(
         "High-accuracy GPS location li ja rahi hai…"
+      );
+      /* V110: professional status text */
+      setLocationMessage(
+        "Getting your current location…"
       );
 
       try {
