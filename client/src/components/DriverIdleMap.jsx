@@ -3,6 +3,8 @@ import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./driver-idle-map.css";
+// V102 ADD-ONLY: Google map base layer
+import V102GoogleBaseLayer from "./V102GoogleBaseLayer";
 
 /*
 |--------------------------------------------------------------------------
@@ -80,6 +82,8 @@ export default function DriverIdleMap() {
           attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        {/* V102: Google map under Leaflet (OSM stays as fallback) */}
+        <V102GoogleBaseLayer />
         {position ? <Marker position={position} icon={driverIcon} /> : null}
         <FollowDriver position={position} />
       </MapContainer>

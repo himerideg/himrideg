@@ -29,6 +29,8 @@ import {
   getHighAccuracyBrowserLocation,
   reverseLocation
 } from "../locationService";
+// V102 ADD-ONLY: Google map base layer
+import V102GoogleBaseLayer from "./V102GoogleBaseLayer";
 
 /*
 |--------------------------------------------------------------------------
@@ -1411,6 +1413,8 @@ function HomeBookRide({
                 attribution="&copy; OpenStreetMap contributors"
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
+              {/* V102: Google map under Leaflet (OSM stays as fallback) */}
+              <V102GoogleBaseLayer />
 
               <FitRoute
                 points={

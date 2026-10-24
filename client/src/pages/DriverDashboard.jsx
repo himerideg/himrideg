@@ -39,6 +39,8 @@ import "../driver-dashboard.css";
 import "../payment-modal.css";
 // ADD-ONLY V91: visibility + profile styles (loads last)
 import "../v91-visibility.css";
+// V102 ADD-ONLY: Google map base layer
+import V102GoogleBaseLayer from "../components/V102GoogleBaseLayer";
 
 /*
 |--------------------------------------------------------------------------
@@ -1140,6 +1142,8 @@ function LegacyDriverRideMap({
           attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        {/* V102: Google map under Leaflet (OSM stays as fallback) */}
+        <V102GoogleBaseLayer />
 
         <FitMapBounds
           pickupPosition={

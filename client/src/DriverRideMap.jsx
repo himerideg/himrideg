@@ -23,6 +23,8 @@ import {
 } from "./api";
 
 import { getRoadRoute } from "./locationService";
+// V102 ADD-ONLY: Google map base layer
+import V102GoogleBaseLayer from "./components/V102GoogleBaseLayer";
 
 const DEFAULT_CENTER = [32.1109, 76.5363];
 
@@ -861,6 +863,8 @@ function DriverRideMap({ ride }) {
             attribution="&copy; OpenStreetMap contributors"
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+          {/* V102: Google map under Leaflet (OSM stays as fallback) */}
+          <V102GoogleBaseLayer />
 
           <FitMapBounds
             pickupPosition={
