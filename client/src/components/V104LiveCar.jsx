@@ -84,7 +84,7 @@ function bearingDeg(a, b) {
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
-export default function V104LiveCar({ position, heading = null, label = "HimRideG Car" }) {
+export default function V104LiveCar({ position, heading = null, label = "HimRideG Car", follow = false }) {
   const map = useMap();
   const ref = useRef({
     marker: null,
@@ -93,7 +93,8 @@ export default function V104LiveCar({ position, heading = null, label = "HimRide
     lastAt: 0,
     lastPoint: null,
     rotation: null,
-    target: null
+    target: null,
+    followCamera: null
   });
 
   useEffect(() => {
@@ -119,6 +120,53 @@ export default function V104LiveCar({ position, heading = null, label = "HimRide
       if (!left) container.classList.remove("hrg-v104-car-on");
     };
   }, [map]);
+
+  // Keep the car low in the viewport, following its interpolated position.
+  useEffect(() => {
+    if (!follow) return undefined;
+    let following = true;
+    let initialized = false;
+    const control = L.control({ position: "topright" });
+    let button;
+    const camera = (point) => {
+      if (!following || !point) return;
+      const zoom = initialized ? map.getZoom() : 16;
+      const pixel = map.project(point, zoom);
+      const center = map.unproject(L.point(pixel.x, pixel.y - map.getSize().y * 0.22), zoom);
+      map.setView(center, zoom, { animate: false });
+      initialized = true;
+    };
+    const pause = () => {
+      following = false;
+      if (button) button.hidden = false;
+    };
+    control.onAdd = () => {
+      const box = L.DomUtil.create("div", "leaflet-bar");
+      button = L.DomUtil.create("button", "", box);
+      button.type = "button";
+      button.textContent = "Follow car";
+      button.setAttribute("aria-label", "Resume following the live car");
+      button.style.cssText = "padding:10px;border:0;background:white;color:#111;font-weight:700;cursor:pointer;min-height:44px";
+      button.hidden = true;
+      L.DomEvent.disableClickPropagation(box);
+      L.DomEvent.disableScrollPropagation(box);
+      L.DomEvent.on(button, "click", () => {
+        following = true;
+        button.hidden = true;
+        camera(ref.current.shown);
+      });
+      return box;
+    };
+    control.addTo(map);
+    map.on("dragstart", pause);
+    ref.current.followCamera = camera;
+    camera(ref.current.shown);
+    return () => {
+      ref.current.followCamera = null;
+      map.off("dragstart", pause);
+      control.remove();
+    };
+  }, [map, follow]);
 
   useEffect(() => {
     const state = ref.current;
@@ -157,7 +205,7 @@ export default function V104LiveCar({ position, heading = null, label = "HimRide
     } else if (!state.lastPoint) {
       state.lastPoint = target;
       const gps = Number(heading);
-      if (Number.isFinite(gps) && gps > 0) nextBearing = gps;
+      if (heading !== null && heading !== "" && Number.isFinite(gps) && gps >= 0) nextBearing = gps;
     }
 
     const applyRotation = () => {
@@ -192,6 +240,7 @@ export default function V104LiveCar({ position, heading = null, label = "HimRide
         .addTo(map);
       state.shown = target;
       state.lastAt = Date.now();
+      state.followCamera?.(target);
       applyRotation();
       return;
     }
@@ -209,6 +258,7 @@ export default function V104LiveCar({ position, heading = null, label = "HimRide
       /* teleport for big jumps (first fix after reconnect) */
       state.marker.setLatLng(target);
       state.shown = target;
+      state.followCamera?.(target);
       state.anim = null;
       return;
     }
@@ -220,6 +270,7 @@ export default function V104LiveCar({ position, heading = null, label = "HimRide
       const lng = from[1] + (target[1] - from[1]) * p;
       state.marker.setLatLng([lat, lng]);
       state.shown = [lat, lng];
+      state.followCamera?.(state.shown);
       state.anim = p < 1 ? requestAnimationFrame(step) : null;
     };
     state.anim = requestAnimationFrame(step);
