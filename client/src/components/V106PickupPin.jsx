@@ -46,7 +46,8 @@ function ensureStyle() {
       font: 800 13px/1 system-ui, sans-serif;
     }
     .hrg-v106-eta small { font-size: 9px; font-weight: 700; }
-    .hrg-v106-name { overflow: hidden; text-overflow: ellipsis; }
+    .hrg-v106-name { overflow: hidden; text-overflow: ellipsis; display: flex; flex-direction: column; }
+    .hrg-v106-name small { font-weight: 500; font-size: 10px; opacity: .75; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
     .hrg-v106-stick {
       width: 4px; height: 22px; background: #111; border-radius: 2px;
       transition: transform .18s ease;
@@ -87,6 +88,10 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
   const lastPinned = useRef("");
+  /* V106e: rider GPS point + blue dot */
+  const gpsRef = useRef(null);
+  const gpsDot = useRef(null);
+  const [subLabel, setSubLabel] = useState("");
   const timer = useRef(null);
   const seq = useRef(0);
   const pickRef = useRef(onPick);
@@ -105,6 +110,47 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
     };
   }, [map, active]);
 
+  const metersBetween = (a, b) => {
+    const r = (v) => (v * Math.PI) / 180;
+    const dy = (b.lat - a.lat) * 111320;
+    const dx = (b.lng - a.lng) * 111320 * Math.cos(r(a.lat));
+    return Math.hypot(dx, dy);
+  };
+
+  const setGps = (point) => {
+    const lat = Number(point?.latitude);
+    const lng = Number(point?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    gpsRef.current = { lat, lng };
+    try {
+      if (!gpsDot.current) {
+        gpsDot.current = L.circleMarker([lat, lng], {
+          radius: 7,
+          color: "#ffffff",
+          weight: 3,
+          fillColor: "#1a73e8",
+          fillOpacity: 1,
+          interactive: false
+        }).addTo(map);
+      } else {
+        gpsDot.current.setLatLng([lat, lng]);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      try {
+        if (gpsDot.current) map.removeLayer(gpsDot.current);
+      } catch {
+        /* ignore */
+      }
+      gpsDot.current = null;
+    };
+  }, [map]);
+
   const resolveCenter = async () => {
     const c = map.getCenter();
     const mySeq = ++seq.current;
@@ -121,8 +167,12 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
         shortName: location?.shortName || "Pin location",
         source: "map-pin"
       };
+      /* V106e: pin on the rider's own GPS spot -> "Your location" */
+      const gps = gpsRef.current;
+      picked.isCurrentLocation = Boolean(gps && metersBetween(gps, { lat: c.lat, lng: c.lng }) <= 40);
       lastPinned.current = keyOf(picked);
-      setLabel(picked.shortName);
+      setLabel(picked.isCurrentLocation ? "Your location" : picked.landmark || picked.shortName);
+      setSubLabel(picked.address || "");
       try {
         pickRef.current?.(picked);
       } catch {
@@ -161,12 +211,18 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
   useEffect(() => {
     if (!map || !active) return;
     const k = keyOf(value);
+    if (value?.isCurrentLocation) setGps(value);
+    const v106Text = value?.isCurrentLocation ? "Your location" : value?.landmark || value?.shortName || "";
     if (!k || k === lastPinned.current) {
-      if (value?.shortName && k === lastPinned.current) setLabel(value.shortName);
+      if (v106Text && k === lastPinned.current) {
+        setLabel(v106Text);
+        setSubLabel(value?.address || "");
+      }
       return;
     }
     lastPinned.current = k;
-    setLabel(value?.shortName || "");
+    setLabel(v106Text);
+    setSubLabel(value?.address || "");
     try {
       map.setView([Number(value.latitude), Number(value.longitude)], Math.max(map.getZoom(), 16), {
         animate: true
@@ -182,11 +238,13 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
     let cancelled = false;
     (async () => {
       try {
-        const status = await navigator.permissions?.query?.({ name: "geolocation" });
-        if (!status || status.state !== "granted" || cancelled) return;
-        const point = await getHighAccuracyBrowserLocation({ targetAccuracy: 40, maxWaitMs: 7000 });
+        /* V106e: like Ola/Uber, ask for GPS as soon as the booking map opens */
+        const status = await navigator.permissions?.query?.({ name: "geolocation" }).catch(() => null);
+        if ((status && status.state === "denied") || cancelled) return;
+        const point = await getHighAccuracyBrowserLocation({ targetAccuracy: 40, maxWaitMs: 9000 });
         if (cancelled) return;
-        map.setView([point.latitude, point.longitude], 16, { animate: true });
+        setGps(point);
+        map.setView([point.latitude, point.longitude], 17, { animate: true });
         setTimeout(resolveCenter, 350);
       } catch {
         /* keep default map */
@@ -202,6 +260,7 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
     setLocating(true);
     try {
       const point = await getHighAccuracyBrowserLocation({ targetAccuracy: 30, maxWaitMs: 9000 });
+      setGps(point);
       map.setView([point.latitude, point.longitude], 17, { animate: true });
       setTimeout(resolveCenter, 350);
     } catch {
@@ -240,7 +299,10 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
               "•"
             )}
           </span>
-          <span className="hrg-v106-name">{text}</span>
+          <span className="hrg-v106-name">
+            {text}
+            {!moving && !busy && subLabel && label ? <small>Driver: {subLabel}</small> : null}
+          </span>
         </div>
         <div className="hrg-v106-head" />
         <div className="hrg-v106-stick" />

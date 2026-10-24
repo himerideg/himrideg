@@ -394,6 +394,24 @@ function HomeBookRide({
       setLocationMessage(
         `📍 Pickup: ${pickup.shortName || pickup.address}`
       );
+
+      /* V106e: rider sees "Your location", driver gets the place name */
+      setLocationText(
+        (current) => ({
+          ...current,
+          pickup:
+            pickup.isCurrentLocation
+              ? "Your location"
+              : pickup.landmark ||
+                pickup.shortName ||
+                pickup.address,
+        })
+      );
+      setLocationMessage(
+        pickup.isCurrentLocation
+          ? `📍 Your location • Driver ko dikhega: ${pickup.address}`
+          : `📍 Pickup: ${pickup.landmark || pickup.shortName} • Driver ko dikhega: ${pickup.address}`
+      );
     };
 
   const searchAbortRef =
@@ -688,6 +706,23 @@ function HomeBookRide({
             ...current,
             pickup:
               pickup.address,
+          })
+        );
+        /* V106e: My Location = "Your location" for the rider */
+        setForm(
+          (current) => ({
+            ...current,
+            pickup: {
+              ...pickup,
+              isCurrentLocation: true,
+            },
+          })
+        );
+        setLocationText(
+          (current) => ({
+            ...current,
+            pickup:
+              "Your location",
           })
         );
 

@@ -909,12 +909,67 @@ async function v105GoogleNearestPlace(latitude, longitude) {
   return places[0] || null;
 }
 
+/*
+| V106e ADD-ONLY: driver-friendly pickup text ("Near Saperu, Kandbari Road")
+| Village / road names come from Geoapify (OpenStreetMap knows small
+| Himachal villages well); Google road name used when available.
+*/
+async function v106GeoapifyArea(latitude, longitude) {
+  if (!keyAvailable()) return null;
+  const url = new URL("https://api.geoapify.com/v1/geocode/reverse");
+  url.searchParams.set("lat", String(latitude));
+  url.searchParams.set("lon", String(longitude));
+  url.searchParams.set("format", "json");
+  url.searchParams.set("lang", "en");
+  url.searchParams.set("apiKey", getApiKey());
+  const data = await requestJson(url);
+  const item = data?.results?.[0] || {};
+  const clean = (value) => {
+    const text = String(value || "").trim();
+    return text && !looksLikePlusCode(text) ? text : "";
+  };
+  return {
+    village: clean(item.village || item.hamlet || item.suburb || item.neighbourhood || item.quarter),
+    road: clean(item.street),
+    city: clean(item.city || item.town || item.municipality)
+  };
+}
+
+function v106DriverText({ geo, near, area }) {
+  const googleRoad = near?.components?.length ? v103Component(near.components, "route") : "";
+  const village = geo?.village || area?.village || "";
+  const road = googleRoad || geo?.road || "";
+  const city = geo?.city || area?.city || "";
+  const parts = [];
+  for (const part of [village, road, city]) {
+    const text = String(part || "").trim();
+    if (!text) continue;
+    if (/^(unnamed road|road)$/i.test(text)) continue;
+    if (parts.some((p) => p.toLowerCase() === text.toLowerCase())) continue;
+    parts.push(text);
+  }
+  if (!parts.length) return "";
+  return `Near ${parts.join(", ")}`;
+}
+
+/* V106e: short top-bar name, e.g. "Saperu, Kandbari Road" (no city, no "Near") */
+function v106AreaShort({ geo, near, area }) {
+  const text = v106DriverText({ geo: { ...(geo || {}), city: "" }, near, area: { ...(area || {}), city: "" } });
+  return text ? text.replace(/^Near\s+/i, "") : "";
+}
+
 async function v105GoogleReverse(latitude, longitude) {
   if (!v103GoogleEnabled()) return null;
 
-  const cacheKey = `rvg4:${latitude.toFixed(4)}:${longitude.toFixed(4)}`;
+  const cacheKey = `rvg6:${latitude.toFixed(4)}:${longitude.toFixed(4)}`;
   const hit = await cachedAcrossInstances(cacheKey, V105_REVERSE_TTL_MS);
   if (hit) return { ...hit, latitude, longitude };
+
+  /* V106e: village + road names for the driver, in parallel */
+  const v106GeoPromise = v106GeoapifyArea(latitude, longitude).catch((error) => {
+    console.warn("[V106e] Geoapify area failed:", error?.message || error);
+    return null;
+  });
 
   const [near, area] = await Promise.all([
     v105GoogleNearestPlace(latitude, longitude).catch((error) => {
@@ -976,10 +1031,21 @@ async function v105GoogleReverse(latitude, longitude) {
     ? [v106Near ? `Near ${near.name}` : near.name, areaLine || near.address].filter(Boolean).join(", ")
     : v106Area?.formatted || areaLine || shortName;
 
+  const v106Geo = await v106GeoPromise;
+  const v106DriverAddress = v106DriverText({ geo: v106Geo, near, area: v106Area });
+  const v106ShortArea = v106AreaShort({ geo: v106Geo, near, area: v106Area });
+
   const location = {
     id: `google-rv:${latitude.toFixed(5)},${longitude.toFixed(5)}`,
     address,
+    /* V106e: what the driver sees, e.g. "Near Saperu, Kandbari Road, Palampur" */
+    address: v106DriverAddress || address,
+    driverAddress: v106DriverAddress || address,
+    landmarkAddress: address,
+    landmark: near ? (v106Near ? `Near ${near.name}` : near.name) : "",
     shortName: v106ShortName,
+    /* V106e: apps/top bar show the village/road, never just the state */
+    shortName: v106ShortArea || v106ShortName,
     nearbyPlace: near?.name || "",
     nearbyDistanceM: near ? Math.round(near.distanceM) : null,
     village: v106Area?.village || "",
