@@ -29,6 +29,8 @@ import {
 } from "./locationService";
 // V102 ADD-ONLY: Google map base layer
 import V102GoogleBaseLayer from "./components/V102GoogleBaseLayer";
+// V104 ADD-ONLY: Google-style live car
+import V104LiveCar from "./components/V104LiveCar";
 
 const DEFAULT_CENTER = [32.1109, 76.5363];
 
@@ -932,6 +934,11 @@ function DriverRideMap({ ride }) {
             </Marker>
           )}
 
+          {/* V104: Google-style live car */}
+          {driverPosition && (
+            <V104LiveCar position={driverPosition} label="Aapki current location" />
+          )}
+
           {pickupRoute.length >
             1 && (
             <Polyline
@@ -1645,6 +1652,11 @@ function CustomerRideMap({
                 <strong>Driver Live</strong>
               </Popup>
             </Marker>
+          )}
+
+          {/* V104: Google-style live car */}
+          {effectiveDriver && (
+            <V104LiveCar position={effectiveDriver} label="Driver Live" />
           )}
 
           {routePositions.length > 1 && (

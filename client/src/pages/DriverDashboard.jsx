@@ -41,6 +41,8 @@ import "../payment-modal.css";
 import "../v91-visibility.css";
 // V102 ADD-ONLY: Google map base layer
 import V102GoogleBaseLayer from "../components/V102GoogleBaseLayer";
+// V104 ADD-ONLY: Google-style live car
+import V104LiveCar from "../components/V104LiveCar";
 
 /*
 |--------------------------------------------------------------------------
@@ -1212,6 +1214,11 @@ function LegacyDriverRideMap({
               </strong>
             </Popup>
           </Marker>
+        )}
+
+        {/* V104: Google-style live car */}
+        {driverPosition && (
+          <V104LiveCar position={driverPosition} label="Driver current location" />
         )}
 
         {routePositions.length ===

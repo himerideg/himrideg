@@ -5,6 +5,8 @@ import "leaflet/dist/leaflet.css";
 import "./driver-idle-map.css";
 // V102 ADD-ONLY: Google map base layer
 import V102GoogleBaseLayer from "./V102GoogleBaseLayer";
+// V104 ADD-ONLY: Google-style live car
+import V104LiveCar from "./V104LiveCar";
 
 /*
 |--------------------------------------------------------------------------
@@ -85,6 +87,8 @@ export default function DriverIdleMap() {
         {/* V102: Google map under Leaflet (OSM stays as fallback) */}
         <V102GoogleBaseLayer />
         {position ? <Marker position={position} icon={driverIcon} /> : null}
+        {/* V104: Google-style live car */}
+        {position ? <V104LiveCar position={position} label="Aapki location" /> : null}
         <FollowDriver position={position} />
       </MapContainer>
 
