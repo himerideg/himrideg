@@ -31,6 +31,9 @@ import {
 } from "../locationService";
 // V102 ADD-ONLY: Google map base layer
 import V102GoogleBaseLayer from "./V102GoogleBaseLayer";
+// V106 ADD-ONLY: Ola/Uber style pickup pin + nearby cars
+import V106PickupPin from "./V106PickupPin";
+import V106NearbyCars from "./V106NearbyCars";
 
 /*
 |--------------------------------------------------------------------------
@@ -81,6 +84,11 @@ function FitRoute({ points }) {
   const map = useMap();
 
   useEffect(() => {
+    /* V106: centre pin is driving the map, do not jump/zoom */
+    if (map.__v106PinActive && points.length <= 1) {
+      return;
+    }
+
     if (points.length === 1) {
       map.setView(
         points[0],
@@ -349,6 +357,44 @@ function HomeBookRide({
   ] = useState(
     form.riderFor
   );
+
+  /*
+  |--------------------------------------------------------------------------
+  | V106 ADD-ONLY: nearby cars info + pickup from centre pin
+  |--------------------------------------------------------------------------
+  */
+  const [
+    v106Nearby,
+    setV106Nearby,
+  ] = useState(null);
+
+  const v106PickFromPin =
+    (location) => {
+      const pickup =
+        createLocation(location);
+      setForm(
+        (current) => ({
+          ...current,
+          pickup,
+        })
+      );
+      setLocationText(
+        (current) => ({
+          ...current,
+          pickup:
+            pickup.address,
+        })
+      );
+      setErrors(
+        (current) => ({
+          ...current,
+          pickup: "",
+        })
+      );
+      setLocationMessage(
+        `📍 Pickup: ${pickup.shortName || pickup.address}`
+      );
+    };
 
   const searchAbortRef =
     useRef(null);
@@ -1416,6 +1462,41 @@ function HomeBookRide({
               {/* V102: Google map under Leaflet (OSM stays as fallback) */}
               <V102GoogleBaseLayer />
 
+              {/* V106: Ola/Uber style nearby cars + centre pickup pin */}
+              <V106NearbyCars
+                center={
+                  form.pickup
+                    ? [
+                        form.pickup.latitude,
+                        form.pickup.longitude,
+                      ]
+                    : null
+                }
+                onInfo={
+                  setV106Nearby
+                }
+              />
+
+              <V106PickupPin
+                active={
+                  !form.dropoff
+                }
+                value={
+                  form.pickup
+                }
+                onPick={
+                  v106PickFromPin
+                }
+                etaMinutes={
+                  v106Nearby?.etaMinutes
+                }
+                carCount={
+                  v106Nearby
+                    ? v106Nearby.count
+                    : null
+                }
+              />
+
               <FitRoute
                 points={
                   markerPoints
@@ -1424,6 +1505,10 @@ function HomeBookRide({
 
               {form.pickup && (
                 <Marker
+                  /* V106: hidden while centre pin is active */
+                  opacity={
+                    form.dropoff ? 1 : 0
+                  }
                   icon={
                     pickupIcon
                   }

@@ -1170,6 +1170,163 @@ exports.route = async (req, res, next) => {
   }
 };
 
+/*
+|--------------------------------------------------------------------------
+| V106 ADD-ONLY: nearby available cars (Ola/Uber style home map)
+|--------------------------------------------------------------------------
+| GET /api/v2/maps/nearby-drivers?lat=..&lon=..
+| - only online + available + approved drivers with fresh GPS (3 min)
+| - driver privacy: no name/phone/id; every car is shown ~60-120 m away
+|   from its real spot (fixed per driver per day, so movement stays smooth)
+| - nearestEtaMinutes: Google road time from the nearest car (fallback:
+|   distance estimate)
+*/
+const V106_NEARBY_RADIUS_M = 8000;
+const V106_NEARBY_LIMIT = 12;
+const V106_FRESH_MS = 3 * 60 * 1000;
+const V106_ETA_TTL_MS = 60 * 1000;
+const V106_SALT = require("crypto").randomBytes(16).toString("hex");
+
+function v106PublicCar(driver) {
+  const crypto = require("crypto");
+  const day = new Date().toISOString().slice(0, 10);
+  const digest = crypto
+    .createHash("sha256")
+    .update(`${V106_SALT}:${day}:${String(driver?._id || "")}`)
+    .digest();
+  const angle = (digest[0] / 255) * Math.PI * 2;
+  const meters = 60 + (digest[1] / 255) * 60;
+  const latitude = Number(driver?.currentLocation?.latitude);
+  const longitude = Number(driver?.currentLocation?.longitude);
+  const dLat = (meters * Math.cos(angle)) / 111320;
+  const dLng =
+    (meters * Math.sin(angle)) /
+    (111320 * Math.max(0.2, Math.cos((latitude * Math.PI) / 180)));
+  const rawHeading = driver?.currentLocation?.heading;
+  const heading = rawHeading === null || rawHeading === undefined ? NaN : Number(rawHeading);
+  return {
+    id: digest.subarray(2, 10).toString("hex"),
+    latitude: Number((latitude + dLat).toFixed(6)),
+    longitude: Number((longitude + dLng).toFixed(6)),
+    heading: Number.isFinite(heading) ? Math.round(heading) : null,
+    vehicleType: String(
+      driver?.driverProfile?.vehicleType ||
+        driver?.driverProfile?.vehicle?.type ||
+        ""
+    ).toLowerCase(),
+    distanceM: Math.round((Number(driver?.distanceMeters) || 0) / 100) * 100
+  };
+}
+
+function v106EstimateEtaMinutes(distanceM) {
+  const roadKm = (Number(distanceM) || 0) * 1.4 / 1000;
+  return Math.max(1, Math.round((roadKm / 24) * 60 + 1));
+}
+
+exports.nearbyDrivers = async (req, res, next) => {
+  try {
+    const latitude = Number(req.query.lat);
+    const longitude = Number(req.query.lon);
+    if (
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      Math.abs(latitude) > 90 ||
+      Math.abs(longitude) > 180
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid latitude/longitude required hai"
+      });
+    }
+
+    const User = require("../models/User");
+    const rows = await User.aggregate([
+      {
+        $geoNear: {
+          near: { type: "Point", coordinates: [longitude, latitude] },
+          distanceField: "distanceMeters",
+          spherical: true,
+          maxDistance: V106_NEARBY_RADIUS_M,
+          key: "currentLocation.geo",
+          query: {
+            role: "driver",
+            isActive: true,
+            accountStatus: "active",
+            isOnline: true,
+            isAvailable: true,
+            currentRide: null,
+            "driverProfile.isApproved": true,
+            "currentLocation.updatedAt": {
+              $gte: new Date(Date.now() - V106_FRESH_MS)
+            }
+          }
+        }
+      },
+      { $limit: V106_NEARBY_LIMIT },
+      {
+        $project: {
+          currentLocation: 1,
+          distanceMeters: 1,
+          "driverProfile.vehicleType": 1,
+          "driverProfile.vehicle.type": 1
+        }
+      }
+    ]);
+
+    const cars = rows
+      .filter(
+        (row) =>
+          Number.isFinite(Number(row?.currentLocation?.latitude)) &&
+          Number.isFinite(Number(row?.currentLocation?.longitude))
+      )
+      .map(v106PublicCar);
+
+    let nearestEtaMinutes = null;
+    let etaSource = null;
+    const nearest = rows[0];
+    if (nearest) {
+      nearestEtaMinutes = v106EstimateEtaMinutes(nearest.distanceMeters);
+      etaSource = "estimate";
+      try {
+        const etaKey = `nde:${latitude.toFixed(3)}:${longitude.toFixed(3)}`;
+        let eta = await cachedAcrossInstances(etaKey, V106_ETA_TTL_MS);
+        if (!eta) {
+          const route = await v105GoogleRoute(
+            Number(nearest.currentLocation.latitude),
+            Number(nearest.currentLocation.longitude),
+            latitude,
+            longitude
+          );
+          if (route && Number.isFinite(route.durationMinutes)) {
+            eta = { minutes: Math.max(1, Math.round(route.durationMinutes)) };
+            await saveCacheAcrossInstances(etaKey, eta, V106_ETA_TTL_MS);
+          }
+        }
+        if (eta && Number.isFinite(eta.minutes)) {
+          nearestEtaMinutes = eta.minutes;
+          etaSource = "google";
+        }
+      } catch (error) {
+        console.warn("[V106] nearby ETA failed:", error?.message || error);
+      }
+    }
+
+    res.set("Cache-Control", "no-store");
+    return res.status(200).json({
+      success: true,
+      data: {
+        drivers: cars,
+        count: cars.length,
+        nearestEtaMinutes,
+        etaSource,
+        radiusKm: V106_NEARBY_RADIUS_M / 1000
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 exports.health = (req, res) => {
   return res.status(200).json({
     success: true,
