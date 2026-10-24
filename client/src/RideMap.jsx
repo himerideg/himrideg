@@ -31,6 +31,9 @@ import {
 import V102GoogleBaseLayer from "./components/V102GoogleBaseLayer";
 // V104 ADD-ONLY: Google-style live car
 import V104LiveCar from "./components/V104LiveCar";
+// V107 ADD-ONLY: Ola/Uber pickup pin + nearby cars on logged-in booking map
+import V106PickupPin from "./components/V106PickupPin";
+import V106NearbyCars from "./components/V106NearbyCars";
 
 const DEFAULT_CENTER = [32.1109, 76.5363];
 
@@ -1127,6 +1130,15 @@ function CustomerMapViewport({
           ]
         : fallbackPoints;
 
+    /* V107: centre pickup pin is driving the map, do not jump/zoom */
+    if (map.__v106PinActive && points.length <= 1) {
+      return () => {
+        invalidateTimers.forEach((timer) => {
+          window.clearTimeout(timer);
+        });
+      };
+    }
+
     if (points.length === 1) {
       map.setView(points[0], 16, {
         animate: true,
@@ -1288,6 +1300,38 @@ function CustomerRideMap({
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState("");
   const [pinMessage, setPinMessage] = useState("");
+
+  /* V107 ADD-ONLY: centre pin + nearby cars (booking only) */
+  const [v106Nearby, setV106Nearby] = useState(null);
+  const v106PinMode = !readOnly && !effectiveDriver;
+  const v106PinValue = useMemo(() => {
+    if (!effectivePickup) return null;
+    return {
+      latitude: effectivePickup[0],
+      longitude: effectivePickup[1],
+      isCurrentLocation: /^your location$/i.test(String(pickupAddress || "").trim()),
+      shortName: String(pickupAddress || "").trim(),
+      address: String(pickupAddress || "").trim()
+    };
+  }, [effectivePickup?.[0], effectivePickup?.[1], pickupAddress]);
+
+  const v106OnPinPick = (picked) => {
+    const riderText = picked?.isCurrentLocation
+      ? "Your location"
+      : picked?.landmark || picked?.shortName || picked?.address || "";
+    if (typeof onAddressChange === "function") {
+      onAddressChange({ pickup: riderText });
+    }
+    if (typeof onLocationChange === "function") {
+      onLocationChange((current) => ({
+        ...(current && typeof current === "object" ? current : {}),
+        pickup: [Number(picked.latitude), Number(picked.longitude)],
+        v106PickupRiderText: riderText,
+        v106PickupDriverAddress: picked?.address || riderText
+      }));
+    }
+    setPinMessage(`📍 ${riderText} • Driver ko dikhega: ${picked?.address || riderText}`);
+  };
 
   const pushMapData = (
     extra = {}
@@ -1603,6 +1647,23 @@ function CustomerRideMap({
           {/* V102: Google map under Leaflet (OSM stays as fallback) */}
           <V102GoogleBaseLayer />
 
+          {/* V107: Ola/Uber style nearby cars + centre pickup pin */}
+          {v106PinMode && (
+            <V106NearbyCars
+              center={effectivePickup}
+              onInfo={setV106Nearby}
+            />
+          )}
+          {v106PinMode && (
+            <V106PickupPin
+              active={!effectiveDrop}
+              value={v106PinValue}
+              onPick={v106OnPinPick}
+              etaMinutes={v106Nearby?.etaMinutes}
+              carCount={v106Nearby ? v106Nearby.count : null}
+            />
+          )}
+
           <CustomerMapViewport
             pickupPosition={effectivePickup}
             dropPosition={effectiveDrop}
@@ -1621,6 +1682,8 @@ function CustomerRideMap({
             <Marker
               position={effectivePickup}
               icon={pickupIcon}
+              /* V107: hidden while centre pin is active */
+              opacity={v106PinMode && !effectiveDrop ? 0 : 1}
             >
               <Popup>
                 <strong>Pickup</strong>

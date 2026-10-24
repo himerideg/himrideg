@@ -2901,6 +2901,16 @@ function App() {
           ) || 0
       };
 
+      /* V107 ADD-ONLY: rider saw "Your location" / landmark, driver gets
+         the real place name (e.g. "Near Saperu, Kandbari Road") */
+      if (
+        mapData?.v106PickupDriverAddress &&
+        String(bookingPayload.pickup || "").trim() ===
+          String(mapData?.v106PickupRiderText || "").trim()
+      ) {
+        bookingPayload.pickup = String(mapData.v106PickupDriverAddress);
+      }
+
       try {
         const {
           data

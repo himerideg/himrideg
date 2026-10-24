@@ -482,6 +482,24 @@ function CustomerBookRide({
             point.accuracy
           )}m`
         );
+
+        /* V107 ADD-ONLY: rider sees "Your location", driver gets the place name */
+        changeBooking({
+          pickup:
+            "Your location",
+        });
+        setMapData(
+          (current) => ({
+            ...current,
+            v106PickupRiderText:
+              "Your location",
+            v106PickupDriverAddress:
+              address,
+          })
+        );
+        setLocationMessage(
+          `📍 Your location • Driver ko dikhega: ${address}`
+        );
       } catch (error) {
         setLocationMessage(
           error.message ||
