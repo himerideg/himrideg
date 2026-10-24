@@ -755,6 +755,245 @@ exports.autocomplete = async (req, res, next) => {
   }
 };
 
+/*
+|--------------------------------------------------------------------------
+| V105 ADD-ONLY: Google "My Location" name + Google road distance
+|--------------------------------------------------------------------------
+| Reverse: nearest named place from Google Places (e.g. "Govt Senior
+| Secondary School Kandbari") + area from Google Geocoding.
+| Route: Google Routes API (same km / time as Google Maps).
+| Any Google failure falls back to the old Geoapify code unchanged.
+*/
+const V105_NEAR_RADIUS_M = 200;
+const V105_NEAR_MAX_USE_M = 150;
+const V105_REVERSE_TTL_MS = 24 * 60 * 60 * 1000;
+const V105_ROUTE_TTL_MS = 10 * 60 * 1000;
+
+function v105DistanceM(a, b) {
+  const km = haversineKm(a, b);
+  return Number.isFinite(km) ? km * 1000 : Infinity;
+}
+
+function v105GeoComponent(components, type) {
+  const found = (components || []).find(
+    (item) => Array.isArray(item?.types) && item.types.includes(type)
+  );
+  return String(found?.long_name || "").trim();
+}
+
+async function v105GoogleGeocodeArea(latitude, longitude) {
+  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+  url.searchParams.set("latlng", `${latitude},${longitude}`);
+  url.searchParams.set("language", "en");
+  url.searchParams.set("region", "in");
+  url.searchParams.set("key", v103GoogleKey());
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), V103_GOOGLE_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { Referer: "https://www.himrideg.com/" }
+    });
+    const data = await response.json();
+    if (data?.status !== "OK") {
+      throw new Error(`Google Geocoding ${data?.status || response.status}: ${data?.error_message || ""}`);
+    }
+    const results = Array.isArray(data.results) ? data.results : [];
+    const all = results.flatMap((item) => item.address_components || []);
+    const first = results.find(
+      (item) => !looksLikePlusCode(item?.formatted_address)
+    ) || results[0] || {};
+    return {
+      village:
+        v105GeoComponent(all, "sublocality_level_1") ||
+        v105GeoComponent(all, "sublocality") ||
+        v105GeoComponent(all, "neighborhood"),
+      city:
+        v105GeoComponent(all, "locality") ||
+        v105GeoComponent(all, "administrative_area_level_3"),
+      district: v105GeoComponent(all, "administrative_area_level_2"),
+      state: v105GeoComponent(all, "administrative_area_level_1"),
+      postcode: v105GeoComponent(all, "postal_code"),
+      formatted: String(first?.formatted_address || "").replace(/^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3},?\s*/i, "").trim()
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function v105GoogleNearestPlace(latitude, longitude) {
+  const data = await v103GoogleRequest(
+    "https://places.googleapis.com/v1/places:searchNearby",
+    {
+      method: "POST",
+      fieldMask:
+        "places.displayName,places.location,places.shortFormattedAddress,places.formattedAddress,places.types",
+      body: {
+        locationRestriction: {
+          circle: {
+            center: { latitude, longitude },
+            radius: V105_NEAR_RADIUS_M
+          }
+        },
+        rankPreference: "DISTANCE",
+        maxResultCount: 5,
+        languageCode: "en",
+        regionCode: "IN"
+      }
+    }
+  );
+
+  const here = { latitude, longitude };
+  const places = (data?.places || [])
+    .map((place) => {
+      const point = {
+        latitude: Number(place?.location?.latitude),
+        longitude: Number(place?.location?.longitude)
+      };
+      return {
+        name: String(place?.displayName?.text || "").trim(),
+        address: String(place?.shortFormattedAddress || place?.formattedAddress || "").trim(),
+        types: Array.isArray(place?.types) ? place.types : [],
+        distanceM: v105DistanceM(here, point)
+      };
+    })
+    .filter(
+      (place) =>
+        place.name &&
+        !looksLikePlusCode(place.name) &&
+        Number.isFinite(place.distanceM) &&
+        place.distanceM <= V105_NEAR_MAX_USE_M &&
+        !place.types.includes("route") &&
+        !place.types.includes("political")
+    )
+    .sort((a, b) => a.distanceM - b.distanceM);
+
+  return places[0] || null;
+}
+
+async function v105GoogleReverse(latitude, longitude) {
+  if (!v103GoogleEnabled()) return null;
+
+  const cacheKey = `rvg:${latitude.toFixed(4)}:${longitude.toFixed(4)}`;
+  const hit = await cachedAcrossInstances(cacheKey, V105_REVERSE_TTL_MS);
+  if (hit) return { ...hit, latitude, longitude };
+
+  const [near, area] = await Promise.all([
+    v105GoogleNearestPlace(latitude, longitude).catch((error) => {
+      console.warn("[V105] Google nearby failed:", error?.message || error);
+      return null;
+    }),
+    v105GoogleGeocodeArea(latitude, longitude).catch((error) => {
+      console.warn("[V105] Google geocode failed:", error?.message || error);
+      return null;
+    })
+  ]);
+
+  if (!near && !area) return null;
+
+  const areaName =
+    area?.village || area?.city || area?.district || "";
+  const areaLine = [area?.village, area?.city, area?.district, area?.state]
+    .filter(Boolean)
+    .filter((value, index, list) => list.indexOf(value) === index)
+    .join(", ");
+
+  const shortName = near?.name || areaName || "My Location";
+  const address = near
+    ? [near.name, areaLine || near.address].filter(Boolean).join(", ")
+    : area?.formatted || areaLine || shortName;
+
+  const location = {
+    id: `google-rv:${latitude.toFixed(5)},${longitude.toFixed(5)}`,
+    address,
+    shortName,
+    nearbyPlace: near?.name || "",
+    nearbyDistanceM: near ? Math.round(near.distanceM) : null,
+    village: area?.village || "",
+    suburb: "",
+    district: area?.district || "",
+    town: area?.city || "",
+    latitude,
+    longitude,
+    city: area?.city || area?.village || "",
+    state: area?.state || "",
+    postcode: area?.postcode || "",
+    country: "India",
+    provider: "google",
+    confidence: 1
+  };
+
+  await saveCacheAcrossInstances(cacheKey, location, V105_REVERSE_TTL_MS);
+  return location;
+}
+
+function v105DecodePolyline(encoded) {
+  const points = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+  const text = String(encoded || "");
+  while (index < text.length) {
+    let result = 0;
+    let shift = 0;
+    let byte;
+    do {
+      byte = text.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < text.length);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+    result = 0;
+    shift = 0;
+    do {
+      byte = text.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < text.length);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+    points.push([lat / 1e5, lng / 1e5]);
+  }
+  return points;
+}
+
+async function v105GoogleRoute(fromLat, fromLon, toLat, toLon) {
+  if (!v103GoogleEnabled()) return null;
+
+  const data = await v103GoogleRequest(
+    "https://routes.googleapis.com/directions/v2:computeRoutes",
+    {
+      method: "POST",
+      fieldMask: "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline",
+      body: {
+        origin: { location: { latLng: { latitude: fromLat, longitude: fromLon } } },
+        destination: { location: { latLng: { latitude: toLat, longitude: toLon } } },
+        travelMode: "DRIVE",
+        routingPreference: "TRAFFIC_AWARE",
+        languageCode: "en-IN",
+        regionCode: "IN",
+        units: "METRIC"
+      }
+    }
+  );
+
+  const route = data?.routes?.[0];
+  const distanceMeters = Number(route?.distanceMeters);
+  if (!route || !Number.isFinite(distanceMeters) || distanceMeters <= 0) return null;
+
+  const seconds = Number(String(route.duration || "0").replace(/s$/, ""));
+  const coordinates = v105DecodePolyline(route?.polyline?.encodedPolyline).filter(
+    ([latitude, longitude]) => Number.isFinite(latitude) && Number.isFinite(longitude)
+  );
+
+  return {
+    coordinates,
+    distanceKm: distanceMeters / 1000,
+    durationMinutes: Number.isFinite(seconds) ? seconds / 60 : 0,
+    provider: "google"
+  };
+}
+
 exports.reverse = async (req, res, next) => {
   try {
     const latitude = Number(req.query.lat);
@@ -778,6 +1017,19 @@ exports.reverse = async (req, res, next) => {
       REVERSE_TTL_MS
     );
     if (hit) return res.status(200).json(hit);
+
+    /* V105: Google nearby place name first */
+    try {
+      const googleLocation = await v105GoogleReverse(latitude, longitude);
+      if (googleLocation) {
+        return res.status(200).json({
+          success: true,
+          data: { location: googleLocation, provider: "google" }
+        });
+      }
+    } catch (error) {
+      console.warn("[V105] Google reverse failed:", error?.message || error);
+    }
 
     const key = getApiKey();
     const url = new URL(
@@ -842,6 +1094,25 @@ exports.route = async (req, res, next) => {
       ROUTE_TTL_MS
     );
     if (hit) return res.status(200).json(hit);
+
+    /* V105: Google road route first (same km/time as Google Maps) */
+    try {
+      const googleCacheKey = `rtg:${fromLat.toFixed(5)}:${fromLon.toFixed(5)}:${toLat.toFixed(5)}:${toLon.toFixed(5)}`;
+      const googleHit = await cachedAcrossInstances(googleCacheKey, V105_ROUTE_TTL_MS);
+      if (googleHit) return res.status(200).json(googleHit);
+      const googleRoute = await v105GoogleRoute(fromLat, fromLon, toLat, toLon);
+      if (googleRoute) {
+        return res.status(200).json(
+          await saveCacheAcrossInstances(
+            googleCacheKey,
+            { success: true, data: googleRoute },
+            V105_ROUTE_TTL_MS
+          )
+        );
+      }
+    } catch (error) {
+      console.warn("[V105] Google route failed:", error?.message || error);
+    }
 
     const key = getApiKey();
     const url = new URL(
