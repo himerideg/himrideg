@@ -828,7 +828,7 @@ async function v105GoogleNearestPlace(latitude, longitude) {
     {
       method: "POST",
       fieldMask:
-        "places.displayName,places.location,places.shortFormattedAddress,places.formattedAddress,places.types",
+        "places.displayName,places.location,places.shortFormattedAddress,places.formattedAddress,places.types,places.addressComponents",
       body: {
         locationRestriction: {
           circle: {
@@ -855,6 +855,8 @@ async function v105GoogleNearestPlace(latitude, longitude) {
         name: String(place?.displayName?.text || "").trim(),
         address: String(place?.shortFormattedAddress || place?.formattedAddress || "").trim(),
         types: Array.isArray(place?.types) ? place.types : [],
+        /* V106: area from Places itself (Geocoding web API rejects website keys) */
+        components: Array.isArray(place?.addressComponents) ? place.addressComponents : [],
         distanceM: v105DistanceM(here, point)
       };
     })
@@ -875,7 +877,7 @@ async function v105GoogleNearestPlace(latitude, longitude) {
 async function v105GoogleReverse(latitude, longitude) {
   if (!v103GoogleEnabled()) return null;
 
-  const cacheKey = `rvg:${latitude.toFixed(4)}:${longitude.toFixed(4)}`;
+  const cacheKey = `rvg2:${latitude.toFixed(4)}:${longitude.toFixed(4)}`;
   const hit = await cachedAcrossInstances(cacheKey, V105_REVERSE_TTL_MS);
   if (hit) return { ...hit, latitude, longitude };
 
@@ -892,17 +894,49 @@ async function v105GoogleReverse(latitude, longitude) {
 
   if (!near && !area) return null;
 
+  /* V106: Geocoding failed -> area from the nearby place's own address */
+  let v106Area = area;
+  if (!v106Area && near && near.components.length) {
+    v106Area = {
+      village:
+        v103Component(near.components, "sublocality_level_1") ||
+        v103Component(near.components, "sublocality") ||
+        v103Component(near.components, "neighborhood"),
+      city:
+        v103Component(near.components, "locality") ||
+        v103Component(near.components, "administrative_area_level_3"),
+      district: v103Component(near.components, "administrative_area_level_2"),
+      state: v103Component(near.components, "administrative_area_level_1"),
+      postcode: v103Component(near.components, "postal_code"),
+      formatted: ""
+    };
+  }
+  if (near) {
+    /* V106: never show Google plus codes like "W96J+578" */
+    near.address = String(near.address || "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part && !looksLikePlusCode(part))
+      .join(", ");
+  }
+
   const areaName =
-    area?.village || area?.city || area?.district || "";
-  const areaLine = [area?.village, area?.city, area?.district, area?.state]
+    v106Area?.village || v106Area?.city || v106Area?.district || "";
+  const areaLine = [v106Area?.village, v106Area?.city, v106Area?.district, v106Area?.state]
     .filter(Boolean)
     .filter((value, index, list) => list.indexOf(value) === index)
     .join(", ");
 
-  const shortName = near?.name || areaName || "My Location";
+  /* V106: "Government Senior Secondary School, Kandbari" like Ola/Uber */
+  const v106Place = String(v106Area?.village || v106Area?.city || "").trim();
+  const shortName = near?.name
+    ? v106Place && !near.name.toLowerCase().includes(v106Place.toLowerCase())
+      ? `${near.name}, ${v106Place}`
+      : near.name
+    : areaName || "My Location";
   const address = near
     ? [near.name, areaLine || near.address].filter(Boolean).join(", ")
-    : area?.formatted || areaLine || shortName;
+    : v106Area?.formatted || areaLine || shortName;
 
   const location = {
     id: `google-rv:${latitude.toFixed(5)},${longitude.toFixed(5)}`,
@@ -910,15 +944,15 @@ async function v105GoogleReverse(latitude, longitude) {
     shortName,
     nearbyPlace: near?.name || "",
     nearbyDistanceM: near ? Math.round(near.distanceM) : null,
-    village: area?.village || "",
+    village: v106Area?.village || "",
     suburb: "",
-    district: area?.district || "",
-    town: area?.city || "",
+    district: v106Area?.district || "",
+    town: v106Area?.city || "",
     latitude,
     longitude,
-    city: area?.city || area?.village || "",
-    state: area?.state || "",
-    postcode: area?.postcode || "",
+    city: v106Area?.city || v106Area?.village || "",
+    state: v106Area?.state || "",
+    postcode: v106Area?.postcode || "",
     country: "India",
     provider: "google",
     confidence: 1
