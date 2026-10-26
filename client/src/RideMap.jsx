@@ -36,6 +36,8 @@ import V106PickupPin from "./components/V106PickupPin";
 import V106NearbyCars from "./components/V106NearbyCars";
 // V113 ADD-ONLY: navigation map (rotate + follow + zoom 18 + map type + ETA)
 import V113NavMap from "./components/V113NavMap";
+// V114 ADD-ONLY: car name + number + driver name above the booked car
+import V114CarLabel from "./components/V114CarLabel";
 
 const DEFAULT_CENTER = [32.1109, 76.5363];
 
@@ -1755,6 +1757,11 @@ function CustomerRideMap({
             <V104LiveCar follow position={effectiveDriver} label="Driver Live" />
           )}
 
+          {/* V114: gaadi ka naam, gaadi number (Go to Pickup ke baad), driver ka naam */}
+          {effectiveDriver && ride && (
+            <V114CarLabel position={effectiveDriver} lines={v114CarLabelLines(ride)} />
+          )}
+
           {/* V113: navigation mode for the customer (driver car up, map rotates) */}
           <V113NavMap
             active={Boolean(
@@ -1793,6 +1800,28 @@ function CustomerRideMap({
       </div>
     </section>
   );
+}
+
+/* V114 ADD-ONLY: label lines for the booked car */
+function v114CarLabelLines(ride) {
+  const driver = ride && typeof ride.driver === "object" ? ride.driver : {};
+  const vehicle = driver?.driverProfile?.vehicle || driver?.vehicle || ride?.vehicle || {};
+  const brand = String(vehicle?.brand || "").trim();
+  const model = String(vehicle?.model || "").trim();
+  const carName =
+    (brand && model && model.toLowerCase().startsWith(brand.toLowerCase())
+      ? model
+      : [brand, model].filter(Boolean).join(" ")) ||
+    ride?.vehicleName ||
+    "HimRideG Taxi";
+  const number = String(
+    vehicle?.registrationNumber || driver?.driverProfile?.vehicleNumber || ride?.vehicleNumber || ""
+  ).trim();
+  const unlocked = ["driver_arriving", "driver_arrived", "arrived", "started", "ongoing", "in_progress"].includes(
+    String(ride?.status || "").toLowerCase()
+  );
+  const driverName = String(driver?.name || ride?.driverName || "").trim();
+  return [carName, unlocked ? number : "", driverName];
 }
 
 export default CustomerRideMap;

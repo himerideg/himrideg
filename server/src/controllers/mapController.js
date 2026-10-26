@@ -1406,8 +1406,22 @@ function v106PublicCar(driver) {
         driver?.driverProfile?.vehicle?.type ||
         ""
     ).toLowerCase(),
-    distanceM: Math.round((Number(driver?.distanceMeters) || 0) / 100) * 100
+    distanceM: Math.round((Number(driver?.distanceMeters) || 0) / 100) * 100,
+    /* V114 ADD-ONLY: sirf gaadi ka naam (jaise "Maruti Swift Dzire").
+       Gaadi number / driver ka naam yahan NAHI — ye public list hai; number
+       sirf booked customer ko "Go to Pickup" ke baad dikhta hai. */
+    carName: v114CarName(driver)
   };
+}
+
+function v114CarName(driver) {
+  const vehicle = driver?.driverProfile?.vehicle || {};
+  const brand = String(vehicle.brand || "").trim();
+  const model = String(vehicle.model || "").trim();
+  if (brand && model && model.toLowerCase().startsWith(brand.toLowerCase())) {
+    return model.slice(0, 40);
+  }
+  return [brand, model].filter(Boolean).join(" ").slice(0, 40);
 }
 
 function v106EstimateEtaMinutes(distanceM) {
@@ -1460,7 +1474,10 @@ exports.nearbyDrivers = async (req, res, next) => {
           currentLocation: 1,
           distanceMeters: 1,
           "driverProfile.vehicleType": 1,
-          "driverProfile.vehicle.type": 1
+          "driverProfile.vehicle.type": 1,
+          /* V114 ADD-ONLY: car name for the map label */
+          "driverProfile.vehicle.brand": 1,
+          "driverProfile.vehicle.model": 1
         }
       }
     ]);

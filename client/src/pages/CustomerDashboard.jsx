@@ -2984,7 +2984,14 @@ function CustomerDashboard({
                         </small>
                       </div>
                     </div>
-                    <p>{vehicleNumber}</p>
+                    {/* V114: gaadi number sirf "Go to Pickup" ke baad */}
+                    <p>
+                      {["driver_arriving", "driver_arrived", "arrived", "started", "ongoing", "in_progress"].includes(
+                        String(activeRide?.status || "").toLowerCase()
+                      )
+                        ? vehicleNumber
+                        : "Number: driver pickup ke liye chalega tab dikhega"}
+                    </p>
                     <p>{vehicleName}</p>
                     <p className="cvRequestedVehicle">
                       <strong>Requested:</strong> {requestedVehicleType}

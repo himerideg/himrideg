@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 import api from "../api";
+// V114 ADD-ONLY: car name above every nearby car
+import { v114LabelHtml, v114SyncUnrotate } from "./V114CarLabel";
 
 /*
 |--------------------------------------------------------------------------
@@ -50,10 +52,13 @@ function movedM(a, b) {
   return Math.hypot(dx, dy);
 }
 
-function makeIcon() {
+function makeIcon(name = "") {
   return L.divIcon({
     className: "hrg-v106-car",
-    html: `<div class="hrg-v106-car-rot"><img src="${CAR_IMAGE}" alt="" /></div>`,
+    /* V114: name label sits outside the rotating car, centred above it */
+    html: `<div class="hrg-v106-car-rot"><img src="${CAR_IMAGE}" alt="" /></div>${
+      name ? `<div style="position:absolute;left:${BOX / 2}px;top:${BOX / 2}px;width:0;height:0">${v114LabelHtml([name], true)}</div>` : ""
+    }`,
     iconSize: [BOX, BOX],
     iconAnchor: [BOX / 2, BOX / 2]
   });
@@ -114,16 +119,24 @@ export default function V106NearbyCars({ center = null, enabled = true, onInfo }
         let car = cars.get(row.id);
         if (!car) {
           const marker = L.marker(to, {
-            icon: makeIcon(),
+            icon: makeIcon(String(row.carName || "").trim()),
             interactive: false,
             keyboard: false,
             zIndexOffset: 400
           }).addTo(map);
-          car = { marker, last: to, rotation: null, anim: null };
+          car = { marker, last: to, rotation: null, anim: null, name: String(row.carName || "").trim() };
           cars.set(row.id, car);
           const gps = Number(row.heading);
           setRotation(car, Number.isFinite(gps) && row.heading !== null ? gps : (row.id.charCodeAt(0) * 37) % 360);
           continue;
+        }
+        /* V114: car name changed -> new icon, keep its direction */
+        const v114Name = String(row.carName || "").trim();
+        if (car.name !== v114Name) {
+          car.name = v114Name;
+          try { car.marker.setIcon(makeIcon(v114Name)); } catch { /* ignore */ }
+          const rotEl = car.marker.getElement?.()?.querySelector?.(".hrg-v106-car-rot");
+          if (rotEl && car.rotation !== null) rotEl.style.transform = `rotate(${car.rotation}deg)`;
         }
         if (movedM(car.last, to) >= 4) {
           setRotation(car, bearingDeg(car.last, to));
@@ -189,12 +202,15 @@ export default function V106NearbyCars({ center = null, enabled = true, onInfo }
     };
     const resume = () => { if (!document.hidden) refresh(); };
     map.on("moveend", refresh);
+    /* V114: keep name labels upright if the map is in navigation (rotated) mode */
+    const v114Timer = window.setInterval(() => v114SyncUnrotate(map), 500);
     document.addEventListener("visibilitychange", resume);
     window.addEventListener("online", refresh);
     poll();
 
     return () => {
       map.off("moveend", refresh);
+      window.clearInterval(v114Timer);
       document.removeEventListener("visibilitychange", resume);
       window.removeEventListener("online", refresh);
       stopped = true;

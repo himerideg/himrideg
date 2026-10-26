@@ -209,6 +209,15 @@ function safePush(userId, options) {
   });
 }
 
+/* V115 ADD-ONLY: person name for English notifications ("Jaspal accepted your ride") */
+function v115NameOf(person, fallback) {
+  const name =
+    person && typeof person === "object"
+      ? String(person.name || person.fullName || "").trim()
+      : "";
+  return name || fallback;
+}
+
 function objectId(value, fieldName = "ID") {
   if (
     !value ||
@@ -1976,7 +1985,10 @@ async function dispatchRide({
     sendPushToUser(
       driver._id,
       {
-        title: "🚕 New HimRideG Ride",
+        /* V115: customer name in the ride request (when known) */
+        title: v115NameOf(booking?.customer, "")
+          ? `🚕 New ride from ${v115NameOf(booking?.customer, "")}`
+          : "🚕 New HimRideG Ride",
         body: `${pickupName} → ${dropName}`,
         categoryId: "HIMRIDEG_RIDE_REQUEST",
         data: {
@@ -2160,8 +2172,9 @@ async function acceptRide({
     );
 
     safePush(populated.customer, {
-      title: "Driver Accepted Your Ride 🚕",
-      body: "Driver ne ride accept kar li. Ab driver fare bhejega.",
+      /* V115: English + driver name */
+      title: `${v115NameOf(populated.driver, "Your driver")} accepted your ride 🚕`,
+      body: `${v115NameOf(populated.driver, "Your driver")} will send the fare shortly.`,
       data: {
         type: "ride_accepted",
         soundEvent: "driver_accepted_customer",
@@ -2172,8 +2185,9 @@ async function acceptRide({
     });
 
     safePush(driverObjectId, {
-      title: "Ride Accepted — Send Fare",
-      body: "Customer ride aapko assign ho gayi. Apna initial fare bhejein.",
+      /* V115: English + customer name */
+      title: `Ride accepted — ${v115NameOf(populated.customer, "Customer")}`,
+      body: `Send your fare to ${v115NameOf(populated.customer, "the customer")}.`,
       data: {
         type: "ride_accepted",
         soundEvent: "fare_initial",
@@ -2442,8 +2456,9 @@ async function markDriverArriving({
   );
 
   safePush(populatedBooking.customer, {
-    title: "Driver is Coming 🚕",
-    body: "Fare locked hai. Driver aapke pickup ki taraf aa raha hai.",
+    /* V115: English + driver name */
+    title: `${v115NameOf(populatedBooking.driver, "Your driver")} is coming to pickup 🚕`,
+    body: `Fare locked. ${v115NameOf(populatedBooking.driver, "Your driver")} is on the way to your pickup point.`,
     data: {
       type: "driver_arriving",
       soundEvent: "driver_arriving",
@@ -2546,8 +2561,9 @@ async function markDriverArrived({
   );
 
   safePush(booking.customer, {
-    title: "Driver Arrived",
-    body: "Driver pickup par pahunch gaya hai. Driver aapko dekhne ke baad ride-start OTP generate karega.",
+    /* V115: English + driver name */
+    title: `${v115NameOf(booking.driver, "Your driver")} has arrived`,
+    body: `${v115NameOf(booking.driver, "Your driver")} is at your pickup point. Share the ride OTP when you meet.`,
     data: {
       type: "driver_arrived",
       soundEvent: "driver_arrived",
@@ -2986,7 +3002,7 @@ async function regenerateRideStartOtp({
   if (String(safeBooking.status || "").toLowerCase() === "driver_arrived") {
     safePush(safeBooking.customer, {
       title: `Ride Start OTP: ${otp}`,
-      body: `OTP ${otp} driver ko saamne milne ke baad batayein.`,
+      body: `Share OTP ${otp} with ${v115NameOf(safeBooking.driver, "your driver")} when you meet.`,
       data: {
         type: "ride_otp",
         role: "customer",
@@ -3105,7 +3121,8 @@ async function startRide({
 
   safePush(populated.customer, {
     title: "Ride Started 🚕",
-    body: "Aapki HimRideG ride start ho gayi. Live route destination tak active hai.",
+    /* V115: English */
+    body: `Your ride with ${v115NameOf(populated.driver, "your driver")} has started. Track it live to your drop.`,
     data: {
       type: "ride_started",
       soundEvent: "ride_started",
@@ -3544,8 +3561,8 @@ async function completeRide({
   safePush(booking.customer, {
     title: "Ride Completed ✅",
     body: booking.paymentStatus === "paid"
-      ? `Ride complete. ₹${completedFare} payment successful hai.`
-      : `Ride complete. Final fare ₹${completedFare}. Ab payment method choose karein.`,
+      ? `Ride completed. Payment of ₹${completedFare} was successful.`
+      : `Ride completed. Final fare ₹${completedFare}. Please choose a payment method.`,
     data: {
       type: "ride_completed",
       soundEvent: booking.paymentStatus === "paid" ? "ride_completed" : "payment_required",
@@ -3561,7 +3578,7 @@ async function completeRide({
     title: "Ride Completed",
     body: booking.paymentStatus === "paid"
       ? `₹${completedFare} payment received.`
-      : `Ride complete. ₹${completedFare} payment confirmation pending hai.`,
+      : `Ride completed. ₹${completedFare} payment confirmation is pending.`,
     data: {
       type: "ride_completed",
       soundEvent: "ride_completed",
@@ -4675,8 +4692,9 @@ async function acceptRideAtomic({
     );
 
     safePush(populated.customer, {
-      title: "Driver Accepted Your Ride 🚕",
-      body: "Driver ne ride accept kar li. Ab driver fare bhejega.",
+      /* V115: English + driver name */
+      title: `${v115NameOf(populated.driver, "Your driver")} accepted your ride 🚕`,
+      body: `${v115NameOf(populated.driver, "Your driver")} will send the fare shortly.`,
       data: {
         type: "ride_accepted",
         soundEvent: "driver_accepted_customer",
@@ -4687,8 +4705,9 @@ async function acceptRideAtomic({
     });
 
     safePush(driverObjectId, {
-      title: "Ride Accepted — Send Fare",
-      body: "Customer ride aapko assign ho gayi. Apna initial fare bhejein.",
+      /* V115: English + customer name */
+      title: `Ride accepted — ${v115NameOf(populated.customer, "Customer")}`,
+      body: `Send your fare to ${v115NameOf(populated.customer, "the customer")}.`,
       data: {
         type: "ride_accepted",
         soundEvent: "fare_initial",
