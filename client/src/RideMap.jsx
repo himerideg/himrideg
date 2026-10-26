@@ -263,6 +263,7 @@ function FitMapBounds({
       return undefined;
     }
 
+    if (driverPosition) return;
     const routePoints = [
       ...(pickupRoute || []),
       ...(tripRoute || []),
@@ -946,7 +947,7 @@ function DriverRideMap({ ride }) {
 
           {/* V104: Google-style live car */}
           {driverPosition && (
-            <V104LiveCar position={driverPosition} label="Aapki current location" />
+            <V104LiveCar follow position={driverPosition} label="Aapki current location" />
           )}
 
           {/* V113: navigation mode (car up, map rotates, zoom 18) */}
@@ -1139,6 +1140,9 @@ function CustomerMapViewport({
       }, delay)
     );
 
+    if (driverPosition) {
+      return () => invalidateTimers.forEach((timer) => window.clearTimeout(timer));
+    }
     const routePoints = Array.isArray(routePositions)
       ? routePositions.filter(Boolean)
       : [];
@@ -1748,7 +1752,7 @@ function CustomerRideMap({
 
           {/* V104: Google-style live car */}
           {effectiveDriver && (
-            <V104LiveCar position={effectiveDriver} label="Driver Live" />
+            <V104LiveCar follow position={effectiveDriver} label="Driver Live" />
           )}
 
           {/* V113: navigation mode for the customer (driver car up, map rotates) */}

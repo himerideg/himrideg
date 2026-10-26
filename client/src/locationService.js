@@ -2,6 +2,13 @@ import api from "./api";
 
 const locationSearchCache = new Map();
 
+// Keep PIN codes visible without guessing missing postal data.
+export function locationSuggestionAddress(value) {
+  const address = String(value?.address || value?.display_name || value?.formatted || "");
+  const postcode = String(value?.postcode || value?.postalCode || value?.postal_code || "").trim();
+  return postcode && !address.includes(postcode) ? `${address} • PIN ${postcode}` : address;
+}
+
 export function normalizeLocation(value) {
   if (!value) return null;
 

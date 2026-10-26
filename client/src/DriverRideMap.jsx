@@ -256,6 +256,7 @@ function FitMapBounds({
       return undefined;
     }
 
+    if (driverPosition) return;
     const routePoints = [
       ...(pickupRoute || []),
       ...(tripRoute || []),
@@ -944,7 +945,7 @@ function DriverRideMap({ ride }) {
 
           {/* V104: Google-style live car */}
           {driverPosition && (
-            <V104LiveCar position={driverPosition} label="Aapki current location" />
+            <V104LiveCar follow position={driverPosition} label="Aapki current location" />
           )}
 
           {/* V113: navigation mode (car up, map rotates, zoom 18) — pickup, then drop */}

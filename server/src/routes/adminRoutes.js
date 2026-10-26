@@ -73,6 +73,10 @@ router.post(
 */
 
 router.use(protect);
+const appReleases = require("../controllers/appReleaseController");
+router.get("/app-releases", appReleases.listReleases);
+router.put("/app-releases/:appRole", appReleases.saveRelease);
+router.post("/app-releases/:appRole/notify", appReleases.notifyRelease);
 
 router.get("/commission", commissionAdmin.getCommissionSettings);
 router.put("/commission", commissionAdmin.saveCommissionSettings);

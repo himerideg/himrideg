@@ -1,3 +1,4 @@
+import { locationSuggestionAddress } from "../locationService";
 import React, {
   useEffect,
   useRef,
@@ -357,8 +358,7 @@ function LocationSearchField({
 
                       <small>
                         {
-                          item.address ||
-                          item.display_name
+                          locationSuggestionAddress(item)
                         }
                       </small>
                     </span>

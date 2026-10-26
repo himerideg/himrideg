@@ -73,6 +73,8 @@ export default function V106NearbyCars({ center = null, enabled = true, onInfo }
     let stopped = false;
     let timer = null;
     let controller = null;
+    let pending = false;
+    let lastSuccessAt = 0;
 
     const setRotation = (car, bearing) => {
       if (bearing === null || bearing === undefined) return;
@@ -139,7 +141,8 @@ export default function V106NearbyCars({ center = null, enabled = true, onInfo }
     };
 
     const poll = async () => {
-      if (stopped) return;
+      if (stopped || pending) return;
+      if (timer) clearTimeout(timer);
       if (!enabled || (typeof document !== "undefined" && document.hidden)) {
         timer = setTimeout(poll, POLL_MS);
         return;
@@ -148,6 +151,7 @@ export default function V106NearbyCars({ center = null, enabled = true, onInfo }
       const mc = map.getCenter();
       const lat = Array.isArray(c) ? Number(c[0]) : Number(c?.latitude ?? mc.lat);
       const lon = Array.isArray(c) ? Number(c[1]) : Number(c?.longitude ?? mc.lng);
+      pending = true;
       try {
         controller = new AbortController();
         const response = await api.get("/maps/nearby-drivers", {
@@ -156,6 +160,7 @@ export default function V106NearbyCars({ center = null, enabled = true, onInfo }
         });
         const data = response.data?.data || {};
         if (!stopped) {
+          lastSuccessAt = Date.now();
           apply(Array.isArray(data.drivers) ? data.drivers : []);
           try {
             infoRef.current?.({
@@ -167,14 +172,31 @@ export default function V106NearbyCars({ center = null, enabled = true, onInfo }
           } catch { /* ignore */ }
         }
       } catch {
-        /* network / rate limit: keep last cars, try again */
+        // Do not leave cars on the map indefinitely after GPS/feed loss.
+        if (!stopped && lastSuccessAt && Date.now() - lastSuccessAt > 30000) {
+          apply([]);
+          infoRef.current?.({ count: 0, etaMinutes: null });
+        }
+      } finally {
+        pending = false;
       }
       if (!stopped) timer = setTimeout(poll, POLL_MS);
     };
 
+    const refresh = () => {
+      if (timer) clearTimeout(timer);
+      if (!stopped) timer = setTimeout(poll, 400);
+    };
+    const resume = () => { if (!document.hidden) refresh(); };
+    map.on("moveend", refresh);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", refresh);
     poll();
 
     return () => {
+      map.off("moveend", refresh);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", refresh);
       stopped = true;
       if (timer) clearTimeout(timer);
       try { controller?.abort(); } catch { /* ignore */ }

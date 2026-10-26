@@ -1,3 +1,4 @@
+import AdminAppUpdates from "../components/AdminAppUpdates";
 import React,{useEffect,useMemo,useState}from"react";
 import api from"../api";
 import"../admin-dashboard.css";
@@ -589,6 +590,9 @@ function AdminDashboard({
       label:"Withdrawals"
     },
     {
+      id:"appUpdates", icon:"↑", label:"App Updates"
+    },
+    {
       id:"commission",
       icon:"%",
       label:"Platform Fee"
@@ -1021,6 +1025,7 @@ function AdminDashboard({
               {activeSection==="bookings"&&"Ride Management"}
               {activeSection==="withdrawals"&&"Wallet Withdrawals"}
               {activeSection==="commission"&&"Platform Fee"}
+              {activeSection==="appUpdates"&&"App Updates"}
               {activeSection==="control"&&"Control Center"}
               {activeSection==="complaints"&&"Customer Complaints"}
               {activeSection==="customers"&&"All Customers"}
@@ -1057,6 +1062,7 @@ function AdminDashboard({
         </header>
 
         <main className="adminContent">
+          {activeSection==="appUpdates"&&<AdminAppUpdates />}
           {activeSection==="commission"&&false&&<AdminCommissionPanel />}
           {activeSection==="commission"&&<AdminPlatformFeePanel />}
           {/* ADD-ONLY V92 */}
