@@ -115,7 +115,7 @@ function DriverLocationTracker({
 
       if (
         now - lastSentAtRef.current <
-        5000
+        3000 /* V113: live car every 3 s (was 5 s) */
       ) {
         return;
       }
@@ -285,7 +285,7 @@ function DriverLocationTracker({
         {
           enableHighAccuracy: true,
           timeout: 30000,
-          maximumAge: 5000
+          maximumAge: 3000 /* V113 */
         }
       );
 

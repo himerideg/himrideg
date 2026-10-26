@@ -825,6 +825,47 @@ const bookingSchema = new mongoose.Schema(
     },
 
     /*
+    | ADD-ONLY V113: Driver "Confirm Payment" (Online / Offline).
+    | Ride ke dauran ya complete hone ke baad driver confirm karta hai ki
+    | payment mil gayi. Ride started ho to confirmation save rehti hai aur
+    | ride complete hote hi booking paid + driver release ho jata hai.
+    | Customer "Payment nahi di" report kar sakta hai (admin panel complaint).
+    */
+    driverPaymentConfirmMode: {
+      type: String,
+      enum: ["", "online", "offline"],
+      default: ""
+    },
+
+    driverPaymentConfirmedAt: {
+      type: Date,
+      default: null
+    },
+
+    driverPaymentPreConfirmMode: {
+      type: String,
+      enum: ["", "online", "offline"],
+      default: ""
+    },
+
+    driverPaymentPreConfirmedAt: {
+      type: Date,
+      default: null
+    },
+
+    customerPaymentDisputeAt: {
+      type: Date,
+      default: null
+    },
+
+    customerPaymentDisputeNote: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: ""
+    },
+
+    /*
     | ADD-ONLY: these fields were already used throughout controllers as
     | booking.<field>, while old compatibility copies also exist under payment.
     | Defining them here makes those existing writes persist in MongoDB.

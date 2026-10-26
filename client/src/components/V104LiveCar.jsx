@@ -65,6 +65,22 @@ function toLatLng(value) {
   return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
 }
 
+/*
+| V113 ADD-ONLY: tell the map (navigation mode) where the car is and which
+| way it points, so the map can rotate + follow exactly with the car.
+*/
+function v113Notify(map, type, detail) {
+  try {
+    const container = map?.getContainer?.();
+    if (!container) return;
+    if (type === "rotation") map.__hrgCarRotation = detail.rotation;
+    if (type === "move") map.__hrgCarLatLng = detail.latlng;
+    container.dispatchEvent(new CustomEvent(`hrg:car-${type}`, { detail }));
+  } catch {
+    /* ignore */
+  }
+}
+
 const rad = (v) => (v * Math.PI) / 180;
 
 function distanceM(a, b) {
@@ -174,6 +190,7 @@ export default function V104LiveCar({ position, heading = null, label = "HimRide
       }
       const el = state.marker?.getElement?.()?.querySelector?.(".hrg-v104-car-rot");
       if (el) el.style.transform = `rotate(${state.rotation}deg)`;
+      v113Notify(map, "rotation", { rotation: state.rotation });
     };
 
     if (!state.marker) {
@@ -193,6 +210,7 @@ export default function V104LiveCar({ position, heading = null, label = "HimRide
       state.shown = target;
       state.lastAt = Date.now();
       applyRotation();
+      v113Notify(map, "move", { latlng: target, final: true });
       return;
     }
 
@@ -210,6 +228,7 @@ export default function V104LiveCar({ position, heading = null, label = "HimRide
       state.marker.setLatLng(target);
       state.shown = target;
       state.anim = null;
+      v113Notify(map, "move", { latlng: target, final: true });
       return;
     }
 
@@ -220,6 +239,7 @@ export default function V104LiveCar({ position, heading = null, label = "HimRide
       const lng = from[1] + (target[1] - from[1]) * p;
       state.marker.setLatLng([lat, lng]);
       state.shown = [lat, lng];
+      v113Notify(map, "move", { latlng: [lat, lng], final: p >= 1 });
       state.anim = p < 1 ? requestAnimationFrame(step) : null;
     };
     state.anim = requestAnimationFrame(step);

@@ -37,6 +37,11 @@ const {
 
 const socketEvents = require("./socketEventService");
 const walletService = require("./walletService");
+/* V113 ADD-ONLY: seat based dispatch (hatchback+sedan together, SUV / Traveller only on their own booking) */
+const {
+  driverVehicleQueryForBooking: v113DriverVehicleQueryForBooking,
+  bookingVehicleQueryForDriver: v113BookingVehicleQueryForDriver
+} = require("../utils/vehicleDispatch");
 
 const {
   emitRideRequest,
@@ -1526,8 +1531,12 @@ async function findNearestDrivers({
           geo.coordinates[1],
         radiusMeters:
           radius,
+        /* V113: wider shortlist so the seat filter still finds enough drivers */
         limit:
-          driverLimit,
+          Math.min(
+            driverLimit * 4,
+            50
+          ),
         excludeIds:
           rejectedIds
       });
@@ -1600,7 +1609,12 @@ async function findNearestDrivers({
               true,
 
             _id:
-              driverIdFilter
+              driverIdFilter,
+
+            /* V113 ADD-ONLY: seat based vehicle filter */
+            ...v113DriverVehicleQueryForBooking(
+              booking.vehicleType
+            )
           }
         }
       },
@@ -1720,7 +1734,11 @@ async function findNearbyBusyDriversForPreview({
             },
             currentRide: {
               $ne: null
-            }
+            },
+            /* V113 ADD-ONLY: seat based vehicle filter (preview too) */
+            ...v113DriverVehicleQueryForBooking(
+              booking.vehicleType
+            )
           }
         }
       },
@@ -4461,9 +4479,11 @@ async function acceptRideAtomic({
       "Driver ID"
     );
 
-  await getDriverOrThrow(
-    driverObjectId
-  );
+  /* V113: driver doc kept to check seat category */
+  const v113AcceptDriver =
+    await getDriverOrThrow(
+      driverObjectId
+    );
 
   const busyDriver =
     await markDriverBusy(
@@ -4503,6 +4523,14 @@ async function acceptRideAtomic({
             $ne:
               driverObjectId
           },
+
+          /* V113 ADD-ONLY: SUV / Traveller booking only for matching driver */
+          ...v113BookingVehicleQueryForDriver(
+            v113AcceptDriver
+              ?.driverProfile
+              ?.vehicle
+              ?.vehicleType
+          ),
 
           $or: [
             {

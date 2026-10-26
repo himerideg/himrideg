@@ -20,6 +20,33 @@
 /* Browser key, restricted in Google Cloud to himrideg.com (+ localhost). */
 export const HRG_GOOGLE_MAPS_KEY = "AIzaSyDCnPOtLmYzg4yeIjrE4sOLQy-DhVSG8_M";
 
+/*
+| V113 ADD-ONLY: map type (Satellite default + Road / Terrain toggle).
+| "hybrid" = satellite photo + road names. Choice is remembered per browser.
+| Any map can switch with:
+|   window.dispatchEvent(new CustomEvent("hrg:maptype", { detail: "roadmap" }))
+*/
+export var HRG_MAP_TYPES = ["hybrid", "roadmap", "terrain"];
+export var HRG_MAP_TYPE_KEY = "hrgMapTypeV113";
+
+export function hrgGetMapType() {
+  try {
+    var saved = window.localStorage.getItem(HRG_MAP_TYPE_KEY);
+    if (saved && HRG_MAP_TYPES.indexOf(saved) >= 0) return saved;
+  } catch (e) {}
+  return "hybrid";
+}
+
+export function hrgSetMapType(type) {
+  if (HRG_MAP_TYPES.indexOf(type) < 0) return;
+  try {
+    window.localStorage.setItem(HRG_MAP_TYPE_KEY, type);
+  } catch (e) {}
+  try {
+    window.dispatchEvent(new CustomEvent("hrg:maptype", { detail: type }));
+  } catch (e) {}
+}
+
 /* eslint-disable no-var */
 export function hrgInstallGoogleBase(L, map, opts) {
   opts = opts || {};
@@ -38,6 +65,7 @@ export function hrgInstallGoogleBase(L, map, opts) {
   var dead = false;
   var removed = false;
   var timer = null;
+  var onMapType = null; /* V113 */
 
   function tilePane() {
     try {
@@ -86,6 +114,10 @@ export function hrgInstallGoogleBase(L, map, opts) {
       clearTimeout(timer);
       timer = null;
     }
+    /* V113 */
+    try {
+      if (onMapType) w.removeEventListener("hrg:maptype", onMapType);
+    } catch (e) {}
     try {
       if (div.parentNode) div.parentNode.removeChild(div);
     } catch (e) {}
@@ -120,8 +152,20 @@ export function hrgInstallGoogleBase(L, map, opts) {
         keyboardShortcuts: false,
         clickableIcons: false,
         isFractionalZoomEnabled: true,
-        backgroundColor: opts.dark ? "#11161a" : "#eef1f3"
+        backgroundColor: opts.dark ? "#11161a" : "#eef1f3",
+        /* V113: Satellite (with road names) is the default base map */
+        mapTypeId: opts.mapType || hrgGetMapType(),
+        tilt: 0
       });
+      /* V113: live switch Satellite / Road / Terrain */
+      onMapType = function (event) {
+        var next = event && event.detail;
+        if (!gmap || dead || removed || HRG_MAP_TYPES.indexOf(next) < 0) return;
+        try {
+          gmap.setMapTypeId(next);
+        } catch (e4) {}
+      };
+      w.addEventListener("hrg:maptype", onMapType);
       w.google.maps.event.addListenerOnce(gmap, "tilesloaded", function () {
         if (dead || removed) return;
         ready = true;
@@ -241,6 +285,13 @@ export function hrgInstallGoogleBase(L, map, opts) {
     },
     isReady: function () {
       return ready && !dead;
+    },
+    /* V113 */
+    setMapType: function (type) {
+      if (onMapType) onMapType({ detail: type });
+    },
+    getGoogleMap: function () {
+      return gmap;
     }
   };
 }

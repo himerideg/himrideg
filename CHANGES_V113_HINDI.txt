@@ -1,0 +1,33 @@
+HimRideG V113 — Live car navigation + seat dispatch + payment confirm + search
+=============================================================================
+(Koi purani line delete nahi ki — sirf nayi lines jodi / value badli.)
+
+1) LIVE CAR / MAP (website: RideMap.jsx, DriverRideMap.jsx, V113NavMap.jsx, V104LiveCar.jsx, v102GoogleBase.js)
+   - Satellite (road names ke saath) default map. Buttons: Satellite / Road / Terrain.
+   - Ride ke dauran (pickup se drop tak) Navigation mode: car hamesha upar, mod par MAP ghoomta hai.
+   - Zoom 18, camera car ke saath chalta hai. "Poora route" button se normal view.
+   - ETA chip: customer "Driver X min door" / "Drop tak X min", driver "Pickup tak / Drop tak".
+   - Road names Google layer me neeche hain, car upar — naam car ko kabhi cover nahi karta.
+   - Driver GPS har 3 sec (pehle 5 sec).
+   - Booking se pehle / driver idle map: zoom 18.
+
+2) GAADI CATEGORY + DISPATCH (server: utils/vehicleDispatch.js, rideService.js, driverRideFeedController.js)
+   - Hatchback / Sedan booking -> sab 4+1 drivers (Hatchback, Sedan, Custom 4+1, purane bina type wale).
+   - SUV booking -> sirf SUV drivers. Traveller booking -> sirf Traveller drivers.
+   - Driver registration: gaadi list (category wise) + Custom option (website + driver app).
+
+3) RIDE BUTTONS + CONFIRM PAYMENT
+   - "Go to Pickup" / "I Have Arrived" tap hote hi hat jaate hain (website + driver app).
+   - Driver: "Confirm Payment" — Offline (Cash) / Online. Ride ke dauran confirm -> ride complete hote hi
+     booking release. Ride complete ke baad confirm -> turant release.
+     API: POST /api/v2/payments/driver-confirm-payment { bookingId, mode: "offline" | "online" }
+   - Customer ko notification + "Payment nahi di" button -> admin panel complaint (payment_issue, high).
+     API: POST /api/v2/payments/customer-report-not-paid { bookingId, note }
+
+4) LOCATION SEARCH (server mapController.js + customer app geocoding.js)
+   - Sirf main jagah ka naam (Palampur, Kandwari, Spadu...), road names ("...Road") hata ke unka gaon/shehar.
+   - Naam ke saath pin code. Aas-paas (30 km) wali jagahein pehle. Galat spelling par milte-julte naam.
+
+DEPLOY
+   - Website + backend: GitHub Desktop me commit + push -> Vercel (website) aur Render (backend) khud deploy.
+   - Phone par check karein: map rotate, satellite, buttons, payment confirm, search.

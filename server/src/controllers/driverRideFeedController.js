@@ -12,6 +12,13 @@ const rideService = require(
   "../services/rideService"
 );
 
+/* V113 ADD-ONLY: seat based dispatch filter for driver feed */
+const {
+  bookingVehicleQueryForDriver: v113BookingVehicleQueryForDriver
+} = require(
+  "../utils/vehicleDispatch"
+);
+
 // Phase 3: ride-feed/accept activity Redis availability TTL ko refresh karti
 // hai. Failure kabhi existing feed/accept flow ko block nahi karta.
 const {
@@ -541,6 +548,13 @@ async function getDriverRideFeed(
                 driver._id
             },
 
+            /* V113 ADD-ONLY: SUV / Traveller requests only to matching drivers */
+            ...v113BookingVehicleQueryForDriver(
+              driver.driverProfile
+                ?.vehicle
+                ?.vehicleType
+            ),
+
             /*
             |--------------------------------------------------------------------------
             | Nearest / Targeted Driver Feed
@@ -666,6 +680,12 @@ async function getDriverRideFeed(
             $ne:
               driver._id
           },
+          /* V113 ADD-ONLY: seat based vehicle filter */
+          ...v113BookingVehicleQueryForDriver(
+            driver.driverProfile
+              ?.vehicle
+              ?.vehicleType
+          ),
           "pickup.coordinates.geo": {
             $near: {
               $geometry: {
@@ -1084,4 +1104,4 @@ module.exports = {
   acceptAvailableRide,
   rejectAvailableRide,
   releaseAcceptedRide
-};
+};

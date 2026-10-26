@@ -1103,6 +1103,23 @@ async function completeRide(
             : finalFare
       });
 
+    /*
+    | V113 ADD-ONLY: driver ne ride ke dauran payment confirm ki thi ->
+    | ab ride complete hai, booking paid + driver turant free.
+    */
+    try {
+      const v113Confirm = require("./v113DriverPaymentConfirmController");
+      const v113Result = await v113Confirm.applyPreConfirmAfterComplete(
+        req,
+        booking?._id || getBookingId(req)
+      );
+      if (v113Result?.success && booking && typeof booking === "object") {
+        booking.paymentStatus = "paid";
+      }
+    } catch (v113Error) {
+      console.error("[V113 complete pre-confirm]", v113Error?.message || v113Error);
+    }
+
     return sendSuccess(res, {
       message:
         "Ride completed successfully",

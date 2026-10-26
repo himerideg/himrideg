@@ -31,6 +31,8 @@ import {
 } from "../locationService";
 // V102 ADD-ONLY: Google map base layer
 import V102GoogleBaseLayer from "./V102GoogleBaseLayer";
+// V113 ADD-ONLY: Satellite / Road / Terrain toggle
+import V113NavMap from "./V113NavMap";
 // V106 ADD-ONLY: Ola/Uber style pickup pin + nearby cars
 import V106PickupPin from "./V106PickupPin";
 import V106NearbyCars from "./V106NearbyCars";
@@ -1246,6 +1248,12 @@ function HomeBookRide({
                                       ","
                                     )[0] ||
                                     "Location"}
+                                  {/* V113: pin code next to the place name */}
+                                  {item.pinCode || item.postcode ? (
+                                    <em style={{ fontStyle: "normal", opacity: 0.7, marginLeft: 6 }}>
+                                      {item.pinCode || item.postcode}
+                                    </em>
+                                  ) : null}
                                 </strong>
 
                                 <small>
@@ -1446,19 +1454,19 @@ function HomeBookRide({
               }
             >
               <option value="hatchback">
-                Mini / Hatchback
+                Hatchback 4+1 (Alto, WagonR, Swift…)
               </option>
 
               <option value="sedan">
-                Sedan
+                Sedan 4+1 (Dzire, Etios, Amaze…)
               </option>
 
               <option value="suv">
-                SUV
+                SUV 6+1 (Innova, Ertiga, Scorpio…)
               </option>
 
               <option value="traveller">
-                Traveller
+                Traveller (Tempo Traveller)
               </option>
             </select>
           </label>
@@ -1499,6 +1507,8 @@ function HomeBookRide({
               />
               {/* V102: Google map under Leaflet (OSM stays as fallback) */}
               <V102GoogleBaseLayer />
+              {/* V113: map type toggle (Satellite default) */}
+              <V113NavMap active={false} />
 
               {/* V106: Ola/Uber style nearby cars + centre pickup pin */}
               <V106NearbyCars

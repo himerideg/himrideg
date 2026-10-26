@@ -27,6 +27,8 @@ import { getRoadRoute } from "./locationService";
 import V102GoogleBaseLayer from "./components/V102GoogleBaseLayer";
 // V104 ADD-ONLY: Google-style live car
 import V104LiveCar from "./components/V104LiveCar";
+// V113 ADD-ONLY: navigation map (rotate + follow + zoom 18 + map type + ETA)
+import V113NavMap from "./components/V113NavMap";
 
 const DEFAULT_CENTER = [32.1109, 76.5363];
 
@@ -249,6 +251,11 @@ function FitMapBounds({
   const map = useMap();
 
   useEffect(() => {
+    /* V113: navigation mode follows the car itself */
+    if (map.__v113NavActive) {
+      return undefined;
+    }
+
     const routePoints = [
       ...(pickupRoute || []),
       ...(tripRoute || []),
@@ -939,6 +946,21 @@ function DriverRideMap({ ride }) {
           {driverPosition && (
             <V104LiveCar position={driverPosition} label="Aapki current location" />
           )}
+
+          {/* V113: navigation mode (car up, map rotates, zoom 18) — pickup, then drop */}
+          <V113NavMap
+            active={Boolean(driverPosition && ride)}
+            etaTitle={
+              String(ride?.status || "").toLowerCase() === "started"
+                ? `Drop tak ${formatDuration(tripInfo?.durationSeconds)}`
+                : `Pickup tak ${formatDuration(pickupInfo?.durationSeconds)}`
+            }
+            etaSub={
+              String(ride?.status || "").toLowerCase() === "started"
+                ? formatDistance(tripInfo?.distanceKm)
+                : formatDistance(pickupInfo?.distanceKm)
+            }
+          />
 
           {pickupRoute.length >
             1 && (

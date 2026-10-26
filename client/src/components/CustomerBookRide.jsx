@@ -33,10 +33,11 @@ const money = (value) =>
 | visible rahega. Existing App booking.vehicleType + backend field same hai.
 */
 const BOOKING_VEHICLE_OPTIONS = [
-  ["hatchback", "Mini / Hatchback"],
-  ["sedan", "Sedan"],
-  ["suv", "SUV"],
-  ["traveller", "Traveller"],
+  /* V113: seat based — Hatchback + Sedan booking dono 4+1 gaadiyon ko jaati hai */
+  ["hatchback", "Hatchback 4+1 (Alto, WagonR, Swift…)"],
+  ["sedan", "Sedan 4+1 (Dzire, Etios, Amaze…)"],
+  ["suv", "SUV 6+1 (Innova, Ertiga, Scorpio…)"],
+  ["traveller", "Traveller (Tempo Traveller)"],
 ];
 
 function LocationSearchField({
@@ -346,6 +347,12 @@ function LocationSearchField({
                             ","
                           )[0] ||
                           "Location"}
+                        {/* V113: pin code next to the place name */}
+                        {item.pinCode || item.postcode ? (
+                          <em style={{ fontStyle: "normal", opacity: 0.7, marginLeft: 6 }}>
+                            {item.pinCode || item.postcode}
+                          </em>
+                        ) : null}
                       </strong>
 
                       <small>

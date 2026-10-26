@@ -5,6 +5,8 @@ import "leaflet/dist/leaflet.css";
 import "./driver-idle-map.css";
 // V102 ADD-ONLY: Google map base layer
 import V102GoogleBaseLayer from "./V102GoogleBaseLayer";
+// V113 ADD-ONLY: Satellite / Road / Terrain toggle
+import V113NavMap from "./V113NavMap";
 // V104 ADD-ONLY: Google-style live car
 import V104LiveCar from "./V104LiveCar";
 // V109 ADD-ONLY: Uber-style close zoom + place name for the driver
@@ -50,7 +52,7 @@ function V109DriverZoom({ position }) {
     if (!position || done.current) return;
     done.current = true;
     try {
-      map.flyTo(position, 17, { duration: 0.9 });
+      map.flyTo(position, 18, { duration: 0.9 }); /* V113: zoom 18 */
     } catch {
       /* ignore */
     }
@@ -125,6 +127,8 @@ export default function DriverIdleMap() {
         />
         {/* V102: Google map under Leaflet (OSM stays as fallback) */}
         <V102GoogleBaseLayer />
+        {/* V113: map type toggle (Satellite default) */}
+        <V113NavMap active={false} />
         {position ? <Marker position={position} icon={driverIcon} /> : null}
         {/* V104: Google-style live car */}
         {position ? <V104LiveCar position={position} label="Aapki location" /> : null}

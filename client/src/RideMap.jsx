@@ -34,6 +34,8 @@ import V104LiveCar from "./components/V104LiveCar";
 // V107 ADD-ONLY: Ola/Uber pickup pin + nearby cars on logged-in booking map
 import V106PickupPin from "./components/V106PickupPin";
 import V106NearbyCars from "./components/V106NearbyCars";
+// V113 ADD-ONLY: navigation map (rotate + follow + zoom 18 + map type + ETA)
+import V113NavMap from "./components/V113NavMap";
 
 const DEFAULT_CENTER = [32.1109, 76.5363];
 
@@ -256,6 +258,11 @@ function FitMapBounds({
   const map = useMap();
 
   useEffect(() => {
+    /* V113: navigation mode follows the car itself */
+    if (map.__v113NavActive) {
+      return undefined;
+    }
+
     const routePoints = [
       ...(pickupRoute || []),
       ...(tripRoute || []),
@@ -942,6 +949,21 @@ function DriverRideMap({ ride }) {
             <V104LiveCar position={driverPosition} label="Aapki current location" />
           )}
 
+          {/* V113: navigation mode (car up, map rotates, zoom 18) */}
+          <V113NavMap
+            active={Boolean(driverPosition && ride)}
+            etaTitle={
+              String(ride?.status || "").toLowerCase() === "started"
+                ? `Drop tak ${formatDuration(tripInfo?.durationSeconds)}`
+                : `Pickup tak ${formatDuration(pickupInfo?.durationSeconds)}`
+            }
+            etaSub={
+              String(ride?.status || "").toLowerCase() === "started"
+                ? formatDistance(tripInfo?.distanceKm)
+                : formatDistance(pickupInfo?.distanceKm)
+            }
+          />
+
           {pickupRoute.length >
             1 && (
             <Polyline
@@ -1098,6 +1120,11 @@ function CustomerMapViewport({
   const map = useMap();
 
   useEffect(() => {
+    /* V113: navigation mode follows the car itself */
+    if (map.__v113NavActive) {
+      return undefined;
+    }
+
     const invalidateTimers = [
       0,
       120,
@@ -1723,6 +1750,28 @@ function CustomerRideMap({
           {effectiveDriver && (
             <V104LiveCar position={effectiveDriver} label="Driver Live" />
           )}
+
+          {/* V113: navigation mode for the customer (driver car up, map rotates) */}
+          <V113NavMap
+            active={Boolean(
+              effectiveDriver &&
+                (routeMode === "driver_to_pickup" || routeMode === "driver_to_drop")
+            )}
+            etaTitle={
+              Number(routeInfo?.durationMinutes || 0) > 0
+                ? routeMode === "driver_to_drop"
+                  ? `Drop tak ${Math.max(1, Math.round(Number(routeInfo.durationMinutes)))} min`
+                  : `Driver ${Math.max(1, Math.round(Number(routeInfo.durationMinutes)))} min door`
+                : routeMode === "driver_to_drop"
+                ? "Drop ki taraf"
+                : "Driver aa raha hai"
+            }
+            etaSub={
+              Number(routeInfo?.distanceKm || 0) > 0
+                ? `${Number(routeInfo.distanceKm).toFixed(1)} km`
+                : ""
+            }
+          />
 
           {routePositions.length > 1 && (
             <Polyline

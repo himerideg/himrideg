@@ -11,6 +11,8 @@ import socket from "../socket";
 import RideMap from "../RideMap";
 import CustomerBookRide from "../components/CustomerBookRide";
 import PaymentModal from "../components/paymentmodal";
+// V113 ADD-ONLY: "Driver ne payment confirm ki" + "Payment nahi di" report
+import V113CustomerPaymentNotice from "../components/V113CustomerPaymentNotice";
 // ADD-ONLY V91: official personal details (Gender + DOB lock)
 import V91PersonalDetails from "../components/V91PersonalDetails";
 // ADD-ONLY V92: driver complaint + account delete request
@@ -2771,6 +2773,8 @@ function CustomerDashboard({
   ────────────────────────────────────────────────────────────────── */
   return (
     <div className="customerV2">
+      {/* V113: driver payment confirm notice + report */}
+      <V113CustomerPaymentNotice />
       <header className="cvTopbar">
         <button
           className="cvBrand"

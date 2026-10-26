@@ -34,6 +34,62 @@ const VEHICLE_TYPES = [
   { value: "other", label: "Other" }
 ];
 
+/*
+| V113 ADD-ONLY: car model list (seat based dispatch).
+| 4+1 (Hatchback / Sedan) — har normal booking milti hai.
+| SUV 6+1 / Traveller — sirf jab customer wahi category chune.
+| "Custom" = list me naam nahi hai to driver khud likhe.
+*/
+const V113_MODEL_GROUPS = [
+  {
+    category: "hatchback",
+    label: "4+1 Seater — Hatchback",
+    models: [
+      ["Alto", "Maruti Suzuki"], ["S-Presso", "Maruti Suzuki"], ["Kwid", "Renault"],
+      ["Celerio", "Maruti Suzuki"], ["WagonR", "Maruti Suzuki"], ["Swift", "Maruti Suzuki"],
+      ["Grand i10", "Hyundai"], ["Glanza", "Toyota"], ["Baleno", "Maruti Suzuki"], ["Tiago", "Tata"]
+    ]
+  },
+  {
+    category: "sedan",
+    label: "4+1 Seater — Sedan",
+    models: [
+      ["Swift Dzire", "Maruti Suzuki"], ["Toyota Etios", "Toyota"], ["Hyundai Aura", "Hyundai"],
+      ["Xcent", "Hyundai"], ["Honda Amaze", "Honda"], ["Tigor", "Tata"], ["Ciaz", "Maruti Suzuki"],
+      ["Honda City", "Honda"]
+    ]
+  },
+  {
+    category: "suv",
+    label: "6+1 Seater — SUV",
+    models: [
+      ["Innova Crysta", "Toyota"], ["Innova", "Toyota"], ["Ertiga", "Maruti Suzuki"],
+      ["XL6", "Maruti Suzuki"], ["Scorpio", "Mahindra"], ["Bolero", "Mahindra"],
+      ["Xylo", "Mahindra"], ["Marazzo", "Mahindra"], ["Carens", "Kia"]
+    ]
+  },
+  {
+    category: "traveller",
+    label: "Traveller",
+    models: [["Tempo Traveller", "Force Motors"], ["Force Urbania", "Force Motors"]]
+  }
+];
+
+function v113ModelValue(vehicle) {
+  const model = String(vehicle?.model || "").trim().toLowerCase();
+  for (const group of V113_MODEL_GROUPS) {
+    for (const [name] of group.models) {
+      if (name.toLowerCase() === model) return `${group.category}|${name}`;
+    }
+  }
+  if (vehicle?.v113Custom) return `custom|${vehicle.v113Custom}`;
+  if (model) {
+    const type = String(vehicle?.vehicleType || "hatchback");
+    return `custom|${["suv", "traveller"].includes(type) ? type : type === "sedan" ? "sedan" : "hatchback"}`;
+  }
+  return "";
+}
+
 const VEHICLE_CLASSES = [
   { value: "motor_cab", label: "Motor Cab (Taxi)" },
   { value: "maxi_cab", label: "Maxi Cab" },
@@ -920,6 +976,59 @@ function DriverOnboarding({
                     )
                   )}
                 </select>
+              </label>
+
+              {/* V113 ADD-ONLY: gaadi chuniye (list) ya Custom */}
+              <label>
+                <span>
+                  Gaadi (Car Model){" "}
+                  <b className="req">*</b>
+                </span>
+                <select
+                  value={v113ModelValue(vehicle)}
+                  onChange={(e) => {
+                    const [kind, rest] = String(e.target.value || "").split("|");
+                    if (kind === "custom") {
+                      editVehicle({
+                        vehicleType: rest || "hatchback",
+                        v113Custom: rest || "hatchback",
+                        model: ""
+                      });
+                      return;
+                    }
+                    const group = V113_MODEL_GROUPS.find((item) => item.category === kind);
+                    const found = group?.models?.find(([name]) => name === rest);
+                    if (!group || !found) return;
+                    editVehicle({
+                      vehicleType: group.category,
+                      model: found[0],
+                      brand: vehicle.brand || found[1],
+                      v113Custom: ""
+                    });
+                  }}
+                >
+                  <option value="">— Gaadi chuniye —</option>
+                  {V113_MODEL_GROUPS.map((group) => (
+                    <optgroup key={group.category} label={group.label}>
+                      {group.models.map(([name]) => (
+                        <option key={name} value={`${group.category}|${name}`}>
+                          {name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  <optgroup label="List me nahi hai?">
+                    <option value="custom|hatchback">Custom — 4+1 Hatchback</option>
+                    <option value="custom|sedan">Custom — 4+1 Sedan</option>
+                    <option value="custom|suv">Custom — 6+1 SUV</option>
+                    <option value="custom|traveller">Custom — Traveller</option>
+                  </optgroup>
+                </select>
+                {v113ModelValue(vehicle).startsWith("custom|") && (
+                  <small style={{ display: "block", marginTop: 4, opacity: 0.8 }}>
+                    Neeche "Model" me apni gaadi ka naam khud likhein.
+                  </small>
+                )}
               </label>
 
               <label>

@@ -33,6 +33,8 @@ import { AccountDeletionSection } from "../components/V92Support";
 import { dialogText } from "../i18n/v93Language";
 import DriverWarnings from "../components/DriverWarnings";
 import DriverPaymentModal from "../components/DriverPaymentModal";
+// V113 ADD-ONLY: driver Confirm Payment (Online / Offline)
+import V113DriverPaymentConfirm from "../components/V113DriverPaymentConfirm";
 import ResponseTimeoutBadge from "../components/ResponseTimeoutBadge";
 
 import "../driver-dashboard.css";
@@ -3829,9 +3831,46 @@ function DriverDashboard({
       }
     };
 
+  /*
+  | V113 ADD-ONLY: "Go to Pickup" / "I Have Arrived" ek baar tap hote hi
+  | screen se hat jaate hain (refresh / app reopen ke baad bhi wapas nahi).
+  */
+  const [v113TappedSteps, setV113TappedSteps] =
+    useState(() => {
+      try {
+        return JSON.parse(
+          window.localStorage.getItem("hrgV113RideSteps") || "{}"
+        ) || {};
+      } catch {
+        return {};
+      }
+    });
+
+  const v113MarkStep = (ride, step) => {
+    const id = getId(ride);
+    if (!id) return;
+    setV113TappedSteps((current) => {
+      const next = {
+        ...current,
+        [id]: { ...(current?.[id] || {}), [step]: Date.now() }
+      };
+      try {
+        const keys = Object.keys(next);
+        if (keys.length > 40) delete next[keys[0]];
+        window.localStorage.setItem("hrgV113RideSteps", JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+
+  const v113StepDone = (ride, step) =>
+    Boolean(v113TappedSteps?.[getId(ride)]?.[step]);
+
   const markArriving =
     async (ride) => {
-      await performRideAction({
+      const v113Result = await performRideAction({
         ride,
         actionName:
           "arriving",
@@ -3846,11 +3885,13 @@ function DriverDashboard({
         successMessage:
           "Pickup ke liye journey start ho gayi."
       });
+      /* V113: success -> button permanently hidden */
+      if (v113Result) v113MarkStep(ride, "arriving");
     };
 
   const markArrived =
     async (ride) => {
-      await performRideAction({
+      const v113Result = await performRideAction({
         ride,
         actionName:
           "arrived",
@@ -3865,6 +3906,8 @@ function DriverDashboard({
         successMessage:
           "Customer ko arrival update bhej diya."
       });
+      /* V113: success -> button permanently hidden */
+      if (v113Result) v113MarkStep(ride, "arrived");
     };
 
   const regenerateRideOtp =
@@ -6926,6 +6969,14 @@ function DriverDashboard({
                           : "Payment nahi mila • Next ride lein"}
                       </button>
                       <small className="driverCloseUnpaidHint">10 minute baad system aapko automatic free kar deta hai.</small>
+                      {/* V113 ADD-ONLY: Confirm Payment (Online / Offline) -> booking release */}
+                      <V113DriverPaymentConfirm
+                        ride={latestWaitingPaymentRide}
+                        onDone={async () => {
+                          setDriverPaymentModalRide(null);
+                          await loadBookings?.();
+                        }}
+                      />
                     </div>
                   ) : (
                     /* V91 fix: V90 DriverIdleMap ban gaya tha par dashboard me lagaya hi nahi gaya tha — ab ride na hone par bhi map dikhta hai */
@@ -6986,7 +7037,7 @@ function DriverDashboard({
                       </button>
                     )}
 
-                    {selectedRide.status === "fare_accepted" && (
+                    {selectedRide.status === "fare_accepted" && !v113StepDone(selectedRide, "arriving") && (
                       <button
                         type="button"
                         disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
@@ -6996,7 +7047,7 @@ function DriverDashboard({
                       </button>
                     )}
 
-                    {selectedRide.status === "driver_arriving" && (
+                    {selectedRide.status === "driver_arriving" && !v113StepDone(selectedRide, "arrived") && (
                       <button
                         type="button"
                         disabled={!selectedRideActionsEnabled || Boolean(loadingAction)}
@@ -7034,6 +7085,17 @@ function DriverDashboard({
                       >
                         🏁 Complete Ride
                       </button>
+                    )}
+
+                    {/* V113 ADD-ONLY: Confirm Payment anytime during the ride */}
+                    {["fare_accepted", "driver_arriving", "driver_arrived", "arrived", "started"].includes(
+                      String(selectedRide.status || "")
+                    ) && (
+                      <V113DriverPaymentConfirm
+                        ride={selectedRide}
+                        compact
+                        onDone={() => loadBookings?.()}
+                      />
                     )}
                   </div>
                 )}

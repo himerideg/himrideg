@@ -148,7 +148,7 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
   }, [map, active]);
 
   /* V108: Google-like smooth fly + zoom to the exact spot */
-  const v108Fly = (lat, lng, zoom = 17) => {
+  const v108Fly = (lat, lng, zoom = 18) => { /* V113: default zoom 18 */
     try {
       const target = [Number(lat), Number(lng)];
       const z = Math.max(Number(map.getZoom()) || 0, zoom);
@@ -284,7 +284,7 @@ export default function V106PickupPin({ active = true, value = null, onPick, eta
     setLabel(value?.isCurrentLocation ? value?.shortName || v106Text : v106Text);
     setSubLabel(value?.landmark || "");
     try {
-      v108Fly(value.latitude, value.longitude, 17);
+      v108Fly(value.latitude, value.longitude, 18); /* V113: zoom 18 */
     } catch {
       /* ignore */
     }

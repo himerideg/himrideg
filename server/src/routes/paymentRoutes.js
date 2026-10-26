@@ -108,6 +108,17 @@ router.post("/customer-pay-later", customerPayLater);
 
 /*
 |--------------------------------------------------------------------------
+| ADD-ONLY V113: Driver Confirm Payment (Online / Offline) + customer report
+| POST /api/v2/payments/driver-confirm-payment   { bookingId, mode }
+| POST /api/v2/payments/customer-report-not-paid { bookingId, note }
+|--------------------------------------------------------------------------
+*/
+const v113DriverPaymentConfirm = require("../controllers/v113DriverPaymentConfirmController");
+router.post("/driver-confirm-payment", v113DriverPaymentConfirm.driverConfirmPayment);
+router.post("/customer-report-not-paid", v113DriverPaymentConfirm.customerReportNotPaid);
+
+/*
+|--------------------------------------------------------------------------
 | Temporary Direct-to-Driver UPI — RazorpayX pending
 |--------------------------------------------------------------------------
 | Fare goes to driver's own saved UPI. Customer claim alone never marks the

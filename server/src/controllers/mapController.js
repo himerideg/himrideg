@@ -706,7 +706,7 @@ exports.autocomplete = async (req, res, next) => {
       longitude: Number.isFinite(longitude) ? longitude : DEFAULT_CENTER.longitude
     };
 
-    const cacheKey = `ac2:${query.toLowerCase()}:${limit}:${bias.latitude.toFixed(2)}:${bias.longitude.toFixed(2)}`;
+    const cacheKey = `ac3:${query.toLowerCase()}:${limit}:${bias.latitude.toFixed(2)}:${bias.longitude.toFixed(2)}`;
     const hit = await cachedAcrossInstances(cacheKey, AUTOCOMPLETE_TTL_MS);
     if (hit) return res.status(200).json(hit);
 
@@ -773,10 +773,29 @@ exports.autocomplete = async (req, res, next) => {
     const groups = await Promise.all(tasks);
     const results = mergeSearchResults(groups, query, bias, limit);
 
+    /* V113 ADD-ONLY: main place names + pin code + nearby first + fuzzy */
+    let v113Results = v113MainPlaceResults(results, query, bias, limit);
+    if (v113Results.length < 4) {
+      try {
+        const extra = await v113FuzzyNearbyExtra(query, bias, limit);
+        if (extra.length) {
+          v113Results = v113MainPlaceResults(
+            mergeSearchResults([...groups, extra], query, bias, limit + 6),
+            query,
+            bias,
+            limit
+          );
+        }
+      } catch (v113Error) {
+        /* fuzzy extra is optional */
+      }
+    }
+
     const payload = {
       success: true,
       data: {
-        results,
+        results: v113Results,
+        v113OriginalCount: results.length,
         provider: keyAvailable() ? "geoapify+photon" : "photon",
         locationBias: bias
       }
@@ -1510,3 +1529,155 @@ exports.health = (req, res) => {
     }
   });
 };
+
+/*
+|--------------------------------------------------------------------------
+| V113 ADD-ONLY: Main place names in search (pickup / drop)
+|--------------------------------------------------------------------------
+| - Sirf jagah / gaon / shehar ka naam (jaise map par likha hota hai):
+|   "Kandwari", "Spadu", "Palampur" — "Spadu-Daman Road" jaise road
+|   results hata kar unke gaon/shehar ka naam dikhate hain.
+| - Har naam ke saath pin code (postcode) — "Palampur 176061".
+| - Nearby jagahein pehle (30 km ke andar), phir door wali.
+| - Galat spelling: kam results aaye to milte-julte nearby naam bhi.
+|--------------------------------------------------------------------------
+*/
+const V113_ROAD_TYPES = new Set([
+  "road", "street", "route", "highway", "residential", "primary", "secondary",
+  "tertiary", "trunk", "motorway", "unclassified", "track", "service",
+  "living_street", "path", "footway", "intersection", "street_address"
+]);
+const V113_ROAD_NAME = /(?:^|[\s,-])(road|rd|marg|highway|hwy|bypass|street|lane|link road|nh\s*-?\s*\d+[a-z]?|sh\s*-?\s*\d+)\.?$/i;
+const V113_NEARBY_KM = 30;
+
+function v113IsRoadResult(place) {
+  const type = String(place?.type || "").trim().toLowerCase().replace(/\s+/g, "_");
+  if (V113_ROAD_TYPES.has(type)) return true;
+  return V113_ROAD_NAME.test(String(place?.shortName || "").trim());
+}
+
+function v113AreaName(place) {
+  const candidates = [
+    place?.village,
+    place?.suburb,
+    place?.town,
+    place?.city,
+    place?.district
+  ];
+  for (const value of candidates) {
+    const text = String(value || "").split(",")[0].trim();
+    if (text && !looksLikePlusCode(text) && !V113_ROAD_NAME.test(text)) return text;
+  }
+  /* "Spadu-Daman Road" -> "Spadu" */
+  const fromRoad = String(place?.shortName || "")
+    .replace(V113_ROAD_NAME, "")
+    .split(/[-–,]/)[0]
+    .trim();
+  return fromRoad && fromRoad.length >= 3 ? fromRoad : "";
+}
+
+function v113CleanPin(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits.length === 6 ? digits : "";
+}
+
+function v113MainPlaceResults(results, query, bias, limit) {
+  const rows = [];
+  for (const place of results || []) {
+    if (!place) continue;
+    if (!v113IsRoadResult(place)) {
+      rows.push({ ...place });
+      continue;
+    }
+    const area = v113AreaName(place);
+    if (!area) continue;
+    rows.push({
+      ...place,
+      id: `v113area:${normalizeSearchText(area)}:${Number(place.latitude).toFixed(3)}:${Number(place.longitude).toFixed(3)}`,
+      shortName: area,
+      address: [area, place.district, place.state].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(", ") || area,
+      type: "Area",
+      v113FromRoad: true
+    });
+  }
+
+  /* same name twice (within 5 km) -> keep the first / best one */
+  const unique = [];
+  for (const place of rows) {
+    const key = normalizeSearchText(place.shortName);
+    const twin = unique.find(
+      (other) =>
+        normalizeSearchText(other.shortName) === key &&
+        (haversineKm(other, place) ?? 0) <= 5
+    );
+    if (twin) {
+      if (!v113CleanPin(twin.postcode) && v113CleanPin(place.postcode)) {
+        twin.postcode = v113CleanPin(place.postcode);
+      }
+      continue;
+    }
+    unique.push(place);
+  }
+
+  /* pin code: missing ho to sabse paas wale result ka pin (3 km tak) */
+  for (const place of unique) {
+    let pin = v113CleanPin(place.postcode);
+    if (!pin) {
+      let best = null;
+      for (const other of rows) {
+        const otherPin = v113CleanPin(other.postcode);
+        if (!otherPin) continue;
+        const km = haversineKm(place, other);
+        if (Number.isFinite(km) && km <= 3 && (!best || km < best.km)) best = { km, pin: otherPin };
+      }
+      pin = best?.pin || "";
+    }
+    place.postcode = pin || place.postcode || "";
+    place.pinCode = pin;
+    place.label = pin ? `${place.shortName} ${pin}` : place.shortName;
+    const km = haversineKm(bias, place);
+    place.distanceKm = Number.isFinite(km) ? Number(km.toFixed(1)) : place.distanceKm;
+  }
+
+  /* nearby pehle (original order andar hi rehta hai), phir door wali */
+  const near = unique.filter((place) => Number.isFinite(place.distanceKm) && place.distanceKm <= V113_NEARBY_KM);
+  const far = unique.filter((place) => !(Number.isFinite(place.distanceKm) && place.distanceKm <= V113_NEARBY_KM));
+  return [...near, ...far].slice(0, limit);
+}
+
+async function v113FuzzyNearbyExtra(query, bias, limit) {
+  const normalized = normalizeSearchText(query);
+  if (normalized.length < 4) return [];
+  const variants = [...new Set([normalized.slice(0, -1), normalized.slice(0, 4)])].filter(
+    (variant) => variant.length >= 3 && variant !== normalized
+  );
+
+  const groups = await Promise.all(
+    variants.map((variant) => {
+      const url = new URL("https://photon.komoot.io/api");
+      url.searchParams.set("q", variant);
+      url.searchParams.set("limit", String(Math.max(limit, 8)));
+      url.searchParams.set("lang", "en");
+      url.searchParams.set("lat", String(bias.latitude));
+      url.searchParams.set("lon", String(bias.longitude));
+      url.searchParams.set("location_bias_scale", "0.6");
+      url.searchParams.set("zoom", "12");
+      return requestJson(url)
+        .then((data) => (data?.features || []).map(photonToLocation).filter(Boolean))
+        .catch(() => []);
+    })
+  );
+
+  return groups
+    .flat()
+    .filter((place) => {
+      const km = haversineKm(bias, place);
+      return (
+        Number.isFinite(km) &&
+        km <= 60 &&
+        fuzzySimilarity(query, place.shortName) >= 0.55
+      );
+    });
+}
+
+exports.v113MainPlaceResults = v113MainPlaceResults;
