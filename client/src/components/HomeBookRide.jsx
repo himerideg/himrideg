@@ -95,7 +95,7 @@ function FitRoute({ points }) {
     if (points.length === 1) {
       map.setView(
         points[0],
-        14
+        18 /* V116: GPS / single spot -> zoom 18 */
       );
     }
 

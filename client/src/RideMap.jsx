@@ -287,7 +287,7 @@ function FitMapBounds({
     if (points.length === 1) {
       map.setView(
         points[0],
-        14
+        18 /* V116: zoom 18 */
       );
 
       return;
@@ -1173,7 +1173,7 @@ function CustomerMapViewport({
     }
 
     if (points.length === 1) {
-      map.setView(points[0], 16, {
+      map.setView(points[0], 18 /* V116 */, {
         animate: true,
       });
     } else if (points.length > 1) {
