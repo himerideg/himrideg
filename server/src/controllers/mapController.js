@@ -1659,7 +1659,24 @@ function v113MainPlaceResults(results, query, bias, limit) {
   /* nearby pehle (original order andar hi rehta hai), phir door wali */
   const near = unique.filter((place) => Number.isFinite(place.distanceKm) && place.distanceKm <= V113_NEARBY_KM);
   const far = unique.filter((place) => !(Number.isFinite(place.distanceKm) && place.distanceKm <= V113_NEARBY_KM));
-  return [...near, ...far].slice(0, limit);
+  /* Village-first within nearby/distant groups, while preserving exact text relevance.
+     Never invent missing villages, coordinates or PIN codes. */
+  const villagePriority = (place) => {
+    const type = String(place?.type || "").toLowerCase();
+    const name = normalizeSearchText(place?.shortName);
+    const q = normalizeSearchText(query);
+    const exact = q && name === q ? 0 : q && name.startsWith(q) ? 1 : 2;
+    const village = Boolean(String(place?.village || "").trim()) ||
+      /village|hamlet|locality|neighbourhood|neighborhood/.test(type);
+    const city = /city|town|municipality|district/.test(type);
+    return [exact, village ? 0 : city ? 2 : 1];
+  };
+  const villageSort = (a, b) => {
+    const x = villagePriority(a);
+    const y = villagePriority(b);
+    return x[0] - y[0] || x[1] - y[1];
+  };
+  return [...near.sort(villageSort), ...far.sort(villageSort)].slice(0, limit);
 }
 
 async function v113FuzzyNearbyExtra(query, bias, limit) {
