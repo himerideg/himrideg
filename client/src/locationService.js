@@ -65,10 +65,10 @@ function villageSearchRank(place, query) {
   const q = String(query || "").toLowerCase().trim();
   const villageTypes = /village|hamlet|locality|neighbourhood|neighborhood|suburb|residential/;
   const cityTypes = /city|town|municipality|district|state|country/;
-  const villageFirst = villageTypes.test(type) ? 0 : cityTypes.test(type) ? 2 : 1;
-  const nameMatch = q && name.startsWith(q) ? 0 : q && name.includes(q) ? 1 : q && address.includes(q) ? 2 : 3;
+  const villageFirst = String(place?.village || "").trim() || villageTypes.test(type) ? 0 : cityTypes.test(type) ? 2 : 1;
+  const nameMatch = q && name === q ? 0 : q && name.startsWith(q) ? 1 : q && name.includes(q) ? 2 : q && address.includes(q) ? 3 : 4;
   const distance = Number(place?.distanceKm);
-  return [villageFirst, nameMatch, Number.isFinite(distance) && distance >= 0 ? distance : Infinity];
+  return [nameMatch, villageFirst, Number.isFinite(distance) && distance >= 0 ? distance : Infinity];
 }
 
 function villageFirstResults(results, query) {
