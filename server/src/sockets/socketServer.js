@@ -152,6 +152,13 @@ function createSocketServer(
 
   initializeRideSocket(io);
 
+  // V116 ADD-ONLY: socket event messages in professional English
+  try {
+    require("../i18n/v116EnglishMessages").installSocketEnglish(io);
+  } catch (error) {
+    console.warn("[V116] socket English layer not installed:", error?.message || error);
+  }
+
   console.log(
     "✅ Socket.IO server initialized"
   );

@@ -436,8 +436,9 @@ async function sendPushToUsers({
     priority: "high",
     channelId: soundSelection.channelId,
     ttl: 900,
-    title: String(title || "HimRideG"),
-    body: String(body || ""),
+    /* V116: push text in professional English */
+    title: require("../i18n/v116EnglishMessages").toEnglish(String(title || "HimRideG")),
+    body: require("../i18n/v116EnglishMessages").toEnglish(String(body || "")),
     data: payloadData,
     ...(categoryId
       ? {

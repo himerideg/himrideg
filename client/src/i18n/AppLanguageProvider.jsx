@@ -568,3 +568,33 @@ export default function AppLanguageProvider({ children }) {
     </AppLanguageContext.Provider>
   );
 }
+
+/*
+| V116 ADD-ONLY: browser popups (alert / confirm / prompt) follow the chosen
+| website language too — the DOM translator cannot reach them.
+*/
+if (typeof window !== "undefined" && !window.__hrgV116Popups) {
+  window.__hrgV116Popups = true;
+  const v116Language = () => {
+    const lang = String(document.documentElement.getAttribute("lang") || "en").toLowerCase();
+    return lang === "hi" ? "hi" : lang === "hi-latn" ? "hinglish" : "en";
+  };
+  const v116Text = (message) => {
+    if (typeof message !== "string" || !message) return message;
+    try {
+      const language = v116Language();
+      return message
+        .split("\n")
+        .map((line) => (line.trim() ? dynamicTranslation(line, language) : line))
+        .join("\n");
+    } catch {
+      return message;
+    }
+  };
+  const v116Alert = window.alert.bind(window);
+  const v116Confirm = window.confirm.bind(window);
+  const v116Prompt = window.prompt.bind(window);
+  window.alert = (message) => v116Alert(v116Text(message));
+  window.confirm = (message) => v116Confirm(v116Text(message));
+  window.prompt = (message, defaultValue) => v116Prompt(v116Text(message), defaultValue);
+}

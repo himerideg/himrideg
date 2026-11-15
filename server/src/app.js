@@ -211,6 +211,10 @@ app.use(cookieParser());
 
 app.use(requestDiagnostics);
 
+// V116 ADD-ONLY: every JSON message goes out in professional English
+// (website / apps show it in English or Hindi as the user chose).
+app.use(require("./i18n/v116EnglishMessages").englishResponses);
+
 // Shared rate cache is refreshed before payment and fare APIs use it.
 const { refreshCommissionSettings } = require("./utils/commissionPolicy");
 app.use("/api/v2", (req, res, next) => {

@@ -278,7 +278,7 @@ function FitMapBounds({
     if (points.length === 1) {
       map.setView(
         points[0],
-        14
+        18 /* V116: zoom 18 */
       );
 
       return;

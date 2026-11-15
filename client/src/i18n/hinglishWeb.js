@@ -12,6 +12,8 @@
 import { V92_ENTRIES, V92_HINGLISH } from "./v92Language";
 // V93: language audit (V91/V92/V93 ka bacha text)
 import { V93_ENTRIES, V93_HINGLISH, V93_PATTERNS } from "./v93Language";
+// V116: full language audit (website + server messages)
+import { V116_ENTRIES, V116_PATTERNS } from "./v116Language";
 
 export const HINGLISH = {
  "Home": "Home",
@@ -8041,6 +8043,9 @@ const normalizeKey = (value) =>
 EXTRA_ENTRIES.push(...V92_ENTRIES);
 EXTRA_ENTRIES.push(...V93_ENTRIES);
 EXTRA_PATTERNS.push(...V93_PATTERNS);
+// V116 ADD-ONLY
+EXTRA_ENTRIES.push(...V116_ENTRIES);
+EXTRA_PATTERNS.push(...V116_PATTERNS);
 const HINGLISH_INDEX = new Map([
   ...Object.keys(HINGLISH).map((key) => [normalizeKey(key), HINGLISH[key]]),
   ...[...V92_HINGLISH].map(([key, value]) => [normalizeKey(key), value]),

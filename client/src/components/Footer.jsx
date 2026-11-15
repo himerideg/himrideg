@@ -23,12 +23,12 @@ const COPY = {
     refund: "रद्दीकरण और धनवापसी", services: "सेवाएँ", local: "स्थानीय यात्राएँ",
     outstation: "बाहरी शहर की टैक्सी", airport: "हवाई अड्डा यात्रा", tours: "यात्रा पैकेज",
     privacyTitle: "गोपनीयता",
-    privacyText: "HimRideG सेवा संचालन, सुरक्षा, fraud prevention, settlement और कानूनी अनुपालन के लिए खाते, बुकिंग, स्थान, चालक सत्यापन और भुगतान से जुड़ी जानकारी का उपयोग करता है। संवेदनशील भुगतान जानकारी सर्वर पर सुरक्षित रखी जाती है। access, correction, deletion या grievance के लिए himrideg@gmail.com पर लिखें।",
+    privacyText: "HimRideG सेवा संचालन, सुरक्षा, धोखाधड़ी की रोकथाम, भुगतान निपटान और कानूनी अनुपालन के लिए खाते, बुकिंग, स्थान, चालक सत्यापन और भुगतान से जुड़ी जानकारी का उपयोग करता है। संवेदनशील भुगतान जानकारी सर्वर पर सुरक्षित रखी जाती है। जानकारी देखने, सुधारने, हटाने या शिकायत के लिए himrideg@gmail.com पर लिखें।",
     privacyLink: "गोपनीयता नीति पढ़ें", termsTitle: "उपयोग के नियम",
-    termsText: "HimRideG एक technology platform है जो ग्राहकों को independent licensed taxi drivers से जोड़ता है। वाहन, permit, insurance, conduct और ride execution की जिम्मेदारी driver की है। Pickup, drop, passenger और contact details सही देना जरूरी है। driver और customer की सहमति के बाद final fare lock होता है और completed ride का locked fare due रहता है.",
+    termsText: "HimRideG एक तकनीकी मंच है जो ग्राहकों को स्वतंत्र, लाइसेंसधारी टैक्सी चालकों से जोड़ता है। वाहन, परमिट, बीमा, व्यवहार और यात्रा पूरी करने की ज़िम्मेदारी चालक की है। पिकअप, ड्रॉप, यात्री और संपर्क विवरण सही देना आवश्यक है। चालक और ग्राहक की सहमति के बाद अंतिम किराया तय होता है और पूरी हुई यात्रा का तय किराया देय रहता है।",
     termsLink: "उपयोग के नियम पढ़ें", rights: "सर्वाधिकार सुरक्षित।", bottomPrivacy: "गोपनीयता",
     bottomTerms: "नियम", bottomRefund: "धनवापसी", bottomContact: "संपर्क",
-    otpText: "OTP केवल driver और vehicle को सामने verify करने के बाद share करें। illegal goods, harassment, fraud, payment bypass, false booking और account sharing prohibited हैं। emergency में पहले 112 call करें; ride ID और proof के साथ himrideg@gmail.com पर शिकायत करें।",
+    otpText: "यात्रा OTP केवल चालक और वाहन को आमने-सामने पहचानने के बाद ही बताएँ। अवैध सामान, उत्पीड़न, धोखाधड़ी, भुगतान से बचना, झूठी बुकिंग और खाता साझा करना प्रतिबंधित है। आपात स्थिति में पहले 112 पर कॉल करें; यात्रा ID और प्रमाण के साथ himrideg@gmail.com पर शिकायत करें।",
     address: "HimRideG, Vill Racchiyara, PO Saperu, Teh Palampur, District Kangra, Himachal Pradesh 176061. Terms version: 23 September 2026."
   }
 };

@@ -37,7 +37,7 @@ function FollowDriver({ position }) {
 
   useEffect(() => {
     if (position) {
-      map.setView(position, Math.max(map.getZoom(), 15), { animate: true });
+      map.setView(position, Math.max(map.getZoom(), 18 /* V116 */), { animate: true });
     }
   }, [map, position]);
 
