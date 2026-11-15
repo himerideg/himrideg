@@ -55,6 +55,30 @@ export function normalizeLocation(value) {
   };
 }
 
+
+// VILLAGE-FIRST: rank actual provider results without inventing village coordinates.
+// Keep all returned places; a village/locality appears before broader city results.
+function villageSearchRank(place, query) {
+  const type = String(place?.type || "").toLowerCase();
+  const name = String(place?.shortName || "").toLowerCase();
+  const address = String(place?.address || "").toLowerCase();
+  const q = String(query || "").toLowerCase().trim();
+  const villageTypes = /village|hamlet|locality|neighbourhood|neighborhood|suburb|residential/;
+  const cityTypes = /city|town|municipality|district|state|country/;
+  const villageFirst = villageTypes.test(type) ? 0 : cityTypes.test(type) ? 2 : 1;
+  const nameMatch = q && name.startsWith(q) ? 0 : q && name.includes(q) ? 1 : q && address.includes(q) ? 2 : 3;
+  const distance = Number(place?.distanceKm);
+  return [villageFirst, nameMatch, Number.isFinite(distance) && distance >= 0 ? distance : Infinity];
+}
+
+function villageFirstResults(results, query) {
+  return [...results].sort((a, b) => {
+    const x = villageSearchRank(a, query);
+    const y = villageSearchRank(b, query);
+    return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
+  });
+}
+
 export async function searchLocations(query, options = {}) {
   const text = String(query || "").trim();
   if (text.length < 2) return [];
@@ -82,9 +106,12 @@ export async function searchLocations(query, options = {}) {
     response.data?.results ||
     [];
 
-  const results = (Array.isArray(rows) ? rows : [])
-    .map(normalizeLocation)
-    .filter(Boolean);
+  const results = villageFirstResults(
+    (Array.isArray(rows) ? rows : [])
+      .map(normalizeLocation)
+      .filter(Boolean),
+    text
+  );
 
   locationSearchCache.set(cacheKey, { savedAt: Date.now(), results });
   if (locationSearchCache.size > 30) {
